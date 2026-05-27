@@ -246,9 +246,9 @@ describe("ConnectionAnalytics", () => {
       health: {
         stale_connections: [
           {
-            id: "conn-1",
-            supplier_name: "UI Company",
-            last_sync_at: "2026-02-10T00:00:00Z",
+            connection_id: "conn-1",
+            label: "UI Company",
+            last_scan_at: "2026-02-10T00:00:00Z",
             days_since_sync: 15,
           },
         ],
@@ -279,10 +279,10 @@ describe("ConnectionAnalytics", () => {
         stale_connections: [],
         rate_change_alerts: [
           {
-            id: "alert-1",
-            supplier_name: "United Illuminating",
-            old_rate: 0.22,
-            new_rate: 0.28,
+            connection_id: "alert-1",
+            supplier: "United Illuminating",
+            previous_rate: 0.22,
+            current_rate: 0.28,
             change_percentage: 27.3,
             detected_at: "2026-02-20T00:00:00Z",
           },
@@ -306,18 +306,18 @@ describe("ConnectionAnalytics", () => {
       health: {
         stale_connections: [
           {
-            id: "c1",
-            supplier_name: "S1",
-            last_sync_at: null,
+            connection_id: "c1",
+            label: "S1",
+            last_scan_at: null,
             days_since_sync: 30,
           },
         ],
         rate_change_alerts: [
           {
-            id: "a1",
-            supplier_name: "S2",
-            old_rate: 0.2,
-            new_rate: 0.25,
+            connection_id: "a1",
+            supplier: "S2",
+            previous_rate: 0.2,
+            current_rate: 0.25,
             change_percentage: 25,
             detected_at: "2026-02-20T00:00:00Z",
           },
@@ -383,9 +383,9 @@ describe("ConnectionAnalytics", () => {
       health: {
         stale_connections: [
           {
-            id: "conn-1",
-            supplier_name: "Test Supplier",
-            last_sync_at: null,
+            connection_id: "conn-1",
+            label: "Test Supplier",
+            last_scan_at: null,
             days_since_sync: 10,
           },
         ],
@@ -414,9 +414,9 @@ describe("ConnectionAnalytics", () => {
       health: {
         stale_connections: [
           {
-            id: "conn-2",
-            supplier_name: "Test Supplier 2",
-            last_sync_at: null,
+            connection_id: "conn-2",
+            label: "Test Supplier 2",
+            last_scan_at: null,
             days_since_sync: 15,
           },
         ],
@@ -448,9 +448,9 @@ describe("ConnectionAnalytics", () => {
       health: {
         stale_connections: [
           {
-            id: "conn-3",
-            supplier_name: "S3",
-            last_sync_at: null,
+            connection_id: "conn-3",
+            label: "S3",
+            last_scan_at: null,
             days_since_sync: 5,
           },
         ],

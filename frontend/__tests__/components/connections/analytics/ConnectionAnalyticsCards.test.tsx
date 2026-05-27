@@ -45,18 +45,18 @@ const rateHistory = {
 const connectionHealth = {
   stale_connections: [
     {
-      id: "c1",
-      supplier_name: "EVERSOURCE",
-      last_sync_at: null,
+      connection_id: "c1",
+      label: "EVERSOURCE",
+      last_scan_at: null,
       days_since_sync: 5,
     },
   ],
   rate_change_alerts: [
     {
-      id: "a1",
-      supplier_name: "UI",
-      old_rate: 0.2,
-      new_rate: 0.22,
+      connection_id: "a1",
+      supplier: "UI",
+      previous_rate: 0.2,
+      current_rate: 0.22,
       change_percentage: 10,
       detected_at: "2025-01-01",
     },

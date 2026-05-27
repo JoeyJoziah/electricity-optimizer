@@ -305,6 +305,23 @@ describe("SavingsEstimateCard", () => {
     });
   });
 
+  it("renders empty state (not $NaN) for the {has_data:false} no-rate response", async () => {
+    // Backend returns this sentinel when the user has a connection but no
+    // extracted rate yet — numeric fields are absent.
+    mockFetchAnalytics.mockResolvedValue({
+      has_data: false,
+      message: "No rate data available for savings calculation.",
+    });
+    render(<SavingsEstimateCard refreshKey={0} />);
+    await waitFor(() => {
+      expect(screen.getByTestId("savings-estimate-empty")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByTestId("annual-savings-amount"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/\$NaN/)).not.toBeInTheDocument();
+  });
+
   it("cleans up debounce timer on unmount (no state update after unmount)", async () => {
     mockFetchAnalytics.mockResolvedValue(makeSavings());
     const { unmount } = render(<SavingsEstimateCard refreshKey={0} />);
@@ -356,9 +373,9 @@ describe("ConnectionHealthCard", () => {
       makeHealth({
         stale_connections: [
           {
-            id: "conn-1",
-            supplier_name: "Eversource",
-            last_sync_at: null,
+            connection_id: "conn-1",
+            label: "Eversource",
+            last_scan_at: null,
             days_since_sync: 5,
           },
         ],
@@ -376,15 +393,15 @@ describe("ConnectionHealthCard", () => {
       makeHealth({
         stale_connections: [
           {
-            id: "c1",
-            supplier_name: "Eversource",
-            last_sync_at: null,
+            connection_id: "c1",
+            label: "Eversource",
+            last_scan_at: null,
             days_since_sync: 3,
           },
           {
-            id: "c2",
-            supplier_name: "ConEd",
-            last_sync_at: null,
+            connection_id: "c2",
+            label: "ConEd",
+            last_scan_at: null,
             days_since_sync: 7,
           },
         ],
@@ -401,9 +418,9 @@ describe("ConnectionHealthCard", () => {
       makeHealth({
         stale_connections: [
           {
-            id: "s1",
-            supplier_name: "PSEG",
-            last_sync_at: null,
+            connection_id: "s1",
+            label: "PSEG",
+            last_scan_at: null,
             days_since_sync: 4,
           },
         ],
@@ -422,9 +439,9 @@ describe("ConnectionHealthCard", () => {
       makeHealth({
         stale_connections: [
           {
-            id: "s2",
-            supplier_name: "NRG",
-            last_sync_at: null,
+            connection_id: "s2",
+            label: "NRG",
+            last_scan_at: null,
             days_since_sync: 1,
           },
         ],
@@ -441,9 +458,9 @@ describe("ConnectionHealthCard", () => {
       makeHealth({
         stale_connections: [
           {
-            id: "s3",
-            supplier_name: "Unitil",
-            last_sync_at: null,
+            connection_id: "s3",
+            label: "Unitil",
+            last_scan_at: null,
             days_since_sync: 6,
           },
         ],
@@ -465,9 +482,9 @@ describe("ConnectionHealthCard", () => {
       makeHealth({
         stale_connections: [
           {
-            id: "s4",
-            supplier_name: "CL&P",
-            last_sync_at: null,
+            connection_id: "s4",
+            label: "CL&P",
+            last_scan_at: null,
             days_since_sync: 3,
           },
         ],
@@ -487,10 +504,10 @@ describe("ConnectionHealthCard", () => {
       makeHealth({
         rate_change_alerts: [
           {
-            id: "a1",
-            supplier_name: "Eversource",
-            old_rate: 0.1,
-            new_rate: 0.14,
+            connection_id: "a1",
+            supplier: "Eversource",
+            previous_rate: 0.1,
+            current_rate: 0.14,
             change_percentage: 40.0,
             detected_at: "2026-05-10T00:00:00Z",
           },
@@ -514,10 +531,10 @@ describe("ConnectionHealthCard", () => {
       makeHealth({
         rate_change_alerts: [
           {
-            id: "a2",
-            supplier_name: "ConEd",
-            old_rate: 0.14,
-            new_rate: 0.11,
+            connection_id: "a2",
+            supplier: "ConEd",
+            previous_rate: 0.14,
+            current_rate: 0.11,
             change_percentage: -21.4,
             detected_at: "2026-05-10T00:00:00Z",
           },
@@ -647,5 +664,23 @@ describe("RateComparisonCard", () => {
     await waitFor(() => {
       expect(mockFetchAnalytics.mock.calls.length).toBeGreaterThan(1);
     });
+  });
+
+  it("renders empty state (does not crash on .toFixed) for {has_data:false} response", async () => {
+    // Regression: backend returns this sentinel when the user has a connection
+    // but no extracted rate yet. percentage_difference is absent — the card must
+    // not call undefined.toFixed() (which previously crashed the /connections route).
+    mockFetchAnalytics.mockResolvedValue({
+      has_data: false,
+      message:
+        "No extracted rates found. Connect a utility account to see comparisons.",
+    });
+    render(<RateComparisonCard refreshKey={0} />);
+    await waitFor(() => {
+      expect(screen.getByTestId("rate-comparison-empty")).toBeInTheDocument();
+    });
+    // No badge / percentage rendered, no crash
+    expect(screen.queryByTestId("badge")).not.toBeInTheDocument();
+    expect(screen.getByText(/no extracted rates found/i)).toBeInTheDocument();
   });
 });

@@ -88,69 +88,86 @@ export function RateComparisonCard({ refreshKey }: { refreshKey: number }) {
         </div>
       )}
 
-      {state === "success" && data && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-lg bg-gray-50 p-3">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Your Rate
-              </p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">
-                {(data.user_rate * 100).toFixed(2)}
-                <span className="text-sm font-normal text-gray-500 ml-1">
-                  c/kWh
-                </span>
-              </p>
-            </div>
-            <div className="rounded-lg bg-gray-50 p-3">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Market Average
-              </p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">
-                {(data.market_average * 100).toFixed(2)}
-                <span className="text-sm font-normal text-gray-500 ml-1">
-                  c/kWh
-                </span>
-              </p>
-            </div>
-          </div>
-
+      {state === "success" &&
+        data &&
+        (data.has_data === false || data.percentage_difference == null) && (
           <div
-            className={cn(
-              "flex items-center justify-between rounded-lg p-3",
-              data.is_above_average ? "bg-danger-50" : "bg-success-50",
-            )}
+            className="rounded-lg bg-gray-50 border border-gray-200 p-4 text-center"
+            data-testid="rate-comparison-empty"
           >
-            <div className="flex items-center gap-2">
-              {data.is_above_average ? (
-                <TrendingUp
-                  className="h-5 w-5 text-danger-500"
-                  aria-hidden="true"
-                />
-              ) : (
-                <TrendingDown
-                  className="h-5 w-5 text-success-500"
-                  aria-hidden="true"
-                />
-              )}
-              <span
-                className={cn(
-                  "text-sm font-medium",
-                  data.is_above_average
-                    ? "text-danger-700"
-                    : "text-success-700",
-                )}
-              >
-                {data.is_above_average ? "Above" : "Below"} market average
-              </span>
-            </div>
-            <Badge variant={data.is_above_average ? "danger" : "success"}>
-              {data.is_above_average ? "+" : ""}
-              {data.percentage_difference.toFixed(1)}%
-            </Badge>
+            <p className="text-sm text-gray-500">
+              {data.message ??
+                "No rate data yet. Once a rate is extracted from your connection, your comparison will appear here."}
+            </p>
           </div>
-        </div>
-      )}
+        )}
+
+      {state === "success" &&
+        data &&
+        data.has_data !== false &&
+        data.percentage_difference != null && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-lg bg-gray-50 p-3">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Your Rate
+                </p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">
+                  {(data.user_rate * 100).toFixed(2)}
+                  <span className="text-sm font-normal text-gray-500 ml-1">
+                    c/kWh
+                  </span>
+                </p>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-3">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Market Average
+                </p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">
+                  {(data.market_average * 100).toFixed(2)}
+                  <span className="text-sm font-normal text-gray-500 ml-1">
+                    c/kWh
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div
+              className={cn(
+                "flex items-center justify-between rounded-lg p-3",
+                data.is_above_average ? "bg-danger-50" : "bg-success-50",
+              )}
+            >
+              <div className="flex items-center gap-2">
+                {data.is_above_average ? (
+                  <TrendingUp
+                    className="h-5 w-5 text-danger-500"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <TrendingDown
+                    className="h-5 w-5 text-success-500"
+                    aria-hidden="true"
+                  />
+                )}
+                <span
+                  className={cn(
+                    "text-sm font-medium",
+                    data.is_above_average
+                      ? "text-danger-700"
+                      : "text-success-700",
+                  )}
+                >
+                  {data.is_above_average ? "Above" : "Below"} market average
+                </span>
+              </div>
+              <Badge variant={data.is_above_average ? "danger" : "success"}>
+                {data.is_above_average ? "+" : ""}
+                {data.percentage_difference.toFixed(1)}%
+              </Badge>
+            </div>
+          </div>
+        )}
     </Card>
   );
 }

@@ -47,18 +47,18 @@ const _savings = {
 const _health = {
   stale_connections: [
     {
-      id: "conn-1",
-      supplier_name: "GreenPower",
-      last_sync_at: "2026-04-01T00:00:00Z",
+      connection_id: "conn-1",
+      label: "GreenPower",
+      last_scan_at: "2026-04-01T00:00:00Z",
       days_since_sync: 41,
     },
   ],
   rate_change_alerts: [
     {
-      id: "alert-1",
-      supplier_name: "BlueSky",
-      old_rate: 0.1,
-      new_rate: 0.12,
+      connection_id: "alert-1",
+      supplier: "BlueSky",
+      previous_rate: 0.1,
+      current_rate: 0.12,
       change_percentage: 20.0,
       detected_at: "2026-05-10T00:00:00Z",
     },

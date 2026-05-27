@@ -132,67 +132,87 @@ export function SavingsEstimateCard({ refreshKey }: { refreshKey: number }) {
         </div>
       )}
 
-      {state === "success" && data && (
-        <div className="space-y-4">
-          {/* Big savings number */}
-          <div className="text-center py-2">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Estimated Annual Savings
-            </p>
-            <p
-              className={cn(
-                "mt-1 text-4xl font-bold",
-                isPositiveSavings ? "text-success-600" : "text-gray-900",
-              )}
-              data-testid="annual-savings-amount"
-            >
-              {formatCurrency(safeSavings)}
-            </p>
-            <p className="mt-1 text-sm text-gray-500">
-              {formatCurrency(safeMonthlySavings)}/month vs best available
+      {state === "success" &&
+        data &&
+        (data.has_data === false ||
+          data.estimated_annual_savings_vs_best == null) && (
+          <div
+            className="rounded-lg bg-gray-50 border border-gray-200 p-4 text-center"
+            data-testid="savings-estimate-empty"
+          >
+            <p className="text-sm text-gray-500">
+              {data.message ??
+                "No rate data yet. Once a rate is extracted from your connection, your savings estimate will appear here."}
             </p>
           </div>
+        )}
 
-          {/* Cost comparison */}
-          <div className="rounded-lg bg-gray-50 p-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">Current annual cost</span>
-              <span className="font-semibold text-gray-900">
-                {formatCurrency(data.current_annual_cost)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-sm mt-2">
-              <span className="text-gray-600">Best available annual cost</span>
-              <span className="font-semibold text-success-700">
-                {formatCurrency(
-                  data.current_annual_cost -
-                    data.estimated_annual_savings_vs_best,
+      {state === "success" &&
+        data &&
+        data.has_data !== false &&
+        data.estimated_annual_savings_vs_best != null && (
+          <div className="space-y-4">
+            {/* Big savings number */}
+            <div className="text-center py-2">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Estimated Annual Savings
+              </p>
+              <p
+                className={cn(
+                  "mt-1 text-4xl font-bold",
+                  isPositiveSavings ? "text-success-600" : "text-gray-900",
                 )}
-              </span>
+                data-testid="annual-savings-amount"
+              >
+                {formatCurrency(safeSavings)}
+              </p>
+              <p className="mt-1 text-sm text-gray-500">
+                {formatCurrency(safeMonthlySavings)}/month vs best available
+              </p>
+            </div>
+
+            {/* Cost comparison */}
+            <div className="rounded-lg bg-gray-50 p-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Current annual cost</span>
+                <span className="font-semibold text-gray-900">
+                  {formatCurrency(data.current_annual_cost)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm mt-2">
+                <span className="text-gray-600">
+                  Best available annual cost
+                </span>
+                <span className="font-semibold text-success-700">
+                  {formatCurrency(
+                    data.current_annual_cost -
+                      data.estimated_annual_savings_vs_best,
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {/* Usage input */}
+            <div>
+              <label
+                htmlFor="monthly-kwh-input"
+                className="block text-xs font-medium text-gray-500 mb-1"
+              >
+                Monthly usage (kWh)
+              </label>
+              <input
+                id="monthly-kwh-input"
+                type="number"
+                min={1}
+                max={99999}
+                value={inputValue}
+                onChange={handleKwhChange}
+                className="block w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-sm text-gray-900 focus-visible:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:outline-none"
+                aria-label="Monthly electricity usage in kilowatt hours"
+              />
             </div>
           </div>
-
-          {/* Usage input */}
-          <div>
-            <label
-              htmlFor="monthly-kwh-input"
-              className="block text-xs font-medium text-gray-500 mb-1"
-            >
-              Monthly usage (kWh)
-            </label>
-            <input
-              id="monthly-kwh-input"
-              type="number"
-              min={1}
-              max={99999}
-              value={inputValue}
-              onChange={handleKwhChange}
-              className="block w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-sm text-gray-900 focus-visible:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:outline-none"
-              aria-label="Monthly electricity usage in kilowatt hours"
-            />
-          </div>
-        </div>
-      )}
+        )}
     </Card>
   );
 }
