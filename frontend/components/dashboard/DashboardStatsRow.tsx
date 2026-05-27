@@ -1,11 +1,11 @@
-import React from 'react'
-import Link from 'next/link'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { formatCurrency } from '@/lib/utils/format'
-import { cn } from '@/lib/utils/cn'
-import { Zap, Clock, ArrowRight } from 'lucide-react'
-import type { DashboardStatsRowProps } from './DashboardTypes'
+import React from "react";
+import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { formatCurrency } from "@/lib/utils/format";
+import { cn } from "@/lib/utils/cn";
+import { Zap, Clock, ArrowRight } from "lucide-react";
+import type { DashboardStatsRowProps } from "./DashboardTypes";
 
 /**
  * Renders the top row of four dashboard stat cards:
@@ -28,9 +28,7 @@ export const DashboardStatsRow = React.memo(function DashboardStatsRow({
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-500">
-              Current Price
-            </p>
+            <p className="text-sm font-medium text-gray-500">Current Price</p>
             <Zap className="h-5 w-5 text-primary-500" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
@@ -38,28 +36,26 @@ export const DashboardStatsRow = React.memo(function DashboardStatsRow({
               data-testid="current-price"
               className="text-2xl font-bold text-gray-900"
             >
-              {currentPrice
-                ? formatCurrency(currentPrice.price)
-                : '--'}
+              {currentPrice ? formatCurrency(currentPrice.price) : "--"}
             </p>
             <span className="text-sm text-gray-500">/kWh</span>
           </div>
           <div
             data-testid="price-trend"
             className={cn(
-              'mt-2 flex items-center gap-1 text-sm',
-              trend === 'increasing'
-                ? 'text-danger-600'
-                : trend === 'decreasing'
-                  ? 'text-success-600'
-                  : 'text-gray-500'
+              "mt-2 flex items-center gap-1 text-sm",
+              trend === "increasing"
+                ? "text-danger-600"
+                : trend === "decreasing"
+                  ? "text-success-600"
+                  : "text-gray-500",
             )}
           >
             <TrendIcon className="h-4 w-4" />
             <span>
               {currentPrice?.changePercent
-                ? `${currentPrice.changePercent > 0 ? '+' : ''}${currentPrice.changePercent.toFixed(1)}%`
-                : 'Stable'}
+                ? `${currentPrice.changePercent > 0 ? "+" : ""}${currentPrice.changePercent.toFixed(1)}%`
+                : "Stable"}
             </span>
           </div>
         </CardContent>
@@ -69,20 +65,20 @@ export const DashboardStatsRow = React.memo(function DashboardStatsRow({
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-500">
-              Total Saved
-            </p>
+            <p className="text-sm font-medium text-gray-500">Total Saved</p>
             {savingsData && savingsData.streak_days > 0 && (
-              <Badge variant="success">{savingsData.streak_days}-day streak</Badge>
+              <Badge variant="success">
+                {savingsData.streak_days}-day streak
+              </Badge>
             )}
           </div>
           <p className="mt-2 text-2xl font-bold text-success-600">
-            {savingsData ? formatCurrency(savingsData.monthly) : '--'}
+            {savingsData ? formatCurrency(savingsData.monthly) : "--"}
           </p>
           <p className="mt-1 text-sm text-gray-500">
             {savingsData
               ? `${formatCurrency(savingsData.weekly / 7)} today`
-              : 'Start saving to track'}
+              : "Start saving to track"}
           </p>
         </CardContent>
       </Card>
@@ -91,9 +87,7 @@ export const DashboardStatsRow = React.memo(function DashboardStatsRow({
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-500">
-              Optimal Times
-            </p>
+            <p className="text-sm font-medium text-gray-500">Optimal Times</p>
             <Clock className="h-5 w-5 text-warning-500" />
           </div>
           {optimalWindow ? (
@@ -106,9 +100,9 @@ export const DashboardStatsRow = React.memo(function DashboardStatsRow({
               </p>
             </>
           ) : forecastLoading ? (
-            <p className="mt-2 text-lg text-gray-400">Loading forecast...</p>
+            <p className="mt-2 text-lg text-gray-500">Loading forecast...</p>
           ) : (
-            <p className="mt-2 text-lg text-gray-400">No forecast data</p>
+            <p className="mt-2 text-lg text-gray-500">No forecast data</p>
           )}
         </CardContent>
       </Card>
@@ -117,10 +111,12 @@ export const DashboardStatsRow = React.memo(function DashboardStatsRow({
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-500">
-              Suppliers
-            </p>
-            {currentSupplier && topSuppliers.some(s => s.estimatedAnnualCost < currentSupplier.estimatedAnnualCost) ? (
+            <p className="text-sm font-medium text-gray-500">Suppliers</p>
+            {currentSupplier &&
+            topSuppliers.some(
+              (s) =>
+                s.estimatedAnnualCost < currentSupplier.estimatedAnnualCost,
+            ) ? (
               <Badge variant="success">Cheaper available</Badge>
             ) : null}
           </div>
@@ -137,5 +133,5 @@ export const DashboardStatsRow = React.memo(function DashboardStatsRow({
         </CardContent>
       </Card>
     </div>
-  )
-})
+  );
+});

@@ -66,6 +66,7 @@ export default function DashboardTabs() {
           className="flex gap-0 overflow-x-auto scrollbar-hide px-4 sm:px-6"
           aria-label="Dashboard tabs"
           data-testid="tab-bar"
+          role="tablist"
         >
           {visibleTabs.map((tab) => (
             <button
