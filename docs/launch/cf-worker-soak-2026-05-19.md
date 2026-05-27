@@ -18,15 +18,26 @@ After 7 days in production, validate steady-state behavior is healthy before PH 
 
 ## Metrics to capture on 2026-05-19
 
-Run from local workstation against CF dashboard + `/internal/gateway-stats`:
+Run from local workstation against CF dashboard + the gateway-stats endpoint:
 
 ```bash
-# Per-isolate counters
-curl -H "X-Internal-API-Key: $INTERNAL_API_KEY" https://api.rateshift.app/internal/gateway-stats | jq
+# Per-isolate counters — CORRECTED path + header (2026-05-27):
+#   path:   /api/v1/internal/gateway-stats   (NOT /internal/gateway-stats)
+#   header: X-API-Key                        (NOT X-Internal-API-Key)
+# Source of truth: workers/api-gateway/src/config.ts (route regex) +
+#                  src/middleware/internal-auth.ts (header name)
+KEY=$(op item get "API Secrets" --vault "Electricity Optimizer" --fields label=internal_api_key --reveal)
+curl -H "X-API-Key: $KEY" https://api.rateshift.app/api/v1/internal/gateway-stats | jq
 
 # CF analytics (last 7 days)
 # Dashboard → Workers → rateshift-api-gateway → Metrics tab
 ```
+
+> **Doc-path correction (2026-05-27)**: the original command above (and the `/internal/gateway-stats`
+> + `X-Internal-API-Key` references in CLAUDE.md) were wrong — they reached the FastAPI origin and
+> returned `{"detail":"Not Found"}` (404). The worker only intercepts `/api/v1/internal/gateway-stats`
+> and authenticates via `X-API-Key`. The 1Password item is `API Secrets` (field `internal_api_key`)
+> in the **Electricity Optimizer** vault — there is no `op://RateShift/INTERNAL_API_KEY` path.
 
 ### Pass criteria (all required)
 
@@ -42,29 +53,54 @@ curl -H "X-Internal-API-Key: $INTERNAL_API_KEY" https://api.rateshift.app/intern
 | Worker CPU time p99 | < 30ms | CF dashboard → Workers metrics |
 | 5xx rate (origin) | < 0.5% | CF dashboard |
 
-### Findings (fill in on 2026-05-19)
+### Findings (partial capture 2026-05-27 — checkpoint run 8 days late; soak window now ~16 days)
 
-- Cache hit rate (overall): ____
-- Cache hit rate (`/api/v1/prices`): ____
-- `/health` cache hit rate: ____ (must be 0%)
-- 504 rate: ____
-- 499 rate: ____
-- KV reads/day (7-day trend): ____
-- KV writes/day (7-day trend): ____
-- Worker CPU p99: ____
-- 5xx rate: ____
-- Spurious cache invalidations observed: ____
-- Origin timeout incidents: ____
+**gateway-stats snapshot** (`/api/v1/internal/gateway-stats`, 200 OK):
+```json
+{ "counters": { "cacheReads": 0, "cacheWrites": 0, "cacheHits": 0, "cacheMisses": 0,
+                "rateLimitChecks": 0, "degradedResponses": 0, "totalRequests": 1 },
+  "startedAt": "1970-01-01T00:00:00.000Z", "degraded": false, "cacheHitRate": 0 }
+```
+
+> **Critical methodology finding**: this endpoint returns **per-isolate, in-memory** counters that
+> reset on every cold start (`startedAt` is epoch-0 = uninitialized). The snapshot above hit a *cold*
+> isolate that had served exactly 1 request — my own. It is therefore **NOT a valid source of
+> aggregate cache-hit-rate or traffic metrics**. The checkpoint's per-route cache-hit-rate rows
+> (e.g. `/api/v1/prices`) cannot be sourced here. **All 9 pass-criteria metrics below must come from
+> the Cloudflare dashboard** (Workers Analytics / Cache Analytics / KV metrics), which requires
+> dashboard login — not capturable programmatically from this workstation.
+
+- Cache hit rate (overall): ____ **(REQUIRES CF DASHBOARD — operator)**
+- Cache hit rate (`/api/v1/prices`): ____ **(REQUIRES CF DASHBOARD — per-isolate counter invalid)**
+- `/health` cache hit rate: ____ (must be 0%) **(REQUIRES CF DASHBOARD)**
+- 504 rate: ____ **(REQUIRES CF logs filter `status:504`)**
+- 499 rate: ____ **(REQUIRES CF logs filter `status:499`)**
+- KV reads/day (7-day trend): ____ **(REQUIRES CF DASHBOARD → KV metrics)**
+- KV writes/day (7-day trend): ____ **(REQUIRES CF DASHBOARD → KV metrics)**
+- Worker CPU p99: ____ **(REQUIRES CF DASHBOARD → Workers metrics)**
+- 5xx rate: ____ **(REQUIRES CF DASHBOARD)**
+- Spurious cache invalidations observed: ____ **(REQUIRES CF DASHBOARD)**
+- Origin timeout incidents: ____ **(REQUIRES CF DASHBOARD / Sentry)**
+
+**What WAS confirmed programmatically (2026-05-27)**:
+- gateway-stats endpoint is live and auth works (`X-API-Key`, path `/api/v1/internal/gateway-stats`) — 200 OK
+- worker is **not degraded** (`degraded: false`)
+- `/health` returns 200 (HEAD probe) — cache-bypass behavior not independently re-verified here
 
 ## Decision
 
 - [ ] **PASS** — all targets met, soak validated, proceed to dress rehearsal 2026-05-26
 - [ ] **CONDITIONAL PASS** — 1-2 metrics borderline; document mitigation and proceed
 - [ ] **FAIL** — rollback worker tuning or block launch until investigated
+- [x] **INCOMPLETE (2026-05-27)** — endpoint health + auth confirmed; 9 dashboard-sourced metrics
+      still pending operator capture from the Cloudflare dashboard. Soak window is now ~16 days
+      (well past the 7-day minimum), so steady-state is amply established — only the *measurement*
+      remains. **Operator action**: log into CF dashboard, fill the 9 rows, render PASS/FAIL before
+      the Fri 2026-05-29 Go/No-Go gate.
 
-**Validated by**: ____________
-**Validated on**: ____________
-**Commit SHA at checkpoint**: ____________
+**Validated by**: Loki interactive session (partial — programmatic slice only)
+**Validated on**: 2026-05-27
+**Commit SHA at checkpoint**: see `git rev-parse HEAD` at commit time
 
 ## Related artifacts
 
