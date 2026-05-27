@@ -254,7 +254,12 @@ describe("apiClient circuit breaker integration", () => {
 
     // Restore Date.now
     Date.now = realDateNow;
-  });
+    // Longer timeout: this test makes real apiClient.get calls whose 5xx
+    // failures trigger real setTimeout backoff retries, so opening the circuit
+    // alone costs several seconds of wall-clock time. Under a loaded full-suite
+    // run the default 5s budget is exceeded (flaky), though it passes in
+    // isolation. The 20s ceiling accommodates the real backoff delays.
+  }, 20000);
 
   it("works for POST requests too", async () => {
     mockFetch.mockResolvedValue(mockJsonResponse({ success: true }));
