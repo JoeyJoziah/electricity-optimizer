@@ -252,6 +252,9 @@ export default function OptimizePage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setIsEditing(!isEditing)}
+                    aria-label={
+                      isEditing ? "Done editing appliances" : "Edit appliances"
+                    }
                   >
                     <Settings className="h-4 w-4" />
                   </Button>

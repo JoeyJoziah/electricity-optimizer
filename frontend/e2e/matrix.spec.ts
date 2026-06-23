@@ -411,8 +411,11 @@ test.describe("Tier Gating — Pro tier", () => {
       authenticatedPage.locator('h1, [role="heading"]').first(),
     ).toBeVisible({ timeout: 10000 });
 
-    // Supplier name from the default mock should render
-    await expect(authenticatedPage.getByText("Eversource Energy")).toBeVisible({
+    // Supplier name from the default mock should render (appears in the card
+    // and the comparison table, so scope to the first match).
+    await expect(
+      authenticatedPage.getByText("Eversource Energy").first(),
+    ).toBeVisible({
       timeout: 10000,
     });
   });

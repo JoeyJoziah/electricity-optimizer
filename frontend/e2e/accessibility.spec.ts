@@ -517,7 +517,12 @@ test.describe("Accessibility — Heading Hierarchy", () => {
       waitUntil: "domcontentloaded",
       timeout: 15000,
     });
-    await authenticatedPage.waitForSelector("body");
+    // Wait for the dashboard to render past its loading skeleton — the h1 lives
+    // in the Header, which only mounts once the price data resolves.
+    await authenticatedPage
+      .locator("h1")
+      .first()
+      .waitFor({ state: "visible", timeout: 10000 });
 
     const headingData = await authenticatedPage.evaluate(() => {
       const headings = Array.from(

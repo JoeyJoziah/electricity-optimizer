@@ -1,10 +1,26 @@
 import { test, expect } from "./fixtures";
 
-// Build the 24-point history array once at module scope so it stays stable
+// Build the 24-point history array once at module scope so it stays stable.
+// Shape must match the backend ApiPrice contract the UI consumes:
+// price_per_kwh is a Decimal *string* and timestamp is an ISO string. Using
+// {time, price} here previously fed `undefined` into PriceLineChart's
+// parseISO(point.time) → "Cannot read properties of undefined (reading
+// 'split')" → error boundary, hiding the price the test asserts on.
 const now = Date.now();
 const HISTORY_PRICES = Array.from({ length: 24 }, (_, i) => ({
-  time: new Date(now - (23 - i) * 3600000).toISOString(),
-  price: 0.22 + Math.sin(i / 4) * 0.05,
+  timestamp: new Date(now - (23 - i) * 3600000).toISOString(),
+  price_per_kwh: (0.22 + Math.sin(i / 4) * 0.05).toFixed(4),
+  region: "US_CT",
+  supplier: "Eversource",
+}));
+
+// Forecast points share the ApiPrice shape; the forecast response wraps them
+// in a `forecast` *object* (ApiPriceForecastModel), not a bare array.
+const FORECAST_PRICES = Array.from({ length: 24 }, (_, i) => ({
+  timestamp: new Date(now + (i + 1) * 3600000).toISOString(),
+  price_per_kwh: (0.21 + Math.sin(i / 5) * 0.04).toFixed(4),
+  region: "US_CT",
+  supplier: "Eversource",
 }));
 
 test.describe("Prices Page", () => {
@@ -18,12 +34,21 @@ test.describe("Prices Page", () => {
       },
       pricesHistory: { prices: HISTORY_PRICES },
       pricesForecast: {
-        forecast: [
-          { hour: 1, price: 0.23, confidence: [0.21, 0.25] },
-          { hour: 2, price: 0.21, confidence: [0.19, 0.23] },
-          { hour: 3, price: 0.19, confidence: [0.17, 0.21] },
-          { hour: 4, price: 0.2, confidence: [0.18, 0.22] },
-        ],
+        region: "US_CT",
+        forecast: {
+          id: "mock-forecast",
+          region: "US_CT",
+          generated_at: new Date(now).toISOString(),
+          horizon_hours: 24,
+          prices: FORECAST_PRICES,
+          confidence: 0.85,
+          model_version: "v1",
+          source_api: null,
+        },
+        generated_at: new Date(now).toISOString(),
+        horizon_hours: 24,
+        confidence: 0.85,
+        source: "mock",
       },
       optimalPeriods: {
         periods: [
