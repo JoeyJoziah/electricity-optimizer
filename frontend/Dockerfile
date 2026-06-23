@@ -1,7 +1,7 @@
 # Multi-stage build for Next.js 14 frontend
 # Optimized for production with minimal image size (~30% smaller)
 
-FROM node:20-alpine@sha256:5bac2112f1a27db4775ce6ead86db9e0cbc087f0dbddfe3cbc11ecea122d5294 AS base
+FROM node:26-alpine@sha256:e71ac5e964b9201072425d59d2e876359efa25dc96bb1768cb73295728d6e4ea AS base
 
 # Install dependencies only when needed
 FROM base AS deps
