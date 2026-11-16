@@ -108,7 +108,6 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | detect-rate-changes.yml | Via daily-data-pipeline | Multi-utility rate change detection and alerting |
 | utility-type-tests.yml | On push/PR | Utility-type-specific test suite |
 | agent-switcher-scan.yml | Daily 4am UTC | Auto Rate Switcher daily decision engine scan |
-| sync-available-plans.yml | Daily 2am UTC | Refresh available plan cache from EnergyBot |
 | _backend-tests.yml | (callable) | Reusable backend test job (postgres + redis services) |
 
 **Composite Actions** (`.github/actions/`):
@@ -359,7 +358,7 @@ Next.js Server → BACKEND_URL=https://api.rateshift.app (server-to-server)
 
 | Property | Value |
 |----------|-------|
-| Dockerfile | `./Dockerfile` (root, not backend/) |
+| Dockerfile | `./backend/Dockerfile` with `dockerContext: ./backend` (see `render.yaml`) |
 | Python | 3.12-slim (multi-stage build) |
 | User | `appuser` (non-root, UID 1000) |
 | Health Check | `curl -f http://localhost:${PORT:-8000}/health` |
@@ -538,7 +537,8 @@ deploy:
 GHA minutes reduced from ~2,700 to ~1,963 min/mo (near 2,000 free limit).
 Optimized 2026-03-16: reduced cron frequencies, consolidated daily pipeline, cut warmup overhead.
 Optimized 2026-03-17: Migrated price-sync and observe-forecasts to CF Worker cron triggers (~480 min/mo savings).
-2026-04-03: +120 min/mo from Auto Rate Switcher workflows (agent-switcher-scan + sync-available-plans, daily).
+2026-04-03: +120 min/mo from Auto Rate Switcher workflows (agent-switcher-scan + the plan-cache sync, daily).
+2026-11-16: about -60 min/mo; the plan-cache sync workflow was removed with the EnergyBot integration (estimate now ~1,903 min/mo).
 See `COST_ANALYSIS.md` for full breakdown, optimization history, and scaling projections.
 
 ### Scaling Cost Impact

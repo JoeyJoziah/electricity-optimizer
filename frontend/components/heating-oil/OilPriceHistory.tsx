@@ -1,21 +1,21 @@
-'use client'
+"use client";
 
-import { useHeatingOilHistory } from '@/lib/hooks/useHeatingOil'
+import { useHeatingOilHistory } from "@/lib/hooks/useHeatingOil";
 
 interface OilPriceHistoryProps {
-  state: string
+  state: string;
 }
 
 export function OilPriceHistory({ state }: OilPriceHistoryProps) {
-  const { data, isLoading, error } = useHeatingOilHistory(state, 12)
+  const { data, isLoading, error } = useHeatingOilHistory(state, 12);
 
   if (isLoading) {
-    return <div className="animate-pulse rounded-lg bg-gray-100 h-48" />
+    return <div className="animate-pulse rounded-lg bg-gray-100 h-48" />;
   }
 
-  if (error || !data) return null
+  if (error || !data) return null;
 
-  const { history, comparison } = data
+  const { history, comparison } = data;
 
   return (
     <div className="rounded-lg border p-4">
@@ -27,29 +27,38 @@ export function OilPriceHistory({ state }: OilPriceHistoryProps) {
         <div className="mt-2 grid grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-gray-500">Current Price</p>
-            <p className="text-lg font-bold">${comparison.price_per_gallon.toFixed(2)}/gal</p>
+            <p className="text-lg font-bold">
+              ${comparison.price_per_gallon.toFixed(2)}/gal
+            </p>
           </div>
           {comparison.national_avg && (
             <div>
               <p className="text-gray-500">vs National Avg</p>
-              <p className={`text-lg font-bold ${
-                comparison.difference_pct !== null && comparison.difference_pct < 0
-                  ? 'text-success-600'
-                  : 'text-danger-600'
-              }`}>
+              <p
+                className={`text-lg font-bold ${
+                  comparison.difference_pct !== null &&
+                  comparison.difference_pct < 0
+                    ? "text-success-600"
+                    : "text-danger-600"
+                }`}
+              >
                 {comparison.difference_pct !== null
-                  ? `${comparison.difference_pct > 0 ? '+' : ''}${comparison.difference_pct}%`
-                  : 'N/A'}
+                  ? `${comparison.difference_pct > 0 ? "+" : ""}${comparison.difference_pct}%`
+                  : "N/A"}
               </p>
             </div>
           )}
           <div>
             <p className="text-gray-500">Est. Monthly Cost</p>
-            <p className="font-semibold">${comparison.estimated_monthly_cost.toFixed(0)}</p>
+            <p className="font-semibold">
+              ${comparison.estimated_monthly_cost.toFixed(0)}
+            </p>
           </div>
           <div>
             <p className="text-gray-500">Est. Annual Cost</p>
-            <p className="font-semibold">${comparison.estimated_annual_cost.toFixed(0)}</p>
+            <p className="font-semibold">
+              ${comparison.estimated_annual_cost.toFixed(0)}
+            </p>
           </div>
         </div>
       )}
@@ -63,13 +72,15 @@ export function OilPriceHistory({ state }: OilPriceHistoryProps) {
                 key={h.id}
                 className="flex items-center justify-between text-sm text-gray-700"
               >
-                <span>{h.period_date || 'Unknown'}</span>
-                <span className="font-medium">${h.price_per_gallon.toFixed(2)}/gal</span>
+                <span>{h.period_date || "Unknown"}</span>
+                <span className="font-medium">
+                  ${h.price_per_gallon.toFixed(2)}/gal
+                </span>
               </div>
             ))}
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }

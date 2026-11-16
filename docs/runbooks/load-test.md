@@ -1,8 +1,8 @@
 # Load Test Runbook — PRD Scope #8
 
 **Must complete by**: 2026-05-22 (gates Jun 2 PH rehearsal)
-**Script**: `loadtest/rateshift-staging.js`
-**Runner**: `loadtest/run.sh`
+**Script**: `tests/load/k6/rateshift-staging.js`
+**Runner**: `tests/load/k6/run.sh`
 
 ---
 
@@ -37,17 +37,17 @@ Obtain `RATE_LIMIT_BYPASS_KEY` from 1Password ("RateShift Staging Keys") or Rend
 ```bash
 BASE_URL=https://api.rateshift.app \
 STAGING_KEY=<bypass_key> \
-./loadtest/run.sh --quick
+./tests/load/k6/run.sh --quick
 ```
 
 ### Full load test (300 VUs × 5 min)
 ```bash
 BASE_URL=https://api.rateshift.app \
 STAGING_KEY=<bypass_key> \
-./loadtest/run.sh
+./tests/load/k6/run.sh
 ```
 
-Results are written to `loadtest/results/run-<timestamp>.json` and symlinked as `latest.json`.
+Results are written to `tests/load/results/run-<timestamp>.json` and symlinked as `latest.json`.
 
 ---
 
@@ -84,7 +84,7 @@ Record these values in the PRD success metrics table under "p95 baseline".
 
 2. If CF cache hit rate < 60% → cache warm-up issue. Run a 50 VU warm-up pass first:
    ```bash
-   k6 run --vus 50 --duration 60s loadtest/rateshift-staging.js
+   k6 run --vus 50 --duration 60s tests/load/k6/rateshift-staging.js
    ```
    Then re-run the full test.
 
@@ -132,6 +132,6 @@ Example:
 - [ ] CF cache hit rate recorded
 - [ ] Origin p95 recorded (cache-miss baseline)
 - [ ] PRD success metrics table updated with p95 baseline
-- [ ] Result file committed: `loadtest/results/run-<date>.json`
+- [ ] Result file committed: `tests/load/results/run-<date>.json`
 - [ ] Scope #8 marked complete in `.loki/prds/ph-relaunch-jun2-2026.md`
 - [ ] If Render Starter saturates → trigger Scope #2 (upgrade to Standard)

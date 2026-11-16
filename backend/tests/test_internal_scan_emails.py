@@ -166,7 +166,7 @@ def unauth_client(mock_redis_client):
 class TestScanEmailsHappyPath:
     """Normal batch scans with active, valid-token connections."""
 
-    @patch("utils.encryption.decrypt_field", return_value="plain-access-token")
+    @patch("lib.encryption.decrypt_field", return_value="plain-access-token")
     @patch("services.email_scanner_service.extract_rates_from_email")
     @patch("services.email_scanner_service.scan_gmail_inbox")
     def test_single_connection_single_bill(
@@ -197,7 +197,7 @@ class TestScanEmailsHappyPath:
         assert data["rates_extracted"] == 1
         assert data["errors"] == []
 
-    @patch("utils.encryption.decrypt_field", return_value="plain-access-token")
+    @patch("lib.encryption.decrypt_field", return_value="plain-access-token")
     @patch("services.email_scanner_service.extract_rates_from_email")
     @patch("services.email_scanner_service.scan_gmail_inbox")
     def test_multiple_connections_aggregated(
@@ -232,7 +232,7 @@ class TestScanEmailsHappyPath:
         assert data["rates_extracted"] == 6
         assert data["errors"] == []
 
-    @patch("utils.encryption.decrypt_field", return_value="plain-access-token")
+    @patch("lib.encryption.decrypt_field", return_value="plain-access-token")
     @patch("services.email_scanner_service.extract_rates_from_email")
     @patch("services.email_scanner_service.scan_outlook_inbox")
     def test_outlook_provider_uses_correct_scanner(
@@ -279,7 +279,7 @@ class TestScanEmailsHappyPath:
         assert data["rates_extracted"] == 0
         assert data["errors"] == []
 
-    @patch("utils.encryption.decrypt_field", return_value="plain-access-token")
+    @patch("lib.encryption.decrypt_field", return_value="plain-access-token")
     @patch("services.email_scanner_service.extract_rates_from_email")
     @patch("services.email_scanner_service.scan_gmail_inbox")
     def test_emails_without_extracted_data_not_persisted(
@@ -307,7 +307,7 @@ class TestScanEmailsHappyPath:
         assert data["emails_found"] == 1
         assert data["rates_extracted"] == 0  # empty extract → not counted
 
-    @patch("utils.encryption.decrypt_field", return_value="plain-access-token")
+    @patch("lib.encryption.decrypt_field", return_value="plain-access-token")
     @patch("services.email_scanner_service.extract_rates_from_email")
     @patch("services.email_scanner_service.scan_gmail_inbox")
     def test_non_utility_emails_excluded(
@@ -379,7 +379,7 @@ class TestScanEmailsTokenHandling:
         "services.email_oauth_service.encrypt_tokens",
         return_value=(b"new-enc-access", b"new-enc-refresh"),
     )
-    @patch("utils.encryption.decrypt_field", return_value="plain-old-token")
+    @patch("lib.encryption.decrypt_field", return_value="plain-old-token")
     @patch("services.email_scanner_service.extract_rates_from_email")
     @patch("services.email_scanner_service.scan_gmail_inbox")
     def test_expired_token_refreshed_before_scan(
@@ -418,7 +418,7 @@ class TestScanEmailsTokenHandling:
         # The scan proceeded with the new token
         mock_scan.assert_awaited()
 
-    @patch("utils.encryption.decrypt_field", return_value="plain-old-token")
+    @patch("lib.encryption.decrypt_field", return_value="plain-old-token")
     def test_expired_token_no_refresh_token_skipped(self, mock_decrypt, auth_client):
         """Expired token with no refresh_token available — connection is skipped."""
         conn = _make_connection_row(
@@ -445,7 +445,7 @@ class TestScanEmailsTokenHandling:
         new_callable=AsyncMock,
         side_effect=RuntimeError("provider 500"),
     )
-    @patch("utils.encryption.decrypt_field", return_value="plain-old-token")
+    @patch("lib.encryption.decrypt_field", return_value="plain-old-token")
     def test_token_refresh_failure_skips_connection(self, mock_decrypt, mock_refresh, auth_client):
         """A failed token refresh skips the connection without crashing the batch."""
         conn = _make_connection_row(
@@ -477,7 +477,7 @@ class TestScanEmailsTokenHandling:
 class TestScanEmailsErrorIsolation:
     """Per-connection errors must not abort the remaining batch."""
 
-    @patch("utils.encryption.decrypt_field")
+    @patch("lib.encryption.decrypt_field")
     @patch("services.email_scanner_service.extract_rates_from_email")
     @patch("services.email_scanner_service.scan_gmail_inbox")
     def test_one_connection_error_does_not_abort_batch(
@@ -527,7 +527,7 @@ class TestScanEmailsErrorIsolation:
         assert len(data["errors"]) == 1
         assert data["errors"][0]["connection_id"] == "c1"
 
-    @patch("utils.encryption.decrypt_field")
+    @patch("lib.encryption.decrypt_field")
     @patch("services.email_scanner_service.extract_rates_from_email")
     @patch("services.email_scanner_service.scan_gmail_inbox")
     def test_persist_failure_is_tolerated(
@@ -572,7 +572,7 @@ class TestScanEmailsErrorIsolation:
         # The connection itself did not error — only the persist step failed
         assert data["errors"] == []
 
-    @patch("utils.encryption.decrypt_field", side_effect=Exception("decryption error"))
+    @patch("lib.encryption.decrypt_field", side_effect=Exception("decryption error"))
     def test_decryption_failure_recorded_as_connection_error(self, mock_decrypt, auth_client):
         """A decrypt_field exception is captured per-connection and surfaced in errors."""
         conn = _make_connection_row(conn_id="c1")
@@ -632,7 +632,7 @@ class TestScanEmailsConcurrency:
             return []  # no emails
 
         with (
-            patch("utils.encryption.decrypt_field", return_value="tok"),
+            patch("lib.encryption.decrypt_field", return_value="tok"),
             patch(
                 "services.email_scanner_service.scan_gmail_inbox",
                 side_effect=_counting_scan,
@@ -693,7 +693,7 @@ class TestScanEmailsAuth:
 
         assert response.status_code == 401
 
-    @patch("utils.encryption.decrypt_field", return_value="tok")
+    @patch("lib.encryption.decrypt_field", return_value="tok")
     @patch(
         "services.email_scanner_service.scan_gmail_inbox",
         new_callable=AsyncMock,
@@ -719,7 +719,7 @@ class TestScanEmailsAuth:
 class TestScanEmailsResponseSchema:
     """Validate the shape of the response dict regardless of content."""
 
-    @patch("utils.encryption.decrypt_field", return_value="tok")
+    @patch("lib.encryption.decrypt_field", return_value="tok")
     @patch("services.email_scanner_service.extract_rates_from_email")
     @patch("services.email_scanner_service.scan_gmail_inbox")
     def test_response_contains_all_required_keys(

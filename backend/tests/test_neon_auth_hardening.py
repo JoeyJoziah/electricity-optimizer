@@ -261,7 +261,7 @@ class TestEncryptionFailHard:
         with patch("auth.neon_auth.settings") as mock_settings:
             mock_settings.is_production = True
             with patch(
-                "utils.encryption.encrypt_field",
+                "lib.encryption.encrypt_field",
                 side_effect=RuntimeError("FIELD_ENCRYPTION_KEY is not configured"),
             ):
                 with pytest.raises(RuntimeError, match="FIELD_ENCRYPTION_KEY"):
@@ -276,7 +276,7 @@ class TestEncryptionFailHard:
         with patch("auth.neon_auth.settings") as mock_settings:
             mock_settings.is_production = True
             with patch(
-                "utils.encryption.encrypt_field",
+                "lib.encryption.encrypt_field",
                 side_effect=RuntimeError("FIELD_ENCRYPTION_KEY is not configured"),
             ):
                 with pytest.raises(RuntimeError):
@@ -292,7 +292,7 @@ class TestEncryptionFailHard:
         with patch("auth.neon_auth.settings") as mock_settings:
             mock_settings.is_production = True
             with patch(
-                "utils.encryption.encrypt_field",
+                "lib.encryption.encrypt_field",
                 return_value=b"\x00\x01\x02encrypted-data",
             ):
                 result = _encrypt_session_cache('{"user_id": "test"}')
@@ -311,7 +311,7 @@ class TestEncryptionFailHard:
         with patch("auth.neon_auth.settings") as mock_settings:
             mock_settings.is_production = False
             with patch(
-                "utils.encryption.encrypt_field",
+                "lib.encryption.encrypt_field",
                 side_effect=RuntimeError("FIELD_ENCRYPTION_KEY is not configured"),
             ):
                 result = _encrypt_session_cache(plaintext)
@@ -325,7 +325,7 @@ class TestEncryptionFailHard:
         with patch("auth.neon_auth.settings") as mock_settings:
             mock_settings.is_production = False
             with patch(
-                "utils.encryption.encrypt_field",
+                "lib.encryption.encrypt_field",
                 return_value=b"\xaa\xbb\xccencrypted",
             ):
                 result = _encrypt_session_cache('{"user_id": "test"}')
@@ -340,7 +340,7 @@ class TestEncryptionFailHard:
         with patch("auth.neon_auth.settings") as mock_settings:
             mock_settings.is_production = False
             with patch(
-                "utils.encryption.encrypt_field",
+                "lib.encryption.encrypt_field",
                 side_effect=RuntimeError("FIELD_ENCRYPTION_KEY is not configured"),
             ):
                 result = _encrypt_session_cache(plaintext)

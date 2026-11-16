@@ -11,11 +11,50 @@ import type { Env } from "../types";
  *   "30 *​/6 * * *" → observe-forecasts (30min after price-sync)
  *
  * Includes one retry after 35s to handle Render cold starts.
+ *
+ * Final failures (non-2xx after the retry, or a thrown fetch error) are also
+ * posted to Slack when the optional SLACK_INCIDENTS_WEBHOOK_URL secret is set.
+ * Keep-alive is never alerted on.
  */
+
+const SLACK_ALERT_TIMEOUT_MS = 5_000;
+
+/**
+ * Best-effort Slack alert for a failed cron route. Never throws and never
+ * changes the handler's outcome. The message names only the route, a status
+ * and a timestamp: no origin URL, no secrets, no upstream error text.
+ */
+async function notifyCronFailure(
+  env: Env,
+  routeName: string,
+  status: string
+): Promise<void> {
+  const webhookUrl = env.SLACK_INCIDENTS_WEBHOOK_URL;
+  if (!webhookUrl) return;
+
+  try {
+    const timestamp = new Date().toISOString();
+    const resp = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: `:rotating_light: CF Worker cron failed: ${routeName} (status: ${status}) at ${timestamp}`,
+      }),
+      signal: AbortSignal.timeout(SLACK_ALERT_TIMEOUT_MS),
+    });
+    if (!resp.ok) {
+      console.warn(`${routeName}: Slack alert rejected (${resp.status})`);
+    }
+  } catch {
+    // Deliberately not logging the error object: it can embed the webhook URL.
+    console.warn(`${routeName}: Slack alert could not be delivered`);
+  }
+}
+
 export async function handleScheduled(
   controller: ScheduledController,
   env: Env,
-  ctx: ExecutionContext
+  _ctx: ExecutionContext
 ): Promise<void> {
   const cron = controller.cron;
 
@@ -94,6 +133,7 @@ export async function handleScheduled(
       console.error(
         `${route.name} failed: ${response.status} ${response.statusText}`
       );
+      await notifyCronFailure(env, route.name, `HTTP ${response.status}`);
     } else {
       console.log(`${route.name} completed successfully`);
     }
@@ -102,5 +142,6 @@ export async function handleScheduled(
       `${route.name} fetch error:`,
       err instanceof Error ? err.message : err
     );
+    await notifyCronFailure(env, route.name, "fetch error");
   }
 }

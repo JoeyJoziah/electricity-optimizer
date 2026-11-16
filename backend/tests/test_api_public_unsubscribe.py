@@ -12,7 +12,11 @@ Covers:
 
 import hashlib
 import hmac
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
+
+if TYPE_CHECKING:
+    from fastapi.testclient import TestClient
 
 # ---------------------------------------------------------------------------
 # Helpers (unit tests — no DB)

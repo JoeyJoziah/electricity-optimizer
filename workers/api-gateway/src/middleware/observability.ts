@@ -152,7 +152,6 @@ function expandIPv6(ip: string): string | null {
   const ipv4MappedRe = /^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i;
   if (ipv4MappedRe.test(ip)) {
     // Treat as plain IPv6 by replacing the IPv4 suffix with hex groups
-    const parts = ip.split("::");
     // Convert to all-zero prefix with the mapped portion — zero last 5 groups
     return "0:0:0:0:0:ffff:0:0";
   }

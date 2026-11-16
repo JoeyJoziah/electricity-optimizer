@@ -4,6 +4,7 @@ Maintenance Service
 Provides data retention and cleanup operations for housekeeping tasks:
 - Activity log retention (default: 365 days)
 - Bill upload record and file cleanup (default: 730 days)
+- Stale bill-upload parse sweep (in-flight for more than 15 minutes -> failed)
 - Weather cache retention (default: 30 days)
 - Scraped rates retention (default: 90 days)
 - Market intelligence retention (default: 180 days)
@@ -21,6 +22,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger()
 
+# A bill parse runs in a FastAPI BackgroundTask. If the process restarts
+# mid-parse nothing ever moves the row out of its in-flight status, so the
+# frontend polls forever. Rows still in-flight after this long are abandoned.
+STALE_UPLOAD_MINUTES = 15
+STALE_UPLOAD_ERROR = (
+    "Processing did not finish (the server restarted or timed out while parsing). "
+    "Please retry the upload."
+)
+
 
 class MaintenanceService:
     def __init__(self, db: AsyncSession):
@@ -31,7 +41,7 @@ class MaintenanceService:
         cutoff = datetime.now(UTC) - timedelta(days=retention_days)
         try:
             result = await self._db.execute(
-                text("DELETE FROM activity_logs WHERE created_at < :cutoff"),
+                text('DELETE FROM activity_logs WHERE "timestamp" < :cutoff'),
                 {"cutoff": cutoff},
             )
             await self._db.commit()
@@ -78,7 +88,7 @@ class MaintenanceService:
 
         # Get file paths before deleting records
         result = await self._db.execute(
-            text("SELECT id, file_path FROM bill_uploads WHERE created_at < :cutoff"),
+            text("SELECT id, storage_key FROM bill_uploads WHERE created_at < :cutoff"),
             {"cutoff": cutoff},
         )
         old_uploads = result.fetchall()
@@ -86,15 +96,9 @@ class MaintenanceService:
         if not old_uploads:
             return {"deleted": 0, "retention_days": retention_days}
 
-        # Delete extracted rates first (FK dependency)
-        upload_ids = [str(r[0]) for r in old_uploads]
+        # connection_extracted_rates has no reference to bill_uploads (it is keyed
+        # by connection_id), so there is nothing to delete there first.
         try:
-            if upload_ids:
-                await self._db.execute(
-                    text("DELETE FROM connection_extracted_rates WHERE bill_upload_id = ANY(:ids)"),
-                    {"ids": upload_ids},
-                )
-
             # Delete upload records
             await self._db.execute(
                 text("DELETE FROM bill_uploads WHERE created_at < :cutoff"),
@@ -107,7 +111,8 @@ class MaintenanceService:
 
         # Clean up files (best-effort — failures are non-fatal)
         for row in old_uploads:
-            file_path = row[1]
+            # storage_key is relative to the uploads directory (see BillParserService)
+            file_path = os.path.join("uploads", row[1]) if row[1] else None
             if file_path and os.path.exists(file_path):
                 try:
                     os.remove(file_path)
@@ -117,6 +122,34 @@ class MaintenanceService:
         count = len(old_uploads)
         logger.info("uploads_cleaned", deleted=count, retention_days=retention_days)
         return {"deleted": count, "retention_days": retention_days}
+
+    async def sweep_stale_bill_uploads(self, stale_minutes: int = STALE_UPLOAD_MINUTES):
+        """Mark bill uploads stuck in an in-flight parse status as failed.
+
+        ``pending`` is set on upload/reparse and ``processing`` when the parser
+        starts; both bump ``updated_at``, so a row whose ``updated_at`` is older
+        than the cutoff has had no parser activity for ``stale_minutes``.
+        """
+        cutoff = datetime.now(UTC) - timedelta(minutes=stale_minutes)
+        try:
+            result = await self._db.execute(
+                text("""
+                    UPDATE bill_uploads
+                    SET parse_status = 'failed',
+                        parse_error  = :error,
+                        updated_at   = NOW()
+                    WHERE parse_status IN ('pending', 'processing')
+                      AND updated_at < :cutoff
+                """),
+                {"error": STALE_UPLOAD_ERROR, "cutoff": cutoff},
+            )
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
+        count = result.rowcount
+        logger.info("stale_bill_uploads_swept", swept=count, stale_minutes=stale_minutes)
+        return {"swept": count, "stale_minutes": stale_minutes}
 
     async def cleanup_weather_cache(self, retention_days: int = 30):
         """Delete weather cache entries older than retention period."""

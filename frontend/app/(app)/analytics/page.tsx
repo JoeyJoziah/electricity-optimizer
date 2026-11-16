@@ -1,7 +1,7 @@
-import { AnalyticsDashboard } from '@/components/analytics/AnalyticsDashboard'
-import { ErrorBoundary } from '@/components/error-boundary'
+import { AnalyticsDashboard } from "@/components/analytics/AnalyticsDashboard";
+import { ErrorBoundary } from "@/components/error-boundary";
 
-export const metadata = { title: 'Premium Analytics | RateShift' }
+export const metadata = { title: "Premium Analytics | RateShift" };
 
 export default function AnalyticsPage() {
   return (
@@ -11,7 +11,8 @@ export default function AnalyticsPage() {
           Premium Analytics
         </h1>
         <p className="text-sm text-gray-500">
-          Rate forecasts, spend optimization, and data export across all utility types
+          Rate forecasts, spend optimization, and data export across all utility
+          types
         </p>
       </div>
       <div className="p-6">
@@ -20,5 +21,5 @@ export default function AnalyticsPage() {
         </ErrorBoundary>
       </div>
     </div>
-  )
+  );
 }

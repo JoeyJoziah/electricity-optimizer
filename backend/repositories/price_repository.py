@@ -144,7 +144,7 @@ class PriceRepository(BaseRepository[Price]):
             return None
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get price by ID: {str(e)}", e)
+            raise RepositoryError(f"Failed to get price by ID: {str(e)}", e) from e
 
     async def create(self, entity: Price) -> Price:
         """
@@ -189,7 +189,7 @@ class PriceRepository(BaseRepository[Price]):
 
         except Exception as e:
             await self._db.rollback()
-            raise RepositoryError(f"Failed to create price: {str(e)}", e)
+            raise RepositoryError(f"Failed to create price: {str(e)}", e) from e
 
     async def update(self, id: str, entity: Price) -> Price | None:
         """
@@ -249,7 +249,7 @@ class PriceRepository(BaseRepository[Price]):
 
         except Exception as e:
             await self._db.rollback()
-            raise RepositoryError(f"Failed to update price: {str(e)}", e)
+            raise RepositoryError(f"Failed to update price: {str(e)}", e) from e
 
     async def delete(self, id: str) -> bool:
         """
@@ -278,7 +278,7 @@ class PriceRepository(BaseRepository[Price]):
 
         except Exception as e:
             await self._db.rollback()
-            raise RepositoryError(f"Failed to delete price: {str(e)}", e)
+            raise RepositoryError(f"Failed to delete price: {str(e)}", e) from e
 
     async def list(self, page: int = 1, page_size: int = 10, **filters: Any) -> list[Price]:
         """
@@ -319,7 +319,7 @@ class PriceRepository(BaseRepository[Price]):
             return [_row_to_price(row) for row in rows]
 
         except Exception as e:
-            raise RepositoryError(f"Failed to list prices: {str(e)}", e)
+            raise RepositoryError(f"Failed to list prices: {str(e)}", e) from e
 
     async def list_latest_by_regions(
         self,
@@ -355,7 +355,7 @@ class PriceRepository(BaseRepository[Price]):
             rows = result.mappings().all()
             return [_row_to_price(row) for row in rows]
         except Exception as e:
-            raise RepositoryError(f"Failed to list latest prices by regions: {str(e)}", e)
+            raise RepositoryError(f"Failed to list latest prices by regions: {str(e)}", e) from e
 
     async def count(self, **filters: Any) -> int:
         """
@@ -386,7 +386,7 @@ class PriceRepository(BaseRepository[Price]):
             return result.scalar() or 0
 
         except Exception as e:
-            raise RepositoryError(f"Failed to count prices: {str(e)}", e)
+            raise RepositoryError(f"Failed to count prices: {str(e)}", e) from e
 
     # ==========================================================================
     # Price-specific methods
@@ -451,7 +451,7 @@ class PriceRepository(BaseRepository[Price]):
             return prices
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get current prices: {str(e)}", e)
+            raise RepositoryError(f"Failed to get current prices: {str(e)}", e) from e
 
     async def get_cheapest_price(
         self,
@@ -499,7 +499,7 @@ class PriceRepository(BaseRepository[Price]):
             return None
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get cheapest price: {str(e)}", e)
+            raise RepositoryError(f"Failed to get cheapest price: {str(e)}", e) from e
 
     async def get_latest_by_supplier(self, region: PriceRegion, supplier: str) -> Price | None:
         """
@@ -540,7 +540,7 @@ class PriceRepository(BaseRepository[Price]):
             return None
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get latest price: {str(e)}", e)
+            raise RepositoryError(f"Failed to get latest price: {str(e)}", e) from e
 
     async def get_historical_prices(
         self,
@@ -596,7 +596,7 @@ class PriceRepository(BaseRepository[Price]):
             return [_row_to_price(row) for row in rows]
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get historical prices: {str(e)}", e)
+            raise RepositoryError(f"Failed to get historical prices: {str(e)}", e) from e
 
     async def get_historical_prices_paginated(
         self,
@@ -680,7 +680,7 @@ class PriceRepository(BaseRepository[Price]):
             return prices, total
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get paginated historical prices: {str(e)}", e)
+            raise RepositoryError(f"Failed to get paginated historical prices: {str(e)}", e) from e
 
     async def bulk_create(self, prices: builtins.list[Price]) -> int:
         """
@@ -744,7 +744,7 @@ class PriceRepository(BaseRepository[Price]):
 
         except Exception as e:
             await self._db.rollback()
-            raise RepositoryError(f"Failed to bulk create prices: {str(e)}", e)
+            raise RepositoryError(f"Failed to bulk create prices: {str(e)}", e) from e
 
     async def get_price_statistics(
         self,
@@ -795,7 +795,7 @@ class PriceRepository(BaseRepository[Price]):
             }
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get price statistics: {str(e)}", e)
+            raise RepositoryError(f"Failed to get price statistics: {str(e)}", e) from e
 
     async def get_price_statistics_with_stddev(
         self,
@@ -854,7 +854,7 @@ class PriceRepository(BaseRepository[Price]):
             }
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get price statistics with stddev: {str(e)}", e)
+            raise RepositoryError(f"Failed to get price statistics with stddev: {str(e)}", e) from e
 
     async def get_price_trend_aggregates(
         self,
@@ -925,7 +925,7 @@ class PriceRepository(BaseRepository[Price]):
             }
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get price trend aggregates: {str(e)}", e)
+            raise RepositoryError(f"Failed to get price trend aggregates: {str(e)}", e) from e
 
     async def get_hourly_price_averages(
         self,
@@ -976,7 +976,7 @@ class PriceRepository(BaseRepository[Price]):
             ]
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get hourly averages: {str(e)}", e)
+            raise RepositoryError(f"Failed to get hourly averages: {str(e)}", e) from e
 
     async def get_supplier_price_stats(
         self,
@@ -1035,4 +1035,4 @@ class PriceRepository(BaseRepository[Price]):
             ]
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get supplier stats: {str(e)}", e)
+            raise RepositoryError(f"Failed to get supplier stats: {str(e)}", e) from e

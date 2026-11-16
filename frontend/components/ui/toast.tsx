@@ -1,17 +1,17 @@
-'use client'
+"use client";
 
-import React from 'react'
-import { cn } from '@/lib/utils/cn'
-import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react'
+import React from "react";
+import { cn } from "@/lib/utils/cn";
+import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from "lucide-react";
 
-export type ToastVariant = 'success' | 'error' | 'warning' | 'info'
+export type ToastVariant = "success" | "error" | "warning" | "info";
 
 interface ToastProps {
-  id: string
-  variant: ToastVariant
-  title: string
-  description?: string
-  onDismiss: (id: string) => void
+  id: string;
+  variant: ToastVariant;
+  title: string;
+  description?: string;
+  onDismiss: (id: string) => void;
 }
 
 const VARIANT_STYLES: Record<
@@ -19,40 +19,49 @@ const VARIANT_STYLES: Record<
   { bg: string; icon: React.ElementType; iconColor: string }
 > = {
   success: {
-    bg: 'bg-success-50 border-success-200',
+    bg: "bg-success-50 border-success-200",
     icon: CheckCircle,
-    iconColor: 'text-success-600',
+    iconColor: "text-success-600",
   },
   error: {
-    bg: 'bg-danger-50 border-danger-200',
+    bg: "bg-danger-50 border-danger-200",
     icon: AlertCircle,
-    iconColor: 'text-danger-600',
+    iconColor: "text-danger-600",
   },
   warning: {
-    bg: 'bg-warning-50 border-warning-200',
+    bg: "bg-warning-50 border-warning-200",
     icon: AlertTriangle,
-    iconColor: 'text-warning-600',
+    iconColor: "text-warning-600",
   },
   info: {
-    bg: 'bg-primary-50 border-primary-200',
+    bg: "bg-primary-50 border-primary-200",
     icon: Info,
-    iconColor: 'text-primary-600',
+    iconColor: "text-primary-600",
   },
-}
+};
 
-export function Toast({ id, variant, title, description, onDismiss }: ToastProps) {
-  const { bg, icon: Icon, iconColor } = VARIANT_STYLES[variant]
+export function Toast({
+  id,
+  variant,
+  title,
+  description,
+  onDismiss,
+}: ToastProps) {
+  const { bg, icon: Icon, iconColor } = VARIANT_STYLES[variant];
 
   return (
     <div
       role="alert"
       aria-atomic="true"
       className={cn(
-        'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border p-4 shadow-lg',
-        bg
+        "pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border p-4 shadow-lg",
+        bg,
       )}
     >
-      <Icon className={cn('h-5 w-5 flex-shrink-0 mt-0.5', iconColor)} aria-hidden="true" />
+      <Icon
+        className={cn("h-5 w-5 flex-shrink-0 mt-0.5", iconColor)}
+        aria-hidden="true"
+      />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-900">{title}</p>
         {description && (
@@ -67,5 +76,5 @@ export function Toast({ id, variant, title, description, onDismiss }: ToastProps
         <X className="h-4 w-4 text-gray-500" aria-hidden="true" />
       </button>
     </div>
-  )
+  );
 }

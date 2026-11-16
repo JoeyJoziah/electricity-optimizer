@@ -9,7 +9,7 @@ Covers:
 - Task 2.5: stripe.api_key set at module level (not per-request)
 - Task 2.6: MRR prices sourced from settings, not hardcoded literals
 
-Reference: .audit-2026-03-19/REMEDIATION-PLAN.md, Sprint 2
+Reference: docs/archive/audits/2026-03-19/REMEDIATION-PLAN.md, Sprint 2
 """
 
 from decimal import Decimal
@@ -188,8 +188,9 @@ class TestWebhookIdempotencyRaceFix:
                     headers={"stripe-signature": "t=1,v1=sig"},
                 )
 
-            # Must still return 200 (so Stripe doesn't flood with retries)
-            assert response.status_code == 200
+            # Must return 500: Stripe only redelivers on a non-2xx response,
+            # and the guard row is deleted precisely so that retry can run.
+            assert response.status_code == 500
             # rollback() must be called to undo the uncommitted INSERT
             failure_db.rollback.assert_awaited()
             # A second execute() call must be made to DELETE the guard row
@@ -203,6 +204,94 @@ class TestWebhookIdempotencyRaceFix:
                 if call.args
             )
             assert delete_call_found, "Expected DELETE statement in db.execute calls"
+        finally:
+            app.dependency_overrides.pop(get_current_user, None)
+            app.dependency_overrides.pop(get_db_session, None)
+
+    def test_stripe_error_deletes_guard_row_and_returns_500(self):
+        """
+        A stripe.StripeError during processing takes the same path: guard row
+        deleted, then 500 so Stripe redelivers.
+        """
+        import stripe as _stripe
+        from fastapi.testclient import TestClient
+
+        from main import app
+
+        mock_event = {
+            "id": "evt_idem_stripe_err",
+            "type": "invoice.payment_failed",
+            "data": {"object": {}},
+        }
+        failure_db = _make_mock_db(rowcount=1)
+
+        app.dependency_overrides[get_current_user] = lambda: TEST_USER
+        app.dependency_overrides[get_db_session] = lambda: failure_db
+
+        client = TestClient(app)
+        try:
+            with patch("api.v1.billing.StripeService") as MockStripe:
+                stripe_instance = MockStripe.return_value
+                stripe_instance.is_configured = True
+                stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+                stripe_instance.handle_webhook_event = AsyncMock(
+                    side_effect=_stripe.StripeError("stripe api down")
+                )
+
+                response = client.post(
+                    f"{BASE_URL}/webhook",
+                    content=b"{}",
+                    headers={"stripe-signature": "t=1,v1=sig"},
+                )
+
+            assert response.status_code == 500
+            failure_db.rollback.assert_awaited()
+            assert any(
+                "DELETE" in str(call.args[0]).upper()
+                for call in failure_db.execute.await_args_list
+                if call.args
+            )
+        finally:
+            app.dependency_overrides.pop(get_current_user, None)
+            app.dependency_overrides.pop(get_db_session, None)
+
+    def test_cleanup_failure_still_returns_500(self):
+        """
+        If deleting the guard row itself fails, the endpoint must still answer
+        500 — never acknowledge an event that was not processed.
+        """
+        from fastapi.testclient import TestClient
+
+        from main import app
+
+        mock_event = {
+            "id": "evt_idem_cleanup_fail",
+            "type": "checkout.session.completed",
+            "data": {"object": {}},
+        }
+        failure_db = _make_mock_db(rowcount=1)
+        failure_db.rollback = AsyncMock(side_effect=RuntimeError("connection gone"))
+
+        app.dependency_overrides[get_current_user] = lambda: TEST_USER
+        app.dependency_overrides[get_db_session] = lambda: failure_db
+
+        client = TestClient(app)
+        try:
+            with patch("api.v1.billing.StripeService") as MockStripe:
+                stripe_instance = MockStripe.return_value
+                stripe_instance.is_configured = True
+                stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+                stripe_instance.handle_webhook_event = AsyncMock(
+                    side_effect=RuntimeError("DB connection lost")
+                )
+
+                response = client.post(
+                    f"{BASE_URL}/webhook",
+                    content=b"{}",
+                    headers={"stripe-signature": "t=1,v1=sig"},
+                )
+
+            assert response.status_code == 500
         finally:
             app.dependency_overrides.pop(get_current_user, None)
             app.dependency_overrides.pop(get_db_session, None)
@@ -497,6 +586,88 @@ class TestApplyWebhookActionPaymentSucceeded:
         assert applied is True
         # No tier change since we couldn't determine it
         assert mock_user.subscription_tier == "free"
+
+    async def test_payment_succeeded_resolves_outstanding_failures(self):
+        """
+        [D1] A recovered payment must stamp resolved_at on the user's
+        outstanding payment_retry_history rows, otherwise the daily dunning
+        cycle still treats the (now paid) account as overdue.
+        """
+        from services.stripe_service import apply_webhook_action
+
+        mock_user = _make_mock_user(tier="free", customer_id="cus_resolve")
+        mock_repo = _make_mock_user_repo(mock_user)
+
+        mock_subscription = MagicMock()
+        mock_subscription.metadata = {"tier": "pro"}
+        mock_subscription.status = "active"
+
+        db = _make_mock_db(rowcount=2)
+
+        with (
+            patch("services.stripe_service.asyncio.to_thread") as mock_to_thread,
+            patch("api.dependencies.invalidate_tier_cache", AsyncMock()),
+        ):
+            mock_to_thread.return_value = mock_subscription
+            applied = await apply_webhook_action(
+                {
+                    "handled": True,
+                    "action": "payment_succeeded",
+                    "user_id": "user-resolve-1",
+                    "customer_id": "cus_resolve",
+                    "subscription_id": "sub_resolve",
+                },
+                mock_repo,
+                db=db,
+            )
+
+        assert applied is True
+        resolve_calls = [
+            call
+            for call in db.execute.await_args_list
+            if "resolved_at = NOW()" in str(call.args[0])
+        ]
+        assert len(resolve_calls) == 1, "expected one UPDATE stamping resolved_at"
+        sql = str(resolve_calls[0].args[0])
+        assert "UPDATE payment_retry_history" in sql
+        assert "resolved_at IS NULL" in sql
+        assert resolve_calls[0].args[1] == {"user_id": "user-resolve-1"}
+
+    async def test_payment_succeeded_resolves_failures_when_tier_unknown(self):
+        """
+        [D1] Failures are resolved even when no tier can be determined (no
+        subscription id on the invoice): the customer has still paid.
+        """
+        from services.stripe_service import apply_webhook_action
+
+        mock_user = _make_mock_user(tier="pro", customer_id="cus_resolve_2")
+        mock_repo = _make_mock_user_repo(mock_user)
+        db = _make_mock_db(rowcount=1)
+
+        with patch("api.dependencies.invalidate_tier_cache", AsyncMock()):
+            applied = await apply_webhook_action(
+                {
+                    "handled": True,
+                    "action": "payment_succeeded",
+                    "customer_id": "cus_resolve_2",
+                    "subscription_id": None,
+                },
+                mock_repo,
+                db=db,
+            )
+
+        assert applied is True
+        mock_repo.update.assert_not_awaited()
+        assert any(
+            "resolved_at = NOW()" in str(call.args[0]) for call in db.execute.await_args_list
+        )
+        resolve_call = next(
+            call
+            for call in db.execute.await_args_list
+            if "resolved_at = NOW()" in str(call.args[0])
+        )
+        # user resolved via stripe_customer_id lookup
+        assert resolve_call.args[1] == {"user_id": str(mock_user.id)}
 
 
 # =============================================================================

@@ -291,4 +291,194 @@ describe("handleScheduled", () => {
       vi.useRealTimers();
     });
   });
+
+  describe("Slack alert on final failure", () => {
+    const WEBHOOK = "https://hooks.slack.test/services/T000/B000/XXXX";
+
+    function envWithWebhook() {
+      return { ...createMockEnv(), SLACK_INCIDENTS_WEBHOOK_URL: WEBHOOK };
+    }
+
+    function slackCalls() {
+      return mockFetch.mock.calls.filter(([url]) => url === WEBHOOK);
+    }
+
+    beforeEach(() => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+    });
+
+    it("should post once to Slack when a route fails with a non-2xx", async () => {
+      mockFetch
+        .mockResolvedValueOnce(
+          new Response("Unauthorized", { status: 401, statusText: "Unauthorized" })
+        )
+        .mockResolvedValueOnce(new Response("ok", { status: 200 }));
+
+      await handleScheduled(
+        createMockController(),
+        envWithWebhook(),
+        createMockCtx()
+      );
+
+      expect(slackCalls()).toHaveLength(1);
+      const [, init] = slackCalls()[0];
+      expect(init.method).toBe("POST");
+      expect(init.signal).toBeInstanceOf(AbortSignal);
+      const text = JSON.parse(init.body).text as string;
+      expect(text).toContain("check-alerts");
+      expect(text).toContain("HTTP 401");
+      expect(text).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+      // No secrets and no origin URL in the alert
+      expect(init.body).not.toContain("onrender.com");
+      expect(init.body).not.toContain("test-api-key");
+      expect(init.body).not.toContain(WEBHOOK);
+    });
+
+    it("should post once after the cold-start retry also fails", async () => {
+      vi.useFakeTimers();
+
+      mockFetch
+        .mockResolvedValueOnce(new Response("Bad Gateway", { status: 502 }))
+        .mockResolvedValueOnce(new Response("Still down", { status: 503 }))
+        .mockResolvedValueOnce(new Response("ok", { status: 200 }));
+
+      const promise = handleScheduled(
+        createMockController("0 */6 * * *"),
+        envWithWebhook(),
+        createMockCtx()
+      );
+      await vi.advanceTimersByTimeAsync(35_000);
+      await promise;
+
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(slackCalls()).toHaveLength(1);
+      const text = JSON.parse(slackCalls()[0][1].body).text as string;
+      expect(text).toContain("price-sync");
+      expect(text).toContain("HTTP 503");
+
+      vi.useRealTimers();
+    });
+
+    it("should post once to Slack when the origin fetch throws", async () => {
+      mockFetch
+        .mockRejectedValueOnce(
+          new Error("connect failed https://electricity-optimizer.onrender.com")
+        )
+        .mockResolvedValueOnce(new Response("ok", { status: 200 }));
+
+      await handleScheduled(
+        createMockController("30 */6 * * *"),
+        envWithWebhook(),
+        createMockCtx()
+      );
+
+      expect(slackCalls()).toHaveLength(1);
+      const body = slackCalls()[0][1].body as string;
+      expect(JSON.parse(body).text).toContain("observe-forecasts");
+      expect(JSON.parse(body).text).toContain("fetch error");
+      expect(body).not.toContain("onrender.com");
+    });
+
+    it("should post nothing on success", async () => {
+      mockFetch.mockResolvedValueOnce(new Response("{}", { status: 200 }));
+
+      await handleScheduled(
+        createMockController(),
+        envWithWebhook(),
+        createMockCtx()
+      );
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(slackCalls()).toHaveLength(0);
+    });
+
+    it("should post nothing when a cold-start retry succeeds", async () => {
+      vi.useFakeTimers();
+
+      mockFetch
+        .mockResolvedValueOnce(new Response("Bad Gateway", { status: 502 }))
+        .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+
+      const promise = handleScheduled(
+        createMockController(),
+        envWithWebhook(),
+        createMockCtx()
+      );
+      await vi.advanceTimersByTimeAsync(35_000);
+      await promise;
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(slackCalls()).toHaveLength(0);
+
+      vi.useRealTimers();
+    });
+
+    it("should post nothing when the webhook secret is unset", async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response("Server Error", { status: 500 })
+      );
+
+      await handleScheduled(
+        createMockController(),
+        createMockEnv(),
+        createMockCtx()
+      );
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining("check-alerts failed: 500")
+      );
+    });
+
+    it("should swallow a rejected webhook fetch", async () => {
+      mockFetch
+        .mockResolvedValueOnce(new Response("Server Error", { status: 500 }))
+        .mockRejectedValueOnce(new Error(`timeout calling ${WEBHOOK}`));
+
+      await expect(
+        handleScheduled(
+          createMockController(),
+          envWithWebhook(),
+          createMockCtx()
+        )
+      ).resolves.toBeUndefined();
+
+      expect(slackCalls()).toHaveLength(1);
+      // The swallowed error must not leak the webhook URL into logs
+      const logged = JSON.stringify([
+        ...(console.warn as any).mock.calls,
+        ...(console.error as any).mock.calls,
+      ]);
+      expect(logged).not.toContain(WEBHOOK);
+    });
+
+    it("should swallow a non-2xx webhook response", async () => {
+      mockFetch
+        .mockResolvedValueOnce(new Response("Server Error", { status: 500 }))
+        .mockResolvedValueOnce(new Response("no_service", { status: 404 }));
+
+      await expect(
+        handleScheduled(
+          createMockController(),
+          envWithWebhook(),
+          createMockCtx()
+        )
+      ).resolves.toBeUndefined();
+
+      expect(slackCalls()).toHaveLength(1);
+    });
+
+    it("should never alert for the keep-alive route", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("Network error"));
+
+      await handleScheduled(
+        createMockController("*/10 * * * *"),
+        envWithWebhook(),
+        createMockCtx()
+      );
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(slackCalls()).toHaveLength(0);
+    });
+  });
 });

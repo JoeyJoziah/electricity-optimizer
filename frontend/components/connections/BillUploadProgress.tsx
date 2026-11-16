@@ -1,10 +1,10 @@
-import React from 'react'
-import { Loader2 } from 'lucide-react'
-import type { ParseResult } from './BillUploadTypes'
+import React from "react";
+import { Loader2 } from "lucide-react";
+import type { ParseResult } from "./BillUploadTypes";
 
 interface BillUploadProgressBarProps {
-  uploading: boolean
-  uploadProgress: number
+  uploading: boolean;
+  uploadProgress: number;
 }
 
 export function BillUploadProgressBar({
@@ -12,7 +12,7 @@ export function BillUploadProgressBar({
   uploadProgress,
 }: BillUploadProgressBarProps) {
   if (!uploading && !(uploadProgress > 0 && uploadProgress < 100)) {
-    return null
+    return null;
   }
 
   return (
@@ -33,12 +33,12 @@ export function BillUploadProgressBar({
         />
       </div>
     </div>
-  )
+  );
 }
 
 interface BillUploadProcessingStatusProps {
-  parseResult: ParseResult
-  pollCount: number
+  parseResult: ParseResult;
+  pollCount: number;
 }
 
 export function BillUploadProcessingStatus({
@@ -49,18 +49,16 @@ export function BillUploadProcessingStatus({
     <div className="flex flex-col items-center justify-center rounded-xl border border-primary-200 bg-primary-50 p-8">
       <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
       <p className="mt-4 text-sm font-medium text-primary-700">
-        {parseResult.status === 'pending'
-          ? 'Queued for processing...'
-          : 'Analyzing your bill...'}
+        {parseResult.status === "pending"
+          ? "Queued for processing..."
+          : "Analyzing your bill..."}
       </p>
       <p className="mt-1 text-xs text-primary-500">
         This usually takes 10-30 seconds
       </p>
       {pollCount > 10 && (
-        <p className="mt-2 text-xs text-primary-400">
-          Still working on it...
-        </p>
+        <p className="mt-2 text-xs text-primary-400">Still working on it...</p>
       )}
     </div>
-  )
+  );
 }

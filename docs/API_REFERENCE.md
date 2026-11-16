@@ -718,23 +718,6 @@ Get detailed information about a supplier.
 
 ---
 
-### GET /suppliers/{supplier_id}/tariffs
-
-Get tariffs offered by a supplier.
-
-> **Deprecated**: `tariffs` is deprecated. Pricing now comes from the `supplier_offers`-backed `GET /suppliers` (pricing fields) and `POST /suppliers/recommend` — see [ADR-012](adr/012-vendor-neutral-supplier-pricing.md).
-
-**Authentication**: Not required
-
-**Path Parameters:**
-- `supplier_id` (required): UUID of the supplier
-
-**Query Parameters:**
-- `utility_type` (optional): Filter by utility type
-- `available_only` (optional): Show only available tariffs (default true)
-
----
-
 ### GET /suppliers/region/{region}
 
 Get all suppliers available in a region.

@@ -3,14 +3,13 @@ Tests for the Internal Agent-Switcher API endpoints.
 
 Covers:
 - POST /internal/agent-switcher/scan             — trigger decision engine for enrolled users
-- POST /internal/agent-switcher/sync-plans       — refresh available-plans cache per zip
 - POST /internal/agent-switcher/cleanup-meter-data — drop/create meter_readings partitions
 
 Note: internal router uses lazy imports (inside endpoint functions), so patches
 target the service modules directly rather than api.v1.internal.
 """
 
-from datetime import UTC
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -86,10 +85,10 @@ class TestAgentSwitcherAuth:
         response = unauth_client.post(f"{BASE_URL}/scan")
         assert response.status_code == 401
 
-    def test_sync_plans_no_api_key_rejected(self, unauth_client):
-        """POST /sync-plans without X-API-Key must be rejected with 401."""
-        response = unauth_client.post(f"{BASE_URL}/sync-plans")
-        assert response.status_code == 401
+    def test_sync_plans_endpoint_removed(self, auth_client):
+        """The EnergyBot plan-sync endpoint no longer exists."""
+        response = auth_client.post(f"{BASE_URL}/sync-plans")
+        assert response.status_code == 404
 
     def test_cleanup_no_api_key_rejected(self, unauth_client):
         """POST /cleanup-meter-data without X-API-Key must be rejected with 401."""
@@ -129,8 +128,22 @@ class TestAgentSwitcherScan:
             "cooldown_days": cooldown_days,
             "paused_until": paused_until,
             "subscription_tier": subscription_tier,
+            "region": "us_ct",
         }[key]
         return row
+
+    @pytest.fixture(autouse=True)
+    def _stub_context_builder(self):
+        """These tests mock the engine; stub the DB-backed context builder too."""
+        from services.switch_decision_engine import UserContext
+
+        async def _build(db, user_id, **kwargs):
+            return UserContext(user_id=user_id, tier=kwargs.get("tier") or "free")
+
+        with patch(
+            "services.switch_context_builder.build_user_context", side_effect=_build
+        ) as stub:
+            yield stub
 
     # ------------------------------------------------------------------
     # No enrolled users → returns all zeros
@@ -152,6 +165,10 @@ class TestAgentSwitcherScan:
             "switches_initiated": 0,
             "recommendations_sent": 0,
             "holds": 0,
+            "users_without_plan_data": 0,
+            "users_without_market_data": 0,
+            "users_without_usage_data": 0,
+            "users_with_estimates_only": 0,
         }
 
     # ------------------------------------------------------------------
@@ -245,8 +262,14 @@ class TestAgentSwitcherScan:
         mock_engine_cls.return_value = mock_engine
 
         mock_exec = MagicMock()
+        # A (future) real executor reports executed=True.
         mock_exec.execute_switch = AsyncMock(
-            return_value={"execution_id": "exec-1", "status": "initiated", "enrollment_id": "enr-1"}
+            return_value={
+                "execution_id": "exec-1",
+                "status": "initiated",
+                "enrollment_id": "enr-1",
+                "executed": True,
+            }
         )
         mock_exec_cls.return_value = mock_exec
 
@@ -259,6 +282,71 @@ class TestAgentSwitcherScan:
         assert data["recommendations_sent"] == 0
         assert data["holds"] == 0
         mock_exec.execute_switch.assert_awaited_once()
+        # The scan's own audit row is reused rather than duplicated.
+        kwargs = mock_exec.execute_switch.await_args.kwargs
+        assert kwargs["audit_log_id"]
+        assert kwargs["trigger_type"] == "market_scan"
+
+    @patch("services.switch_decision_engine.SwitchDecisionEngine")
+    def test_scan_advisory_switch_is_counted_as_recommendation(
+        self, mock_engine_cls, auth_client, mock_db
+    ):
+        """Advisory-only: a 'switch' decision must never be reported as a switch.
+
+        Uses the real SwitchExecutionService, whose only executor is advisory.
+        """
+        from decimal import Decimal
+
+        from services.switch_decision_engine import PlanDetails, SwitchDecision
+
+        row = self._make_settings_row(subscription_tier="business")
+        user_result = MagicMock()
+        user_result.mappings.return_value.all.return_value = [row]
+
+        async def _execute(statement, params=None):
+            sql = str(statement)
+            result = MagicMock()
+            if "FROM user_agent_settings uas" in sql:
+                return user_result
+            if "WHERE idempotency_key" in sql:
+                result.mappings.return_value.first.return_value = None
+            return result
+
+        mock_db.execute = AsyncMock(side_effect=_execute)
+        mock_db.commit = AsyncMock()
+        mock_db.rollback = AsyncMock()
+
+        mock_engine = MagicMock()
+        mock_engine.evaluate = AsyncMock(
+            return_value=SwitchDecision(
+                action="switch",
+                reason="Found a better plan saving ~$15.00/month.",
+                proposed_plan=PlanDetails(
+                    plan_id="plan-abc",
+                    plan_name="Best Value 12M",
+                    provider_name="AcmePower",
+                    rate_kwh=Decimal("0.08"),
+                ),
+                projected_savings_monthly=Decimal("15.00"),
+                projected_savings_annual=Decimal("180.00"),
+                confidence=Decimal("0.90"),
+                data_source="utilityapi_60min",
+            )
+        )
+        mock_engine_cls.return_value = mock_engine
+
+        response = auth_client.post(f"{BASE_URL}/scan")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["switches_initiated"] == 0
+        assert data["recommendations_sent"] == 1
+        statuses = [
+            c[0][1]["status"]
+            for c in mock_db.execute.call_args_list
+            if "UPDATE switch_executions" in str(c[0][0])
+        ]
+        assert statuses == ["advisory_only"]
 
     # ------------------------------------------------------------------
     # Recommend decision → only audit logged, no execution
@@ -374,113 +462,206 @@ class TestAgentSwitcherScan:
 
 
 # =============================================================================
-# POST /internal/agent-switcher/sync-plans
+# POST /internal/agent-switcher/scan — real context builder + real engine
 # =============================================================================
 
 
-class TestAgentSwitcherSyncPlans:
-    """Tests for POST /api/v1/internal/agent-switcher/sync-plans."""
+class TestAgentSwitcherScanEndToEnd:
+    """Scan with the real builder and engine; only the DB and offers are faked."""
 
-    # ------------------------------------------------------------------
-    # No active zip codes → returns zeros
-    # ------------------------------------------------------------------
+    USER_ID = "11111111-1111-1111-1111-111111111111"
+    PLAN_ID = "22222222-2222-2222-2222-222222222222"
 
-    def test_sync_plans_no_zip_codes_returns_zeros(self, auth_client, mock_db):
-        """When no active enrolled users have a zip code, return zeros."""
-        result_mock = MagicMock()
-        result_mock.fetchall.return_value = []
-        mock_db.execute = AsyncMock(return_value=result_mock)
+    def _settings_row(self, tier: str = "pro") -> dict:
+        return {
+            "user_id": self.USER_ID,
+            "enabled": True,
+            "loa_signed_at": datetime(2026, 1, 1, tzinfo=UTC),
+            "loa_revoked_at": None,
+            "savings_threshold_pct": 10.0,
+            "savings_threshold_min": 10.0,
+            "cooldown_days": 5,
+            "paused_until": None,
+            "subscription_tier": tier,
+            "region": "us_ct",
+        }
 
-        response = auth_client.post(f"{BASE_URL}/sync-plans")
+    def _wire_db(self, mock_db, *, plan: dict | None, usage: dict | None, rows=None):
+        def _result(*, first=None, all_=None):
+            result = MagicMock()
+            result.mappings.return_value.first.return_value = first
+            result.mappings.return_value.all.return_value = all_ or []
+            return result
+
+        async def _execute(statement, params=None):
+            sql = str(statement)
+            if "FROM user_agent_settings uas" in sql:
+                return _result(all_=rows if rows is not None else [self._settings_row()])
+            if "FROM public.user_plans" in sql:
+                return _result(first=plan)
+            if "FROM public.meter_readings" in sql:
+                return _result(first=usage)
+            if "FROM public.switch_executions" in sql:
+                return _result(all_=[])
+            return MagicMock()
+
+        mock_db.execute = AsyncMock(side_effect=_execute)
+        mock_db.commit = AsyncMock()
+        mock_db.rollback = AsyncMock()
+
+    def _plan(self) -> dict:
+        return {
+            "id": self.PLAN_ID,
+            "plan_name": "Standard Offer",
+            "provider_name": "Incumbent Utility",
+            "rate_kwh": "0.20",
+            "fixed_charge": "0",
+            "term_months": None,
+            "etf_amount": "0",
+            "contract_end": None,
+        }
+
+    @staticmethod
+    def _usage() -> dict:
+        # 60 days of hourly Arcadia data, 2000 kWh -> ~1014 kWh/month.
+        return {
+            "source": "arcadia",
+            "interval_minutes": 60,
+            "total_kwh": "2000",
+            "first_reading": datetime(2026, 9, 1, tzinfo=UTC),
+            "last_reading": datetime(2026, 10, 31, tzinfo=UTC),
+        }
+
+    @staticmethod
+    def _offer_repo(offers: dict):
+        repo = MagicMock()
+        repo.cheapest_available_by_supplier = AsyncMock(return_value=offers)
+        return MagicMock(return_value=repo)
+
+    def _audit_params(self, mock_db) -> dict:
+        calls = [
+            c
+            for c in mock_db.execute.call_args_list
+            if "INSERT INTO switch_audit_log" in str(c[0][0])
+        ]
+        assert len(calls) == 1
+        return calls[0][0][1]
+
+    def test_current_plan_and_cheaper_offer_yields_recommendation(self, auth_client, mock_db):
+        """Fails on the old code, which never loaded a plan or offers (always hold)."""
+        from models.supplier_offer import SupplierOffer
+
+        self._wire_db(mock_db, plan=self._plan(), usage=self._usage())
+        offers = {
+            "sup-1": SupplierOffer(
+                supplier_name="Cheaper Co",
+                supplier_id="sup-1",
+                rate_per_kwh=0.12,
+                source="ct_rate_board",
+                source_ref="offer-123",
+                region="us_ct",
+            )
+        }
+
+        with patch(
+            "services.switch_context_builder.SupplierOfferRepository", self._offer_repo(offers)
+        ):
+            response = auth_client.post(f"{BASE_URL}/scan")
 
         assert response.status_code == 200
         data = response.json()
-        assert data == {"zip_codes_synced": 0, "plans_fetched": 0}
+        assert data["scanned"] == 1
+        assert data["recommendations_sent"] == 1
+        assert data["holds"] == 0
+        assert data["switches_initiated"] == 0
+        assert data["users_without_plan_data"] == 0
+        assert data["users_without_market_data"] == 0
+        assert data["users_without_usage_data"] == 0
+        assert data["users_with_estimates_only"] == 0
 
-    # ------------------------------------------------------------------
-    # One zip code — plans fetched successfully
-    # ------------------------------------------------------------------
+        params = self._audit_params(mock_db)
+        assert params["decision"] == "recommend"
+        assert params["current_plan_id"] == self.PLAN_ID
+        assert params["tier"] == "pro"
+        assert params["savings_monthly"] > 10
+        assert params["data_source"] == "arcadia_60min"
+        assert "Proposed: Cheaper Co (fixed) at $0.12/kWh." in params["reason"]
+        assert "estimate" not in params["reason"]
 
-    @patch("services.energybot_service.EnergyBotService")
-    def test_sync_plans_one_zip_fetched(self, mock_svc_cls, auth_client, mock_db):
-        """A single zip returns 2 plans — summary reflects that."""
-        result_mock = MagicMock()
-        result_mock.fetchall.return_value = [("10001",)]
-        mock_db.execute = AsyncMock(return_value=result_mock)
+    def test_estimates_only_is_a_hold_naming_no_supplier(self, auth_client, mock_db):
+        """Estimates only: hold, counted separately, no supplier or plan named.
 
-        mock_svc = MagicMock()
-        mock_svc.fetch_plans = AsyncMock(
-            return_value=[
-                {"id": "plan-1", "plan_name": "Budget 12M", "rate_kwh": 0.09},
-                {"id": "plan-2", "plan_name": "Green 6M", "rate_kwh": 0.10},
-            ]
-        )
-        mock_svc_cls.return_value = mock_svc
+        Fails on the old code, which sent a recommendation naming the supplier.
+        """
+        from models.supplier_offer import SupplierOffer
 
-        response = auth_client.post(f"{BASE_URL}/sync-plans")
+        self._wire_db(mock_db, plan=self._plan(), usage=self._usage())
+        offers = {
+            "sup-1": SupplierOffer(
+                supplier_name="Some Supplier",
+                supplier_id="sup-1",
+                rate_per_kwh=0.12,
+                source="regional_estimate",
+                is_estimate=True,
+                region="us_ct",
+            )
+        }
 
-        assert response.status_code == 200
+        with patch(
+            "services.switch_context_builder.SupplierOfferRepository", self._offer_repo(offers)
+        ):
+            response = auth_client.post(f"{BASE_URL}/scan")
+
         data = response.json()
-        assert data["zip_codes_synced"] == 1
-        assert data["plans_fetched"] == 2
-        mock_svc.fetch_plans.assert_awaited_once_with("10001")
+        assert data["recommendations_sent"] == 0
+        assert data["switches_initiated"] == 0
+        assert data["holds"] == 1
+        assert data["users_with_estimates_only"] == 1
+        params = self._audit_params(mock_db)
+        assert params["decision"] == "hold"
+        assert params["data_source"] == "arcadia_60min+market_estimate"
+        assert "Only estimated regional rates are available" in params["reason"]
+        assert "Estimated potential saving versus the regional estimate" in params["reason"]
+        assert "Some Supplier" not in params["reason"]
+        assert "Proposed:" not in params["reason"]
+        # The engine's saving is still reported, as an estimate.
+        assert params["savings_monthly"] > 10
+        # Unknown data_source -> engine's lowest base confidence (0.40), not arcadia's 0.90.
+        assert params["confidence_score"] <= 0.40
 
-    # ------------------------------------------------------------------
-    # Multiple zip codes all succeed
-    # ------------------------------------------------------------------
+    def test_counts_missing_data_and_warns_when_no_user_has_a_plan(self, auth_client, mock_db):
+        self._wire_db(mock_db, plan=None, usage=None)
 
-    @patch("services.energybot_service.EnergyBotService")
-    def test_sync_plans_multiple_zips(self, mock_svc_cls, auth_client, mock_db):
-        """Three zip codes each fetch 1 plan — totals = 3 synced, 3 fetched."""
-        result_mock = MagicMock()
-        result_mock.fetchall.return_value = [("10001",), ("77002",), ("60601",)]
-        mock_db.execute = AsyncMock(return_value=result_mock)
+        with (
+            patch("services.switch_context_builder.SupplierOfferRepository", self._offer_repo({})),
+            patch("api.v1.internal.agent_switcher.logger") as mock_logger,
+        ):
+            response = auth_client.post(f"{BASE_URL}/scan")
 
-        mock_svc = MagicMock()
-        mock_svc.fetch_plans = AsyncMock(
-            return_value=[{"id": "p1", "plan_name": "Plan A", "rate_kwh": 0.08}]
-        )
-        mock_svc_cls.return_value = mock_svc
-
-        response = auth_client.post(f"{BASE_URL}/sync-plans")
-
-        assert response.status_code == 200
         data = response.json()
-        assert data["zip_codes_synced"] == 3
-        assert data["plans_fetched"] == 3
-        assert mock_svc.fetch_plans.await_count == 3
+        assert data["scanned"] == 1
+        assert data["holds"] == 1
+        assert data["recommendations_sent"] == 0
+        assert data["users_without_plan_data"] == 1
+        assert data["users_without_market_data"] == 1
+        assert data["users_without_usage_data"] == 1
+        warning_events = [c[0][0] for c in mock_logger.warning.call_args_list]
+        assert "agent_switcher_scan_no_plan_data_for_any_user" in warning_events
+        assert self._audit_params(mock_db)["data_source"] == "none"
 
-    # ------------------------------------------------------------------
-    # Fetch error on one zip — others continue
-    # ------------------------------------------------------------------
+    def test_no_warning_when_a_user_has_plan_data(self, auth_client, mock_db):
+        self._wire_db(mock_db, plan=self._plan(), usage=self._usage())
 
-    @patch("services.energybot_service.EnergyBotService")
-    def test_sync_plans_fetch_error_continues(self, mock_svc_cls, auth_client, mock_db):
-        """An API error for one zip must not abort the others."""
-        result_mock = MagicMock()
-        result_mock.fetchall.return_value = [("10001",), ("bad-zip",)]
-        mock_db.execute = AsyncMock(return_value=result_mock)
+        with (
+            patch("services.switch_context_builder.SupplierOfferRepository", self._offer_repo({})),
+            patch("api.v1.internal.agent_switcher.logger") as mock_logger,
+        ):
+            response = auth_client.post(f"{BASE_URL}/scan")
 
-        call_count = 0
-
-        async def fetch_side_effect(zip_code):
-            nonlocal call_count
-            call_count += 1
-            if zip_code == "bad-zip":
-                raise RuntimeError("EnergyBot API error")
-            return [{"id": "p1", "plan_name": "Plan A", "rate_kwh": 0.08}]
-
-        mock_svc = MagicMock()
-        mock_svc.fetch_plans = AsyncMock(side_effect=fetch_side_effect)
-        mock_svc_cls.return_value = mock_svc
-
-        response = auth_client.post(f"{BASE_URL}/sync-plans")
-
-        assert response.status_code == 200
         data = response.json()
-        # Only "10001" succeeded
-        assert data["zip_codes_synced"] == 1
-        assert data["plans_fetched"] == 1
+        assert data["users_without_plan_data"] == 0
+        assert data["users_without_market_data"] == 1
+        assert mock_logger.warning.call_args_list == []
 
 
 # =============================================================================

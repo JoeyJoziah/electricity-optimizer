@@ -2,7 +2,7 @@
 Drip Email Service
 
 3-email onboarding sequence for new RateShift signups:
-  #1  Welcome      — fires immediately on signup
+  #1  Welcome      — fires immediately on signup; retried by the daily batch if that send failed
   #2  Day-2 value  — Template A (connected) or Template B (pending); snapshotted at batch time
   #3  Day-7 nudge  — Pro upgrade framing, no discount
 
@@ -33,7 +33,63 @@ DAY7_DELAY = timedelta(days=7)
 # exposed here so tests and callers can reference the constant
 DISPATCH_ERROR_RATE_THRESHOLD = 0.02  # 2%
 
+# Welcome retry pass: only enrollments inside this window are retried, so rows
+# that predate the retry pass never suddenly receive a welcome email.
+WELCOME_RETRY_WINDOW = timedelta(days=7)
+# ...and only once the enrollment is older than this, so the retry pass cannot
+# race the inline send that enroll_user() performs right after the INSERT.
+WELCOME_RETRY_GRACE = timedelta(minutes=15)
+
 _UNSUBSCRIBE_BASE = "https://rateshift.app/api/v1/public/unsubscribe"
+
+# Claim-first sends: a stage's ``*_sent_at`` column doubles as the claim. The
+# UPDATE only matches while the column is NULL, so of two overlapping runs
+# exactly one gets a row back and is allowed to send. Static statements per
+# stage (no identifier interpolation).
+_CLAIM_SQL = {
+    "welcome": text("""
+        UPDATE user_drip_state
+        SET welcome_sent_at = NOW(), updated_at = NOW()
+        WHERE user_id = :user_id
+          AND welcome_sent_at IS NULL
+          AND unsubscribed_at IS NULL
+        RETURNING user_id
+    """),
+    "day2": text("""
+        UPDATE user_drip_state
+        SET day2_sent_at = NOW(), day2_template = :tpl, updated_at = NOW()
+        WHERE user_id = :user_id
+          AND day2_sent_at IS NULL
+          AND unsubscribed_at IS NULL
+        RETURNING user_id
+    """),
+    "day7": text("""
+        UPDATE user_drip_state
+        SET day7_sent_at = NOW(), updated_at = NOW()
+        WHERE user_id = :user_id
+          AND day7_sent_at IS NULL
+          AND unsubscribed_at IS NULL
+        RETURNING user_id
+    """),
+}
+
+_RELEASE_SQL = {
+    "welcome": text("""
+        UPDATE user_drip_state
+        SET welcome_sent_at = NULL, updated_at = NOW()
+        WHERE user_id = :user_id
+    """),
+    "day2": text("""
+        UPDATE user_drip_state
+        SET day2_sent_at = NULL, day2_template = NULL, updated_at = NOW()
+        WHERE user_id = :user_id
+    """),
+    "day7": text("""
+        UPDATE user_drip_state
+        SET day7_sent_at = NULL, updated_at = NOW()
+        WHERE user_id = :user_id
+    """),
+}
 
 
 def _make_unsubscribe_url(user_id: str) -> str:
@@ -97,8 +153,84 @@ class DripService:
         return sent
 
     # ------------------------------------------------------------------
+    # Claim helpers
+    # ------------------------------------------------------------------
+
+    async def _claim(self, stage: str, user_id: str, **params: Any) -> bool:
+        """
+        Atomically claim ``stage`` for ``user_id`` and commit.
+
+        Returns True only for the run that flipped the column from NULL; the
+        commit makes the claim visible to a concurrent run before any email
+        leaves, so an overlapping/retried run gets False and sends nothing.
+        """
+        result = await self.db.execute(_CLAIM_SQL[stage], {"user_id": user_id, **params})
+        claimed = result.fetchone() is not None
+        await self.db.commit()
+        return claimed
+
+    async def _release_claim(self, stage: str, user_id: str) -> None:
+        """Reset a claim after a failed send so the next run retries the user."""
+        try:
+            await self.db.execute(_RELEASE_SQL[stage], {"user_id": user_id})
+            await self.db.commit()
+        except Exception:
+            logger.exception("drip_claim_release_failed", stage=stage, user_id=user_id)
+            await self.db.rollback()
+
+    # ------------------------------------------------------------------
     # Daily batch processors (called by /internal/drip/process)
     # ------------------------------------------------------------------
+
+    async def process_welcome_retry_batch(self) -> dict[str, Any]:
+        """
+        Re-send the welcome email to enrolled users whose first send failed.
+
+        enroll_user() sends the welcome once, inline; if that send failed (or
+        the process died before it), ``welcome_sent_at`` stays NULL forever.
+        This pass picks those rows up, bounded to enrollments between
+        WELCOME_RETRY_GRACE and WELCOME_RETRY_WINDOW old.
+
+        Returns summary counts.
+        """
+        now = datetime.now(UTC)
+        result = await self.db.execute(
+            text("""
+                SELECT ds.user_id, u.email, u.name
+                FROM user_drip_state ds
+                JOIN users u ON u.id = ds.user_id
+                WHERE ds.welcome_sent_at IS NULL
+                  AND ds.unsubscribed_at IS NULL
+                  AND ds.enrolled_at >= :oldest
+                  AND ds.enrolled_at <= :newest
+            """),
+            {"oldest": now - WELCOME_RETRY_WINDOW, "newest": now - WELCOME_RETRY_GRACE},
+        )
+        rows = result.mappings().all()
+
+        sent = errors = 0
+        for row in rows:
+            user_id = str(row["user_id"])
+            claimed = False
+            try:
+                claimed = await self._claim("welcome", user_id)
+                if not claimed:
+                    logger.info("drip_welcome_retry_claim_lost", user_id=user_id)
+                    continue
+                ok = await self._send_welcome(user_id=user_id, email=row["email"], name=row["name"])
+                if ok:
+                    sent += 1
+                else:
+                    await self._release_claim("welcome", user_id)
+            except Exception:
+                errors += 1
+                logger.exception("drip_welcome_retry_error", user_id=user_id)
+                await self.db.rollback()
+                if claimed:
+                    await self._release_claim("welcome", user_id)
+
+        logger.info("drip_welcome_retry_batch_complete", total=len(rows), sent=sent, errors=errors)
+        return {"total": len(rows), "sent": sent, "errors": errors}
 
     async def process_day2_batch(self) -> dict[str, Any]:
         """
@@ -152,7 +284,15 @@ class DripService:
             is_connected = row["has_connection"] or row["has_bill"]
             template_key = "connected" if is_connected else "pending"
 
+            claimed = False
             try:
+                # Claim before sending: an overlapping run sees day2_sent_at
+                # already set and skips this user instead of double-sending.
+                claimed = await self._claim("day2", user_id, tpl=template_key)
+                if not claimed:
+                    logger.info("drip_day2_claim_lost", user_id=user_id)
+                    continue
+
                 unsub_url = _make_unsubscribe_url(user_id)
                 if is_connected:
                     annual_savings = row["potential_savings_annual"]
@@ -176,23 +316,15 @@ class DripService:
                     if ok:
                         sent_b += 1
 
-                if ok:
-                    await self.db.execute(
-                        text("""
-                            UPDATE user_drip_state
-                            SET day2_sent_at = NOW(),
-                                day2_template = :tpl,
-                                updated_at = NOW()
-                            WHERE user_id = :user_id
-                        """),
-                        {"user_id": user_id, "tpl": template_key},
-                    )
-                    await self.db.commit()
+                if not ok:
+                    await self._release_claim("day2", user_id)
 
             except Exception:
                 errors += 1
                 logger.exception("drip_day2_error", user_id=user_id)
                 await self.db.rollback()
+                if claimed:
+                    await self._release_claim("day2", user_id)
 
         total = len(rows)
         logger.info(
@@ -229,7 +361,13 @@ class DripService:
         sent = errors = 0
         for row in rows:
             user_id = str(row["user_id"])
+            claimed = False
             try:
+                claimed = await self._claim("day7", user_id)
+                if not claimed:
+                    logger.info("drip_day7_claim_lost", user_id=user_id)
+                    continue
+
                 ok = await self._send_day7_upgrade(
                     user_id=user_id,
                     email=row["email"],
@@ -238,19 +376,14 @@ class DripService:
                 )
                 if ok:
                     sent += 1
-                    await self.db.execute(
-                        text("""
-                            UPDATE user_drip_state
-                            SET day7_sent_at = NOW(), updated_at = NOW()
-                            WHERE user_id = :user_id
-                        """),
-                        {"user_id": user_id},
-                    )
-                    await self.db.commit()
+                else:
+                    await self._release_claim("day7", user_id)
             except Exception:
                 errors += 1
                 logger.exception("drip_day7_error", user_id=user_id)
                 await self.db.rollback()
+                if claimed:
+                    await self._release_claim("day7", user_id)
 
         logger.info("drip_day7_batch_complete", total=len(rows), sent=sent, errors=errors)
         return {"total": len(rows), "sent": sent, "errors": errors}

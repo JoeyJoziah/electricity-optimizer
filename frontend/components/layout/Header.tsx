@@ -1,34 +1,34 @@
-'use client'
+"use client";
 
-import React from 'react'
-import { RefreshCw, Menu } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { useRefreshPrices } from '@/lib/hooks/usePrices'
-import { useSidebar } from '@/lib/contexts/sidebar-context'
-import { NotificationBell } from '@/components/layout/NotificationBell'
+import React from "react";
+import { RefreshCw, Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useRefreshPrices } from "@/lib/hooks/usePrices";
+import { useSidebar } from "@/lib/contexts/sidebar-context";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
 // Import cn for the component
-import { cn } from '@/lib/utils/cn'
+import { cn } from "@/lib/utils/cn";
 
 interface HeaderProps {
-  title: string
+  title: string;
   /** @deprecated Use SidebarProvider context instead. Kept for backward compatibility. */
-  onMenuClick?: () => void
+  onMenuClick?: () => void;
 }
 
 export function Header({ title, onMenuClick }: HeaderProps) {
-  const refreshPrices = useRefreshPrices()
-  const [isRefreshing, setIsRefreshing] = React.useState(false)
-  const sidebar = useSidebar()
+  const refreshPrices = useRefreshPrices();
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const sidebar = useSidebar();
 
-  const handleMenuClick = onMenuClick ?? sidebar.toggle
+  const handleMenuClick = onMenuClick ?? sidebar.toggle;
 
   const handleRefresh = async () => {
-    setIsRefreshing(true)
-    refreshPrices()
+    setIsRefreshing(true);
+    refreshPrices();
     // Simulate delay for UX
-    setTimeout(() => setIsRefreshing(false), 1000)
-  }
+    setTimeout(() => setIsRefreshing(false), 1000);
+  };
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 lg:px-6">
@@ -69,10 +69,7 @@ export function Header({ title, onMenuClick }: HeaderProps) {
           aria-label="Refresh data"
         >
           <RefreshCw
-            className={cn(
-              'h-4 w-4',
-              isRefreshing && 'animate-spin'
-            )}
+            className={cn("h-4 w-4", isRefreshing && "animate-spin")}
           />
         </Button>
 
@@ -80,5 +77,5 @@ export function Header({ title, onMenuClick }: HeaderProps) {
         <NotificationBell />
       </div>
     </header>
-  )
+  );
 }

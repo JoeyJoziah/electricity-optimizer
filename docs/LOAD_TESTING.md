@@ -2,7 +2,7 @@
 
 **Last Updated**: 2026-03-16
 **Tool**: k6 (Grafana)
-**Script**: `scripts/load_test.js`
+**Script**: `tests/load/k6/load_test.js`
 **Target**: 2000 concurrent users, >95% success rate, p99 latency <2s
 
 ---
@@ -85,7 +85,7 @@ Run this first to verify the backend is warm and the script is working.
 Safe to run from a laptop; no distributed infrastructure needed.
 
 ```bash
-k6 run --env SCENARIO=smoke scripts/load_test.js
+k6 run --env SCENARIO=smoke tests/load/k6/load_test.js
 ```
 
 Expected outcome: all thresholds pass, p99 < 500ms from a warm Render instance.
@@ -96,7 +96,7 @@ A mid-level regression check. Run this in CI or before deploying a performance
 fix.
 
 ```bash
-k6 run --env SCENARIO=standard scripts/load_test.js
+k6 run --env SCENARIO=standard tests/load/k6/load_test.js
 ```
 
 ### Full SLA Test (2000 VUs — 6 minutes)
@@ -110,14 +110,14 @@ per-IP rate limiter.
 k6 login cloud --token <your-k6-cloud-token>
 
 # Run on k6 Cloud infrastructure
-k6 cloud scripts/load_test.js
+k6 cloud tests/load/k6/load_test.js
 ```
 
 To run locally (single IP — 429s from rate limiter are expected and tolerated
 by the 95% success threshold):
 
 ```bash
-k6 run scripts/load_test.js
+k6 run tests/load/k6/load_test.js
 ```
 
 ### Spike Test
@@ -125,7 +125,7 @@ k6 run scripts/load_test.js
 Validates recovery from a sudden traffic surge.
 
 ```bash
-k6 run --env SCENARIO=spike scripts/load_test.js
+k6 run --env SCENARIO=spike tests/load/k6/load_test.js
 ```
 
 ### Soak Test (500 VUs — ~34 minutes)
@@ -134,7 +134,7 @@ Surfaces memory leaks, connection-pool exhaustion, and DB connection recycling
 issues that only appear under sustained load.
 
 ```bash
-k6 run --env SCENARIO=soak scripts/load_test.js
+k6 run --env SCENARIO=soak tests/load/k6/load_test.js
 ```
 
 ---
@@ -152,10 +152,10 @@ All options are passed as `--env` flags.
 
 ```bash
 # Point at a staging backend
-k6 run --env BASE_URL=https://staging.api.rateshift.app scripts/load_test.js
+k6 run --env BASE_URL=https://staging.api.rateshift.app tests/load/k6/load_test.js
 
 # Run smoke against local development server
-k6 run --env SCENARIO=smoke --env BASE_URL=http://localhost:8000 scripts/load_test.js
+k6 run --env SCENARIO=smoke --env BASE_URL=http://localhost:8000 tests/load/k6/load_test.js
 ```
 
 ---
@@ -263,7 +263,7 @@ load-smoke:
     - name: Run smoke load test
       env:
         BASE_URL: https://api.rateshift.app
-      run: k6 run --env SCENARIO=smoke --env BASE_URL=$BASE_URL scripts/load_test.js
+      run: k6 run --env SCENARIO=smoke --env BASE_URL=$BASE_URL tests/load/k6/load_test.js
 ```
 
 ---
@@ -272,7 +272,7 @@ load-smoke:
 
 The project already has a Locust-based load test suite in `tests/load/`:
 
-| Feature | Locust (`tests/load/`) | k6 (`scripts/load_test.js`) |
+| Feature | Locust (`tests/load/`) | k6 (`tests/load/k6/load_test.js`) |
 |---|---|---|
 | Target | Local/staging | Production |
 | Peak VUs | 2000 (stress mode) | 2000 (full mode) |

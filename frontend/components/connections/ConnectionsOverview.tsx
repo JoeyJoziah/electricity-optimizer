@@ -1,98 +1,107 @@
-'use client'
+"use client";
 
-import React, { useState, useCallback } from 'react'
-import { ConnectionMethodPicker } from './ConnectionMethodPicker'
-import { ConnectionCard } from './ConnectionCard'
-import { DirectLoginForm } from './DirectLoginForm'
-import { EmailConnectionFlow } from './EmailConnectionFlow'
-import { ConnectionUploadFlow } from './ConnectionUploadFlow'
-import { PortalConnectionFlow } from './PortalConnectionFlow'
-import { ConnectionRates } from './ConnectionRates'
-import { ConnectionAnalytics } from './ConnectionAnalytics'
-import { cn } from '@/lib/utils/cn'
-import { useConnections } from '@/lib/hooks/useConnections'
-import { useQueryClient } from '@tanstack/react-query'
-import { Link2, ArrowLeft, Loader2 } from 'lucide-react'
+import React, { useState, useCallback } from "react";
+import { ConnectionMethodPicker } from "./ConnectionMethodPicker";
+import { ConnectionCard } from "./ConnectionCard";
+import { DirectLoginForm } from "./DirectLoginForm";
+import { EmailConnectionFlow } from "./EmailConnectionFlow";
+import { ConnectionUploadFlow } from "./ConnectionUploadFlow";
+import { PortalConnectionFlow } from "./PortalConnectionFlow";
+import { ConnectionRates } from "./ConnectionRates";
+import { ConnectionAnalytics } from "./ConnectionAnalytics";
+import { cn } from "@/lib/utils/cn";
+import { useConnections } from "@/lib/hooks/useConnections";
+import { useQueryClient } from "@tanstack/react-query";
+import { Link2, ArrowLeft, Loader2 } from "lucide-react";
 
 type View =
-  | 'overview'
-  | 'adding-direct'
-  | 'adding-email'
-  | 'adding-upload'
-  | 'adding-portal'
-  | 'viewing-rates'
+  | "overview"
+  | "adding-direct"
+  | "adding-email"
+  | "adding-upload"
+  | "adding-portal"
+  | "viewing-rates";
 
-type Tab = 'connections' | 'analytics'
+type Tab = "connections" | "analytics";
 
 interface Connection {
-  id: string
-  method: string
-  status: string
-  supplier_name: string | null
-  email_provider: string | null
-  last_sync_at: string | null
-  last_sync_error: string | null
-  current_rate: number | null
-  created_at: string
+  id: string;
+  method: string;
+  status: string;
+  supplier_name: string | null;
+  email_provider: string | null;
+  last_sync_at: string | null;
+  last_sync_error: string | null;
+  current_rate: number | null;
+  created_at: string;
 }
 
 export function ConnectionsOverview() {
-  const [view, setView] = useState<View>('overview')
-  const [tab, setTab] = useState<Tab>('connections')
-  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null)
+  const [view, setView] = useState<View>("overview");
+  const [tab, setTab] = useState<Tab>("connections");
+  const [selectedConnectionId, setSelectedConnectionId] = useState<
+    string | null
+  >(null);
 
-  const queryClient = useQueryClient()
-  const { data, isLoading: loading, error: queryError } = useConnections()
+  const queryClient = useQueryClient();
+  const { data, isLoading: loading, error: queryError } = useConnections();
 
-  const connections: Connection[] = data?.connections || []
-  const is403 = queryError && 'status' in queryError && (queryError as { status: number }).status === 403
-  const error = is403 ? 'upgrade' : queryError ? (queryError as Error).message : null
+  const connections: Connection[] = data?.connections || [];
+  const is403 =
+    queryError &&
+    "status" in queryError &&
+    (queryError as { status: number }).status === 403;
+  const error = is403
+    ? "upgrade"
+    : queryError
+      ? (queryError as Error).message
+      : null;
 
   const refetchConnections = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['connections'] })
-  }, [queryClient])
+    queryClient.invalidateQueries({ queryKey: ["connections"] });
+  }, [queryClient]);
 
   const handleViewRates = useCallback((connectionId: string) => {
-    setSelectedConnectionId(connectionId)
-    setView('viewing-rates')
-  }, [])
+    setSelectedConnectionId(connectionId);
+    setView("viewing-rates");
+  }, []);
 
   const handleBackToOverview = useCallback(() => {
-    setView('overview')
-    setSelectedConnectionId(null)
-    refetchConnections()
-  }, [refetchConnections])
+    setView("overview");
+    setSelectedConnectionId(null);
+    refetchConnections();
+  }, [refetchConnections]);
 
-  if (error === 'upgrade') {
-    return <PaidFeatureGate />
+  if (error === "upgrade") {
+    return <PaidFeatureGate />;
   }
 
   // Rate viewing
-  if (view === 'viewing-rates' && selectedConnectionId) {
-    const conn = connections.find((c) => c.id === selectedConnectionId)
+  if (view === "viewing-rates" && selectedConnectionId) {
+    const conn = connections.find((c) => c.id === selectedConnectionId);
     return (
       <ConnectionRates
         connectionId={selectedConnectionId}
-        connectionMethod={conn?.method || 'unknown'}
+        connectionMethod={conn?.method || "unknown"}
         supplierName={conn?.supplier_name || null}
         onBack={handleBackToOverview}
         onUploadAnother={
-          conn?.method === 'bill_upload' || conn?.method === 'manual_upload'
+          conn?.method === "bill_upload" || conn?.method === "manual_upload"
             ? () => {
-                setView('adding-upload')
+                setView("adding-upload");
               }
             : undefined
         }
       />
-    )
+    );
   }
 
   // Adding a connection
   if (
-    view === 'adding-direct' ||
-    view === 'adding-email' ||
-    view === 'adding-upload' ||
-    view === 'adding-portal'
+    view === "adding-direct" ||
+    view === "adding-email" ||
+    view === "adding-upload" ||
+    view === "adding-portal"
   ) {
     return (
       <div>
@@ -104,60 +113,64 @@ export function ConnectionsOverview() {
           <ArrowLeft className="h-4 w-4" />
           Back to connections
         </button>
-        {view === 'adding-direct' && (
+        {view === "adding-direct" && (
           <DirectLoginForm onComplete={handleBackToOverview} />
         )}
-        {view === 'adding-email' && (
+        {view === "adding-email" && (
           <EmailConnectionFlow onComplete={handleBackToOverview} />
         )}
-        {view === 'adding-upload' && (
+        {view === "adding-upload" && (
           <ConnectionUploadFlow onComplete={handleBackToOverview} />
         )}
-        {view === 'adding-portal' && (
+        {view === "adding-portal" && (
           <PortalConnectionFlow
             onBack={handleBackToOverview}
             onSuccess={() => {
-              queryClient.invalidateQueries({ queryKey: ['connections'] })
-              setView('overview')
+              queryClient.invalidateQueries({ queryKey: ["connections"] });
+              setView("overview");
             }}
           />
         )}
       </div>
-    )
+    );
   }
 
   return (
     <div className="space-y-6">
       {/* Tab navigation */}
-      <div className="flex border-b border-gray-200" role="tablist" aria-label="Connection views">
+      <div
+        className="flex border-b border-gray-200"
+        role="tablist"
+        aria-label="Connection views"
+      >
         <button
           role="tab"
-          aria-selected={tab === 'connections'}
+          aria-selected={tab === "connections"}
           aria-controls="panel-connections"
           id="tab-connections"
-          onClick={() => setTab('connections')}
+          onClick={() => setTab("connections")}
           className={cn(
-            'px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t',
-            tab === 'connections'
-              ? 'border-primary-600 text-primary-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            "px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t",
+            tab === "connections"
+              ? "border-primary-600 text-primary-600"
+              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300",
           )}
         >
           Connections
         </button>
         <button
           role="tab"
-          aria-selected={tab === 'analytics'}
+          aria-selected={tab === "analytics"}
           aria-controls="panel-analytics"
           id="tab-analytics"
-          onClick={() => setTab('analytics')}
+          onClick={() => setTab("analytics")}
           className={cn(
-            'px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t',
-            tab === 'analytics'
-              ? 'border-primary-600 text-primary-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            "px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t",
+            tab === "analytics"
+              ? "border-primary-600 text-primary-600"
+              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300",
           )}
         >
           Analytics
@@ -165,7 +178,7 @@ export function ConnectionsOverview() {
       </div>
 
       {/* Connections tab panel */}
-      {tab === 'connections' && (
+      {tab === "connections" && (
         <div
           role="tabpanel"
           id="panel-connections"
@@ -174,7 +187,10 @@ export function ConnectionsOverview() {
         >
           {/* Loading state */}
           {loading && (
-            <div className="flex items-center justify-center py-12" role="status">
+            <div
+              className="flex items-center justify-center py-12"
+              role="status"
+            >
               <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
               <span className="ml-2 text-sm text-gray-500">
                 Loading connections...
@@ -183,8 +199,11 @@ export function ConnectionsOverview() {
           )}
 
           {/* Error state */}
-          {error && error !== 'upgrade' && (
-            <div className="rounded-xl border border-danger-200 bg-danger-50 p-4 text-center" role="alert">
+          {error && error !== "upgrade" && (
+            <div
+              className="rounded-xl border border-danger-200 bg-danger-50 p-4 text-center"
+              role="alert"
+            >
               <p className="text-sm text-danger-700">{error}</p>
               <button
                 onClick={refetchConnections}
@@ -220,13 +239,15 @@ export function ConnectionsOverview() {
           {!loading && (
             <div>
               <h2 className="mb-4 text-lg font-semibold text-gray-900">
-                {connections.length > 0 ? 'Add Another Connection' : 'Get Started'}
+                {connections.length > 0
+                  ? "Add Another Connection"
+                  : "Get Started"}
               </h2>
               <ConnectionMethodPicker
-                onSelectDirect={() => setView('adding-direct')}
-                onSelectEmail={() => setView('adding-email')}
-                onSelectUpload={() => setView('adding-upload')}
-                onSelectPortal={() => setView('adding-portal')}
+                onSelectDirect={() => setView("adding-direct")}
+                onSelectEmail={() => setView("adding-email")}
+                onSelectUpload={() => setView("adding-upload")}
+                onSelectPortal={() => setView("adding-portal")}
               />
             </div>
           )}
@@ -234,7 +255,7 @@ export function ConnectionsOverview() {
       )}
 
       {/* Analytics tab panel */}
-      {tab === 'analytics' && (
+      {tab === "analytics" && (
         <div
           role="tabpanel"
           id="panel-analytics"
@@ -244,16 +265,28 @@ export function ConnectionsOverview() {
         </div>
       )}
     </div>
-  )
+  );
 }
 
 function PaidFeatureGate() {
   const features = [
-    { label: 'Auto-sync utility rates', description: 'Connect directly to your utility for live rate updates' },
-    { label: 'Email bill scanning', description: 'Forward bills and we extract rates automatically' },
-    { label: 'Rate analytics & history', description: 'Track how your rates change over time' },
-    { label: 'Savings recommendations', description: 'Personalized tips based on your actual usage' },
-  ]
+    {
+      label: "Auto-sync utility rates",
+      description: "Connect directly to your utility for live rate updates",
+    },
+    {
+      label: "Email bill scanning",
+      description: "Forward bills and we extract rates automatically",
+    },
+    {
+      label: "Rate analytics & history",
+      description: "Track how your rates change over time",
+    },
+    {
+      label: "Savings recommendations",
+      description: "Personalized tips based on your actual usage",
+    },
+  ];
 
   return (
     <div className="space-y-8">
@@ -267,8 +300,8 @@ function PaidFeatureGate() {
             Unlock Utility Connections
           </h3>
           <p className="mx-auto mt-2 max-w-md text-gray-600">
-            Connect your utility account to get real-time rates, automated bill tracking,
-            and personalized savings recommendations.
+            Connect your utility account to get real-time rates, automated bill
+            tracking, and personalized savings recommendations.
           </p>
         </div>
 
@@ -277,8 +310,18 @@ function PaidFeatureGate() {
           {features.map((feature) => (
             <div key={feature.label} className="flex items-start gap-3">
               <div className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary-600">
-                <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                <svg
+                  className="h-3 w-3 text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={3}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
               </div>
               <div>
@@ -293,7 +336,8 @@ function PaidFeatureGate() {
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-500">Starting at</p>
           <p className="text-3xl font-bold text-gray-900">
-            $4.99<span className="text-base font-normal text-gray-500">/mo</span>
+            $4.99
+            <span className="text-base font-normal text-gray-500">/mo</span>
           </p>
           <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <a
@@ -308,7 +352,9 @@ function PaidFeatureGate() {
 
       {/* What you can do now */}
       <div className="rounded-xl border border-gray-200 bg-white p-6">
-        <h4 className="font-semibold text-gray-900">What you can do now (free)</h4>
+        <h4 className="font-semibold text-gray-900">
+          What you can do now (free)
+        </h4>
         <ul className="mt-3 space-y-2">
           <li className="flex items-center gap-2 text-sm text-gray-600">
             <span className="h-1.5 w-1.5 rounded-full bg-success-500" />
@@ -333,5 +379,5 @@ function PaidFeatureGate() {
         </div>
       </div>
     </div>
-  )
+  );
 }

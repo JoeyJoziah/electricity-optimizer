@@ -13,10 +13,6 @@ All hooks use [TanStack React Query](https://tanstack.com/query) unless otherwis
   - [useRequireAuth](#userequireauth)
   - [useProfile](#useprofile)
   - [useUpdateProfile](#useupdateprofile)
-  - [useNotifications](#usenotifications)
-  - [useNotificationCount](#usenotificationcount)
-  - [useMarkRead](#usemarkread)
-  - [useMarkAllRead](#usemarkallread)
 - [Pricing](#pricing)
   - [useCurrentPrices](#usecurrentprices)
   - [usePriceHistory](#usepricehistory)
@@ -101,8 +97,6 @@ All hooks use [TanStack React Query](https://tanstack.com/query) unless otherwis
   - [useLinkAccount](#uselinkaccount)
   - [useUserSupplierAccounts](#useusersupplieraccounts)
   - [useUnlinkAccount](#useunlinkaccount)
-- [Location](#location)
-  - [useGeocoding](#usegeocoding)
 - [Real-time](#real-time)
   - [useRealtimePrices](#userealtimeprices)
   - [useRealtimeOptimization](#userealtimeoptimization)
@@ -192,70 +186,6 @@ Mutation hook for updating the user's profile. On success, updates the `['user-p
 ```tsx
 const updateProfile = useUpdateProfile();
 updateProfile.mutate({ region: "NY", onboarding_completed: true });
-```
-
-### useNotifications
-
-**File:** `frontend/lib/hooks/useNotifications.ts`
-
-Fetches the full list of unread notifications. Intended for use when the notification panel is open.
-
-**Parameters:** None
-
-**Returns:** `UseQueryResult<GetNotificationsResponse>` -- `{ notifications: Notification[], total: number }`
-
-**Query Key:** `['notifications']` | **Stale Time:** 30s
-
-```tsx
-const { data } = useNotifications();
-return data?.notifications.map(n => <NotificationItem key={n.id} notification={n} />);
-```
-
-### useNotificationCount
-
-**File:** `frontend/lib/hooks/useNotifications.ts`
-
-Polls the unread notification count every 120 seconds. Used for the bell badge. Pauses polling when the browser tab is hidden.
-
-**Parameters:** None
-
-**Returns:** `UseQueryResult<GetNotificationCountResponse>` -- `{ unread: number }`
-
-**Query Key:** `['notifications', 'count']` | **Stale Time:** 60s | **Refetch Interval:** 120s
-
-```tsx
-const { data } = useNotificationCount();
-return <BellIcon badge={data?.unread ?? 0} />;
-```
-
-### useMarkRead
-
-**File:** `frontend/lib/hooks/useNotifications.ts`
-
-Mutation to mark a single notification as read. Invalidates both the notification list and count queries.
-
-**Parameters (mutationFn):** `id: string`
-
-**Returns:** `UseMutationResult`
-
-```tsx
-const markRead = useMarkRead();
-markRead.mutate(notification.id);
-```
-
-### useMarkAllRead
-
-**File:** `frontend/lib/hooks/useNotifications.ts`
-
-Mutation to mark all unread notifications as read (client-side batch). Invalidates both notification list and count queries.
-
-**Parameters (mutationFn):** None
-
-**Returns:** `UseMutationResult`
-
-```tsx
-const markAllRead = useMarkAllRead();
-<button onClick={() => markAllRead.mutate()}>Mark all read</button>
 ```
 
 ---
@@ -1437,39 +1367,6 @@ Mutation to unlink a specific supplier account.
 **Parameters (mutationFn):** `supplierId: string`
 
 **Returns:** `UseMutationResult<{ message: string }>`
-
----
-
-## Location
-
-### useGeocoding
-
-**File:** `frontend/lib/hooks/useGeocoding.ts`
-
-Imperative geocoding hook that converts an address string to coordinates and state code. Uses `useState`/`useCallback` (not TanStack Query). Handles request deduplication (cancels previous in-flight requests via AbortController) and discards stale responses using a request ID counter.
-
-**Parameters:** None
-
-**Returns:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `geocode` | `(address: string) => Promise<GeocodeResult \| null>` | Trigger a geocode lookup |
-| `loading` | `boolean` | True while geocoding is in progress |
-| `error` | `string \| null` | Last error message |
-
-`GeocodeResult`: `{ lat, lng, state, formatted_address }`
-
-```tsx
-const { geocode, loading, error } = useGeocoding();
-
-const handleSearch = async (address: string) => {
-  const result = await geocode(address);
-  if (result?.state) {
-    setRegion(result.state);
-  }
-};
-```
 
 ---
 

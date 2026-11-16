@@ -54,7 +54,19 @@ RateShift uses **Neon PostgreSQL** (project `cold-rice-23455092`).
 
 For local development:
 - Option A: Connect to Neon production/preview branch (requires access)
-- Option B: Run local PostgreSQL 15+ and apply migrations via `.venv/bin/python -m alembic upgrade head`
+- Option B: Run local PostgreSQL 15+ and apply the migrations yourself (below)
+
+#### Applying migrations
+
+There is no Alembic and no migration runner in the backend. Migrations are raw SQL files in `backend/migrations/`, written to be idempotent (`IF NOT EXISTS`), and are **not** applied at backend startup. Apply them with `psql`, `init_neon.sql` first and then the numbered files in order (this is the same loop `.github/workflows/e2e-tests.yml` uses):
+
+```bash
+for f in backend/migrations/init_neon.sql $(ls backend/migrations/[0-9]*.sql | sort); do
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+done
+```
+
+For Neon, use the direct (non-pooled) endpoint for DDL. A new migration takes the next number (`ls backend/migrations` first), must be idempotent, and must pass the conventions checked by `.github/actions/validate-migrations` (sequential numbering, `init_neon.sql` present, `CREATE TABLE IF NOT EXISTS`, `GRANT`s to `neondb_owner`, no `SERIAL` primary keys), which runs as the Migration Gate in `deploy-production.yml`. That gate only validates the files: no workflow in this repository applies migrations to production, so they have to be applied to Neon by hand (same `psql` loop, or the Neon console) before the code that needs them is deployed.
 
 ## Development Workflow
 
@@ -217,7 +229,7 @@ electricity-optimizer/
 │   ├── api/             # API routes (/api/v1/*)
 │   ├── services/        # Business logic
 │   ├── models/          # SQLAlchemy ORM + Pydantic
-│   ├── migrations/      # Alembic SQL migrations
+│   ├── migrations/      # Raw SQL migrations (applied with psql, no Alembic)
 │   ├── tests/           # pytest test suite
 │   └── requirements.txt
 ├── frontend/            # Next.js 16 application

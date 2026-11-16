@@ -1,20 +1,19 @@
 """
 Switch Executor — Adapter Pattern for Plan Enrollment
 
-Protocol + adapters for executing electricity plan switches through various providers.
-- EnergyBotExecutor: Primary adapter (13 deregulated US states)
-- AdvisoryOnlyFallback: Degrades to recommendation when no executor available
+Protocol + adapters for executing electricity plan switches.
 
-The SwitchExecutor interface prevents single-provider lock-in.
+The product is advisory-only: the single adapter is ``AdvisoryOnlyFallback``,
+which never enrolls anyone and only reports that a recommendation was recorded.
+The ``SwitchExecutor`` protocol and ``get_executor`` factory remain so a real
+enrollment provider can be added later without changing callers.
 """
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 import structlog
-
-from lib.tracing import traced
 
 logger = structlog.get_logger(__name__)
 
@@ -78,116 +77,10 @@ class SwitchExecutor(Protocol):
         ...
 
 
-class EnergyBotExecutor:
-    """Adapter: executes enrollments via EnergyBot API.
-
-    Delegates to EnergyBotService for actual API calls.
-    Handles mapping between internal and EnergyBot data formats.
-    """
-
-    def __init__(self, energybot_service: Any) -> None:
-        self._service = energybot_service
-        self.provider = "energybot"
-
-    async def check_plan_available(self, plan_id: str) -> bool:
-        """Check if plan is still available via EnergyBot."""
-        async with traced(
-            "executor.check_plan",
-            attributes={"executor.plan_id": plan_id},
-        ):
-            try:
-                details = await self._service.get_plan_details(plan_id)
-                available = details.get("status") == "available"
-                logger.info(
-                    "executor_plan_check",
-                    plan_id=plan_id,
-                    available=available,
-                    provider=self.provider,
-                )
-                return available
-            except Exception as e:
-                logger.error(
-                    "executor_plan_check_failed",
-                    plan_id=plan_id,
-                    error=str(e),
-                )
-                return False
-
-    async def execute_enrollment(self, request: EnrollmentRequest) -> EnrollmentResult:
-        """Execute enrollment via EnergyBot API."""
-        async with traced(
-            "executor.execute_enrollment",
-            attributes={
-                "executor.plan_id": request.plan_id,
-                "executor.provider": self.provider,
-            },
-        ):
-            try:
-                # Import here to avoid circular dependency
-                from services.energybot_service import (
-                    EnrollmentRequest as EBRequest,
-                )
-
-                eb_request = EBRequest(
-                    plan_id=request.plan_id,
-                    user_name=request.user_name,
-                    service_address=request.service_address,
-                    zip_code=request.zip_code,
-                    utility_account_number=request.utility_account_number,
-                    idempotency_key=request.idempotency_key,
-                )
-
-                result = await self._service.create_enrollment(eb_request, request.idempotency_key)
-
-                return EnrollmentResult(
-                    success=True,
-                    enrollment_id=result.enrollment_id,
-                    status=result.status,
-                    estimated_switch_date=result.estimated_switch_date,
-                    message=result.message,
-                    provider=self.provider,
-                )
-            except Exception as e:
-                logger.error(
-                    "executor_enrollment_failed",
-                    plan_id=request.plan_id,
-                    error=str(e),
-                    provider=self.provider,
-                )
-                return EnrollmentResult(
-                    success=False,
-                    status="failed",
-                    message=str(e),
-                    provider=self.provider,
-                )
-
-    async def check_enrollment_status(self, enrollment_id: str) -> EnrollmentStatus:
-        """Check enrollment status via EnergyBot."""
-        async with traced(
-            "executor.check_status",
-            attributes={"executor.enrollment_id": enrollment_id},
-        ):
-            result = await self._service.check_enrollment_status(enrollment_id)
-            return EnrollmentStatus(
-                enrollment_id=result.enrollment_id,
-                status=result.status,
-                switch_date=result.switch_date,
-                rejection_reason=result.rejection_reason,
-            )
-
-    async def cancel_enrollment(self, enrollment_id: str) -> bool:
-        """Cancel enrollment via EnergyBot."""
-        async with traced(
-            "executor.cancel",
-            attributes={"executor.enrollment_id": enrollment_id},
-        ):
-            return await self._service.cancel_enrollment(enrollment_id)
-
-
 class AdvisoryOnlyFallback:
     """Fallback executor: degrades to recommendation-only mode.
 
-    Used when no real executor is available for a region/utility.
+    The only executor today (the product is advisory-only).
     Never actually enrolls — just records the recommendation.
     """
 
@@ -216,8 +109,8 @@ class AdvisoryOnlyFallback:
             enrollment_id=None,
             status="advisory_only",
             message=(
-                "No enrollment executor available for this region. "
-                "A recommendation has been logged for the user to act on manually."
+                "RateShift does not enroll on your behalf. "
+                "A recommendation has been logged for you to act on manually."
             ),
             provider=self.provider,
         )
@@ -236,42 +129,19 @@ class AdvisoryOnlyFallback:
         return True
 
 
-def get_executor(
-    region: str,
-    energybot_service: Any | None = None,
-) -> SwitchExecutor:
-    """Factory: get the appropriate executor for a region.
+def get_executor(region: str) -> SwitchExecutor:
+    """Factory: get the executor for a region.
 
-    Returns EnergyBotExecutor if service is available, else AdvisoryOnlyFallback.
+    RateShift is advisory-only: no enrollment provider is integrated, so every
+    region resolves to ``AdvisoryOnlyFallback``. The factory and the
+    ``SwitchExecutor`` protocol are kept so a real executor can be registered
+    here later without touching callers.
 
     Args:
         region: Region string from the Region enum (e.g. "us_tx").
-        energybot_service: Optional EnergyBotService instance. When None,
-            always returns AdvisoryOnlyFallback regardless of region.
 
     Returns:
         An instance satisfying the SwitchExecutor protocol.
     """
-    # EnergyBot supported states (deregulated markets)
-    ENERGYBOT_STATES = {
-        "us_tx",
-        "us_pa",
-        "us_oh",
-        "us_il",
-        "us_ny",
-        "us_nj",
-        "us_md",
-        "us_ct",
-        "us_ma",
-        "us_me",
-        "us_nh",
-        "us_ri",
-        "us_dc",
-    }
-
-    if energybot_service and region.lower() in ENERGYBOT_STATES:
-        logger.info("executor_selected", executor="energybot", region=region)
-        return EnergyBotExecutor(energybot_service)
-
     logger.info("executor_selected", executor="advisory_only", region=region)
     return AdvisoryOnlyFallback()

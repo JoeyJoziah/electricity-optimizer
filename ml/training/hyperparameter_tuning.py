@@ -355,7 +355,7 @@ class HyperparameterTuner:
 
             except Exception as e:
                 logger.error(f"Trial {trial.number} failed: {e}")
-                raise optuna.TrialPruned()
+                raise optuna.TrialPruned() from e
 
         # Optimize
         study.optimize(

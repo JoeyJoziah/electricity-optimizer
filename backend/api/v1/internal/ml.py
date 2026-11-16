@@ -68,7 +68,7 @@ async def observe_forecasts(
         }
     except Exception as e:
         logger.error("observe_forecasts_failed", error=str(e))
-        raise HTTPException(status_code=500, detail="Observation failed. See server logs.")
+        raise HTTPException(status_code=500, detail="Observation failed. See server logs.") from e
 
 
 @router.post("/learn", tags=["Internal"])
@@ -102,7 +102,9 @@ async def run_learning_cycle(
         }
     except Exception as e:
         logger.error("learning_cycle_failed", error=str(e))
-        raise HTTPException(status_code=500, detail="Learning cycle failed. See server logs.")
+        raise HTTPException(
+            status_code=500, detail="Learning cycle failed. See server logs."
+        ) from e
 
 
 @router.get("/observation-stats", tags=["Internal"])
@@ -129,7 +131,7 @@ async def get_observation_stats(
         }
     except Exception as e:
         logger.error("observation_stats_failed", error=str(e))
-        raise HTTPException(status_code=500, detail="See server logs.")
+        raise HTTPException(status_code=500, detail="See server logs.") from e
 
 
 @router.get("/model-versions", tags=["Internal"])
@@ -183,7 +185,7 @@ async def compare_model_versions(
         result = await svc.compare_versions(body.version_a_id, body.version_b_id)
     except ValueError as exc:
         logger.warning("model_version_compare_not_found", error=str(exc))
-        raise HTTPException(status_code=404, detail="Model version not found.")
+        raise HTTPException(status_code=404, detail="Model version not found.") from exc
 
     return {
         "model_name": body.model_name,

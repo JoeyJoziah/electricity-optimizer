@@ -1,5 +1,5 @@
-import React from 'react'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import React from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 /**
  * Renders the Today's Schedule section.
@@ -13,9 +13,12 @@ export function DashboardSchedule() {
       </CardHeader>
       <CardContent>
         <div className="flex h-32 items-center justify-center text-gray-400">
-          <p>No optimization schedule set. Configure appliances in Settings to get started.</p>
+          <p>
+            No optimization schedule set. Configure appliances in Settings to
+            get started.
+          </p>
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

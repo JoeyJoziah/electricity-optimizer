@@ -97,12 +97,12 @@ async def record_consent(
             message=f"Consent {action} for {record.purpose}",
         )
 
-    except Exception:
+    except Exception as exc:
         logger.error("consent_record_failed", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to record consent. See server logs.",
-        )
+        ) from exc
 
 
 @router.get(
@@ -125,12 +125,12 @@ async def get_consent_history(
             user_id=current_user.user_id, consents=records, total_count=len(records)
         )
 
-    except Exception:
+    except Exception as exc:
         logger.error("consent_history_failed", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve consent history. See server logs.",
-        )
+        ) from exc
 
 
 @router.get(
@@ -155,12 +155,12 @@ async def get_consent_status(
             user_id=current_user.user_id, consents=status_dict, last_updated=datetime.now(UTC)
         )
 
-    except Exception:
+    except Exception as exc:
         logger.error("consent_status_failed", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve consent status. See server logs.",
-        )
+        ) from exc
 
 
 # =============================================================================
@@ -207,14 +207,14 @@ async def export_user_data(
             activity_logs=export_data.get("activity_logs", []),
         )
 
-    except UserNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    except Exception:
+    except UserNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found") from exc
+    except Exception as exc:
         logger.error("gdpr_export_failed", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to export user data. See server logs.",
-        )
+        ) from exc
 
 
 # =============================================================================
@@ -273,14 +273,14 @@ async def delete_user_data(
             deletion_log_id=deletion_log.id,
         )
 
-    except UserNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    except UserNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found") from exc
     except Exception as e:
         logger.error("gdpr_deletion_failed", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete user data. Please try again or contact support.",
-        )
+        ) from e
 
 
 # =============================================================================
@@ -327,14 +327,14 @@ async def delete_account(
             deletion_log_id=deletion_log.id,
         )
 
-    except UserNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    except UserNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found") from exc
     except Exception as e:
         logger.error("gdpr_deletion_failed", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete user data. Please try again or contact support.",
-        )
+        ) from e
 
 
 # =============================================================================
@@ -376,9 +376,9 @@ async def withdraw_all_consents(
             total_count=len(withdrawal_records),
         )
 
-    except Exception:
+    except Exception as exc:
         logger.error("consent_withdrawal_failed", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to withdraw consents. See server logs.",
-        )
+        ) from exc

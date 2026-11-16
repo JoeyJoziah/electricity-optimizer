@@ -118,7 +118,7 @@ class UserRepository(BaseRepository[User]):
             return _row_to_user(row) if row else None
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get user by ID: {str(e)}", e)
+            raise RepositoryError(f"Failed to get user by ID: {str(e)}", e) from e
 
     async def get_by_email(self, email: str) -> User | None:
         """Get a user by email address."""
@@ -131,7 +131,7 @@ class UserRepository(BaseRepository[User]):
             return _row_to_user(row) if row else None
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get user by email: {str(e)}", e)
+            raise RepositoryError(f"Failed to get user by email: {str(e)}", e) from e
 
     async def create(self, entity: User) -> User:
         """Create a new user."""
@@ -192,7 +192,7 @@ class UserRepository(BaseRepository[User]):
 
         except Exception as e:
             await self._db.rollback()
-            raise RepositoryError(f"Failed to create user: {str(e)}", e)
+            raise RepositoryError(f"Failed to create user: {str(e)}", e) from e
 
     # Columns allowed in dynamic UPDATE SET clause (prevents SQL injection via field names)
     _UPDATABLE_COLUMNS = frozenset(
@@ -262,7 +262,7 @@ class UserRepository(BaseRepository[User]):
 
         except Exception as e:
             await self._db.rollback()
-            raise RepositoryError(f"Failed to update user: {str(e)}", e)
+            raise RepositoryError(f"Failed to update user: {str(e)}", e) from e
 
     async def delete(self, id: str) -> bool:
         """Delete a user."""
@@ -276,7 +276,7 @@ class UserRepository(BaseRepository[User]):
 
         except Exception as e:
             await self._db.rollback()
-            raise RepositoryError(f"Failed to delete user: {str(e)}", e)
+            raise RepositoryError(f"Failed to delete user: {str(e)}", e) from e
 
     async def list(self, page: int = 1, page_size: int = 10, **filters: Any) -> list[User]:
         """List users with pagination."""
@@ -308,7 +308,7 @@ class UserRepository(BaseRepository[User]):
             return [_row_to_user(row) for row in rows]
 
         except Exception as e:
-            raise RepositoryError(f"Failed to list users: {str(e)}", e)
+            raise RepositoryError(f"Failed to list users: {str(e)}", e) from e
 
     async def count(self, **filters: Any) -> int:
         """Count users matching filters."""
@@ -332,7 +332,7 @@ class UserRepository(BaseRepository[User]):
             return result.scalar() or 0
 
         except Exception as e:
-            raise RepositoryError(f"Failed to count users: {str(e)}", e)
+            raise RepositoryError(f"Failed to count users: {str(e)}", e) from e
 
     # ==========================================================================
     # User-specific methods
@@ -359,7 +359,7 @@ class UserRepository(BaseRepository[User]):
 
         except Exception as e:
             await self._db.rollback()
-            raise RepositoryError(f"Failed to update preferences: {str(e)}", e)
+            raise RepositoryError(f"Failed to update preferences: {str(e)}", e) from e
 
     async def update_last_login(self, user_id: str) -> bool:
         """Update user's last login timestamp (direct UPDATE, no SELECT)."""
@@ -378,7 +378,7 @@ class UserRepository(BaseRepository[User]):
 
         except Exception as e:
             await self._db.rollback()
-            raise RepositoryError(f"Failed to update last login: {str(e)}", e)
+            raise RepositoryError(f"Failed to update last login: {str(e)}", e) from e
 
     async def set_email_verified(self, user_id: str) -> bool:
         """Mark user's email as verified (direct UPDATE, no SELECT)."""
@@ -397,7 +397,7 @@ class UserRepository(BaseRepository[User]):
 
         except Exception as e:
             await self._db.rollback()
-            raise RepositoryError(f"Failed to verify email: {str(e)}", e)
+            raise RepositoryError(f"Failed to verify email: {str(e)}", e) from e
 
     async def record_consent(
         self, user_id: str, consent_given: bool = True, data_processing_agreed: bool = True
@@ -425,7 +425,7 @@ class UserRepository(BaseRepository[User]):
 
         except Exception as e:
             await self._db.rollback()
-            raise RepositoryError(f"Failed to record consent: {str(e)}", e)
+            raise RepositoryError(f"Failed to record consent: {str(e)}", e) from e
 
     async def get_by_stripe_customer_id(self, customer_id: str) -> User | None:
         """Look up user by their Stripe customer ID."""
@@ -441,7 +441,7 @@ class UserRepository(BaseRepository[User]):
             return _row_to_user(row) if row else None
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get user by Stripe customer ID: {str(e)}", e)
+            raise RepositoryError(f"Failed to get user by Stripe customer ID: {str(e)}", e) from e
 
     async def get_users_by_region(
         self, region: str, active_only: bool = True
@@ -466,4 +466,4 @@ class UserRepository(BaseRepository[User]):
             return [_row_to_user(row) for row in rows]
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get users by region: {str(e)}", e)
+            raise RepositoryError(f"Failed to get users by region: {str(e)}", e) from e

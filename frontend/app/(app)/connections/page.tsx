@@ -1,9 +1,9 @@
-import { ConnectionsOverview } from '@/components/connections/ConnectionsOverview'
+import { ConnectionsOverview } from "@/components/connections/ConnectionsOverview";
 
 export const metadata = {
-  title: 'Connections | RateShift',
-  description: 'Connect your utility accounts to sync rates and billing data',
-}
+  title: "Connections | RateShift",
+  description: "Connect your utility accounts to sync rates and billing data",
+};
 
 export default function ConnectionsPage() {
   return (
@@ -12,11 +12,12 @@ export default function ConnectionsPage() {
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Connections</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Sync your utility rates by connecting your provider account, email, or uploading bills.
+            Sync your utility rates by connecting your provider account, email,
+            or uploading bills.
           </p>
         </div>
         <ConnectionsOverview />
       </div>
     </div>
-  )
+  );
 }

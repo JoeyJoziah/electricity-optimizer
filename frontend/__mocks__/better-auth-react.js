@@ -6,7 +6,7 @@
  * function used by lib/auth/client.ts.
  */
 
-const React = require('react')
+const React = require("react");
 
 function createAuthClient() {
   return {
@@ -26,7 +26,7 @@ function createAuthClient() {
     getSession: async () => ({ data: null, error: null }),
     forgetPassword: async () => ({ data: null, error: null }),
     changePassword: async () => ({ data: null, error: null }),
-  }
+  };
 }
 
-module.exports = { createAuthClient }
+module.exports = { createAuthClient };

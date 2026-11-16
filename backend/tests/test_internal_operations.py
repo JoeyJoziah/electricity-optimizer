@@ -227,6 +227,9 @@ class TestMaintenanceCleanup:
         mock_svc = MagicMock()
         mock_svc.cleanup_activity_logs = AsyncMock(return_value={"deleted": 0})
         mock_svc.cleanup_expired_uploads = AsyncMock(return_value={"deleted": 0})
+        mock_svc.sweep_stale_bill_uploads = AsyncMock(
+            return_value={"swept": 0, "stale_minutes": 15}
+        )
         mock_svc.cleanup_old_prices = AsyncMock(return_value={"deleted": 0})
         mock_svc.cleanup_old_observations = AsyncMock(return_value={"deleted": 0})
         mock_svc.cleanup_weather_cache = AsyncMock(

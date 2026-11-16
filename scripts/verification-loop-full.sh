@@ -7,7 +7,7 @@
 
 set -uo pipefail
 
-REPO_ROOT="/Users/devinmcgrath/projects/electricity-optimizer"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_FILE="$REPO_ROOT/.claude/logs/verification-full.log"
 PI_FAILURES="$REPO_ROOT/.project-intelligence/signals/QUALITY_GATE_FAILURES.log"
 

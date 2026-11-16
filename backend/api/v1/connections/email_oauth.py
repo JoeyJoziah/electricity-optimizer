@@ -169,13 +169,13 @@ async def email_oauth_callback(
             token_data = await exchange_gmail_code(code)
         else:
             token_data = await exchange_outlook_code(code)
-    except _httpx.HTTPStatusError:
+    except _httpx.HTTPStatusError as exc:
         await db.execute(
             text("UPDATE user_connections SET status = 'error' WHERE id = :cid"),
             {"cid": connection_id},
         )
         await db.commit()
-        raise HTTPException(status_code=502, detail="OAuth token exchange failed")
+        raise HTTPException(status_code=502, detail="OAuth token exchange failed") from exc
 
     access_token = token_data.get("access_token", "")
     refresh_token = token_data.get("refresh_token")
@@ -260,6 +260,7 @@ async def trigger_email_scan(
     """
     import httpx as _httpx
 
+    from lib.encryption import decrypt_field as _decrypt_field
     from services.email_scanner_service import (
         download_gmail_attachments,
         download_outlook_attachments,
@@ -268,7 +269,6 @@ async def trigger_email_scan(
         scan_gmail_inbox,
         scan_outlook_inbox,
     )
-    from utils.encryption import decrypt_field as _decrypt_field
 
     result = await db.execute(
         text("""
@@ -330,8 +330,8 @@ async def trigger_email_scan(
                     },
                 )
                 await db.commit()
-            except Exception:
-                raise HTTPException(status_code=502, detail="Token refresh failed")
+            except Exception as exc:
+                raise HTTPException(status_code=502, detail="Token refresh failed") from exc
         else:
             raise HTTPException(
                 status_code=401, detail="Token expired and no refresh token available"
@@ -344,8 +344,8 @@ async def trigger_email_scan(
             scan_results = await scan_gmail_inbox(access_token)
         else:
             scan_results = await scan_outlook_inbox(access_token)
-    except _httpx.HTTPStatusError:
-        raise HTTPException(status_code=502, detail="Email provider API error")
+    except _httpx.HTTPStatusError as exc:
+        raise HTTPException(status_code=502, detail="Email provider API error") from exc
 
     # Filter to utility bills only
     utility_bills = [r for r in scan_results if r.is_utility_bill]
@@ -452,7 +452,7 @@ async def trigger_email_scan(
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Email scan completed but rate persistence failed. Please retry.",
-            )
+            ) from _exc
 
     logger.info(
         "email_scan_complete",

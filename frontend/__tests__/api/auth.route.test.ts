@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 
-const mockRequiresTurnstile = jest.fn(() => false);
+const mockRequiresTurnstile = jest.fn((..._a: unknown[]) => false);
 const mockVerifyTurnstileToken = jest.fn();
 const mockHandlerGET = jest.fn();
 const mockHandlerPOST = jest.fn();
-const mockToNextJsHandler = jest.fn(() => ({
+const mockToNextJsHandler = jest.fn((..._a: unknown[]) => ({
   GET: mockHandlerGET,
   POST: mockHandlerPOST,
 }));

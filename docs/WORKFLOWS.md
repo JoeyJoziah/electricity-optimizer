@@ -1,28 +1,27 @@
 # GitHub Actions Workflows
 
-**Last Updated**: 2026-03-25
+**Last Updated**: 2026-11-16
 
-Complete catalog of all 32 GHA workflow files and 7 composite actions used by RateShift.
+Catalog of every GitHub Actions workflow file in `.github/workflows/` and every composite action in `.github/actions/` used by RateShift. This page deliberately carries no totals; count the files with `ls .github/workflows/*.yml | wc -l` (the one maintained count is in the header of `CLAUDE.md`).
 
 ---
 
 ## Summary
 
-| Category | Count | Description |
-|----------|-------|-------------|
-| CI / Testing | 4 | Core CI pipeline, backend tests, E2E tests, utility type matrix |
-| Deploy | 2 | Production deploy, CF Worker deploy |
-| Cron -- Data Pipelines | 1 | Daily consolidated pipeline |
-| Cron -- Business Operations | 4 | Dunning, KPI, sync-connections, market research |
-| Cron -- Data Ingestion | 4 | Weather, gas rates, heating oil, portal scraping |
-| Cron -- Monitoring | 3 | Self-healing monitor, gateway health, data health check |
-| Cron -- Maintenance | 2 | Database backup, data retention cleanup |
-| Security | 3 | Secret scanning, OWASP ZAP, code analysis |
-| Manual-Only | 7 | Formerly cron, now CF Worker triggers or consolidated |
-| Utility | 2 | Visual baselines, model retrain |
-| **Composite Actions** | **7** | Reusable action components |
-
-**Total**: 32 workflows + 7 composite actions = 39 GHA definitions
+| Category | Description |
+|----------|-------------|
+| CI / Testing | Core CI pipeline, reusable backend tests, E2E tests, utility type matrix |
+| Deploy | Production deploy, backend image build and push, CF Worker deploy |
+| Reusable | Shared internal-cron job called by the scheduled workflows |
+| Cron -- Data Pipelines | Daily consolidated pipeline |
+| Cron -- Business Operations | Dunning, KPI, sync-connections, market research, agent-switcher scan, drip emails |
+| Cron -- Data Ingestion | Weather, gas rates, heating oil, portal scraping |
+| Cron -- Monitoring | Self-healing monitor, gateway health, data health check, cost-cap alerts |
+| Cron -- Maintenance | Database backup, database maintenance, data retention cleanup |
+| Security | Secret scanning, OWASP ZAP, code analysis |
+| Manual-Only | Formerly cron, now CF Worker triggers or consolidated |
+| Utility | Visual baselines, model retrain |
+| Composite Actions | Reusable action components |
 
 ---
 
@@ -62,11 +61,27 @@ Complete catalog of all 32 GHA workflow files and 7 composite actions used by Ra
 - **Purpose**: Production deployment pipeline. Validates release, runs migration gate (`validate-migrations` action), builds Docker image, deploys to Render. Includes Slack rollback notification on failure.
 - **Concurrency**: `deploy-production`, no cancel (ensures atomic deploys)
 
+### `build-and-push-backend.yml` -- Build & Push Backend Image
+
+- **Trigger**: Push to `main` touching `backend/**` (or this workflow file); manual dispatch
+- **Purpose**: Builds the backend Docker image, pushes `dmpcg/electricity-optimizer-backend` to Docker Hub, fires the Render deploy hook and polls `/health` to verify the deploy.
+- **Concurrency**: `build-push-backend`, no cancel
+
 ### `deploy-worker.yml` -- Deploy Cloudflare Worker
 
 - **Trigger**: Push to `main` (path filter: `workers/api-gateway/**`), or `workflow_dispatch`
 - **Purpose**: Tests and deploys the CF Worker API gateway via Wrangler. Runs vitest suite first, deploys only on success.
 - **Concurrency**: `deploy-worker`, no cancel
+
+---
+
+## Reusable
+
+### `_internal-cron.yml` -- Internal Cron (Reusable)
+
+- **Trigger**: `workflow_call` (called by scheduled workflows such as `agent-switcher-scan.yml` and `drip-processor.yml`)
+- **Purpose**: Shared "warm up the backend, call one internal endpoint with retry, notify Slack on failure" job. Each caller keeps its own schedule, permissions and concurrency group; only the steps live here.
+- **Inputs**: `display-name`, `endpoint-path`, plus optional method, timeout and Slack-severity settings (see the file)
 
 ---
 
@@ -106,6 +121,18 @@ Complete catalog of all 32 GHA workflow files and 7 composite actions used by Ra
 - **Schedule**: Daily 2am UTC
 - **Purpose**: Tavily + Diffbot market research scan for competitive intelligence.
 - **Endpoint**: `POST /internal/market-research`
+
+---
+
+### `agent-switcher-scan.yml` -- Agent Switcher Daily Scan
+
+- **Trigger**: Daily at 4am UTC; manual dispatch
+- **Purpose**: Calls `/api/v1/internal/agent-switcher/scan` (via `_internal-cron.yml`) to run the switcher decision engine for enrolled users. The switcher is advisory-only: it produces recommendations and does not enrol users with a supplier.
+
+### `drip-processor.yml` -- Drip Email Processor
+
+- **Trigger**: Daily at 9am UTC; manual dispatch
+- **Purpose**: Calls `/api/v1/internal/drip/process` (via `_internal-cron.yml`) to send the onboarding drip batches.
 
 ---
 
@@ -159,6 +186,13 @@ Complete catalog of all 32 GHA workflow files and 7 composite actions used by Ra
 
 ---
 
+### `cost-cap-alerts.yml` -- Cost-Cap Alerts
+
+- **Trigger**: Daily at 9am UTC; manual dispatch
+- **Purpose**: Calls the backend cost-caps check endpoint and alerts when a service approaches its spending cap.
+
+---
+
 ## Cron -- Maintenance
 
 ### `db-backup.yml` -- Database Backup
@@ -167,10 +201,15 @@ Complete catalog of all 32 GHA workflow files and 7 composite actions used by Ra
 - **Purpose**: Neon database backup via `pg_dump`. Runs before data-retention (4am) and scrape-portals (5am).
 - **Concurrency**: `db-backup`, no cancel
 
-### `data-retention.yml` -- Weekly Data Retention Cleanup
+### `db-maintenance.yml` -- Weekly Database Maintenance
 
-- **Schedule**: Weekly Sunday 4am UTC
-- **Purpose**: Purges old data per retention policies (prices > 365 days, observations > 90 days).
+- **Trigger**: Sunday at 3am UTC (after `db-backup.yml`, before `data-retention.yml`); manual dispatch
+- **Purpose**: Calls the internal maintenance endpoints (vacuum/analyze/index maintenance and related cleanup).
+
+### `data-retention.yml` -- Data Retention Cleanup (daily 4am UTC)
+
+- **Schedule**: Daily 4am UTC
+- **Purpose**: Purges old data per retention policies (prices > 365 days, observations > 90 days) and marks bill uploads stuck mid-parse as failed.
 - **Endpoint**: `POST /internal/maintenance/cleanup`
 
 ---
@@ -347,7 +386,7 @@ Polls a URL until it returns the expected HTTP status or times out.
 
 ## Cron Schedule Reference
 
-### CF Worker Cron Triggers (4 total, zero GHA cost)
+### CF Worker Cron Triggers (zero GHA cost)
 
 | Cron | Frequency | Job |
 |------|-----------|-----|
@@ -373,8 +412,11 @@ Polls a URL until it returns the expected HTTP status or times out.
 | `0 */6 * * *` | Every 6h | `sync-connections.yml` |
 | `0 14 * * 1` | Mon 2pm | `fetch-heating-oil.yml` |
 | `0 2 * * 0` | Sun 2am | `db-backup.yml` |
-| `0 4 * * 0` | Sun 4am | `data-retention.yml`, `owasp-zap.yml` |
+| `0 4 * * 0` | Sun 4am | `owasp-zap.yml` |
 | `0 5 * * 0` | Sun 5am | `scrape-portals.yml` |
+| `0 4 * * *` | Daily 4am | `agent-switcher-scan.yml`, `data-retention.yml` |
+| `0 9 * * *` | Daily 9am | `cost-cap-alerts.yml`, `drip-processor.yml` |
+| `0 3 * * 0` | Sun 3am | `db-maintenance.yml` |
 
 ---
 

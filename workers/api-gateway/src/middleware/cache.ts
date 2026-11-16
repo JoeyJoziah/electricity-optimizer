@@ -1,6 +1,6 @@
 import type { Env, CacheConfig, CacheEntry } from "../types";
 import { buildCacheKey } from "../router";
-import { CACHE_KEY_PREFIX, PRICE_CACHE_PATTERNS } from "../config";
+import { PRICE_CACHE_PATTERNS } from "../config";
 
 /**
  * Try to serve a cached response.

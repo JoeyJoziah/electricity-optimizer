@@ -2,7 +2,7 @@
 Generic Circuit Breaker — Zenith P0 H-16-02
 
 Reusable circuit breaker for any async service call. Mirrors the pattern
-established by WeatherCircuitBreaker (weather_service.py) and the pricing
+established by the pricing
 BasePricingClient breaker (pricing_apis/base.py), but lives in a shared
 location for use by PricingService and UtilityAPIClient.
 

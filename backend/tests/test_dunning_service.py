@@ -496,3 +496,194 @@ class TestDunningServiceWithDispatcher:
 
         call_kwargs = dispatcher.send.call_args.kwargs
         assert call_kwargs.get("cooldown_seconds") == DUNNING_COOLDOWN_HOURS * 3600
+
+
+# =============================================================================
+# TestSingleCommit — the failure flow must not commit mid-flow (D7)
+# =============================================================================
+
+
+def _failure_row():
+    row_data = {"id": str(uuid4()), "retry_count": 1}
+    row = MagicMock()
+    row.__getitem__ = lambda self, key: row_data[key]
+    row.get = lambda key, default=None: row_data.get(key, default)
+    row.keys = lambda: list(row_data.keys())
+    return row
+
+
+class TestHandlePaymentFailureSingleCommit:
+    """
+    handle_payment_failure shares its session with the Stripe webhook handler,
+    whose idempotency guard row sits in the same transaction.  A commit before
+    the email/escalation steps would mark the event processed even if they
+    crash, so the flow must commit exactly once, at its exit.
+    """
+
+    def _db(self, mock_db, cooldown_active: bool):
+        count_result = MagicMock()
+        count_result.scalar.return_value = 0
+        insert_result = MagicMock()
+        insert_result.mappings.return_value.first.return_value = _failure_row()
+        cooldown_result = MagicMock()
+        cooldown_result.first.return_value = MagicMock() if cooldown_active else None
+        mock_db.execute = AsyncMock(
+            side_effect=[count_result, insert_result, cooldown_result, MagicMock(), MagicMock()]
+        )
+        return mock_db
+
+    async def _run(self, dunning, mock_user_repo):
+        return await dunning.handle_payment_failure(
+            user_id="user-1",
+            stripe_invoice_id="inv_123",
+            stripe_customer_id="cus_123",
+            amount_owed=4.99,
+            currency="USD",
+            user_email="test@example.com",
+            user_name="Test",
+            user_repo=mock_user_repo,
+        )
+
+    async def test_no_commit_before_email_is_sent(
+        self, mock_db, mock_email_service, mock_user_repo
+    ):
+        """Nothing may be committed by the time the dunning email goes out."""
+        db = self._db(mock_db, cooldown_active=False)
+        commits_at_send: list[int] = []
+
+        async def _send(**_kwargs):
+            commits_at_send.append(db.commit.await_count)
+            return True
+
+        mock_email_service.send = AsyncMock(side_effect=_send)
+
+        dunning = DunningService(db, email_service=mock_email_service)
+        result = await self._run(dunning, mock_user_repo)
+
+        assert result["email_sent"] is True
+        assert commits_at_send == [0], "flow committed before the email step"
+        assert db.commit.await_count == 1
+
+    async def test_crash_after_record_leaves_nothing_committed(
+        self, mock_db, mock_email_service, mock_user_repo
+    ):
+        """If escalation raises, the failure record must still be uncommitted."""
+        db = self._db(mock_db, cooldown_active=False)
+        mock_user_repo.get_by_id = AsyncMock(side_effect=RuntimeError("db gone"))
+
+        count_result = MagicMock()
+        count_result.scalar.return_value = 2  # third failure -> escalation runs
+        row_data = {"id": str(uuid4()), "retry_count": 3}
+        row = MagicMock()
+        row.get = lambda key, default=None: row_data.get(key, default)
+        row.keys = lambda: list(row_data.keys())
+        row.__getitem__ = lambda self, key: row_data[key]
+        insert_result = MagicMock()
+        insert_result.mappings.return_value.first.return_value = row
+        cooldown_result = MagicMock()
+        cooldown_result.first.return_value = None
+        db.execute = AsyncMock(
+            side_effect=[count_result, insert_result, cooldown_result, MagicMock()]
+        )
+
+        dunning = DunningService(db, email_service=mock_email_service)
+        with pytest.raises(RuntimeError, match="db gone"):
+            await self._run(dunning, mock_user_repo)
+
+        db.commit.assert_not_awaited()
+
+    async def test_cooldown_exit_commits_once(self, mock_db, mock_email_service, mock_user_repo):
+        """The cooldown early return still persists the failure record."""
+        db = self._db(mock_db, cooldown_active=True)
+
+        dunning = DunningService(db, email_service=mock_email_service)
+        result = await self._run(dunning, mock_user_repo)
+
+        assert result["email_sent"] is False
+        assert db.commit.await_count == 1
+
+
+# =============================================================================
+# TestResolvedFailures — paid customers must not be treated as overdue (D1)
+# =============================================================================
+
+
+class TestResolvePaymentFailures:
+    async def test_stamps_resolved_at_on_unresolved_rows(self, dunning, mock_db):
+        update_result = MagicMock()
+        update_result.rowcount = 3
+        mock_db.execute = AsyncMock(return_value=update_result)
+
+        resolved = await dunning.resolve_payment_failures("user-1")
+
+        assert resolved == 3
+        sql = str(mock_db.execute.await_args.args[0])
+        assert "UPDATE payment_retry_history" in sql
+        assert "resolved_at = NOW()" in sql
+        assert "user_id = :user_id" in sql
+        assert "resolved_at IS NULL" in sql
+        assert mock_db.execute.await_args.args[1] == {"user_id": "user-1"}
+        # Caller owns the transaction.
+        mock_db.commit.assert_not_awaited()
+
+    async def test_returns_zero_when_nothing_outstanding(self, dunning, mock_db):
+        update_result = MagicMock()
+        update_result.rowcount = 0
+        mock_db.execute = AsyncMock(return_value=update_result)
+
+        assert await dunning.resolve_payment_failures("user-1") == 0
+
+
+class TestGetOverdueAccounts:
+    async def test_query_requires_unresolved_latest_failure(self, dunning, mock_db):
+        """The overdue query must ignore failures the customer has since paid."""
+        result = MagicMock()
+        result.mappings.return_value.all.return_value = []
+        mock_db.execute = AsyncMock(return_value=result)
+
+        await dunning.get_overdue_accounts(grace_period_days=7)
+
+        sql = " ".join(str(mock_db.execute.await_args.args[0]).split())
+        assert "prh.resolved_at IS NULL" in sql
+        # A user whose latest row is resolved is never overdue.
+        assert "NOT EXISTS" in sql
+        assert "newer.resolved_at IS NOT NULL" in sql
+        assert "newer.created_at > prh.created_at" in sql
+
+    async def test_unpaid_behaviour_unchanged(self, dunning, mock_db):
+        """Grace-period cutoff, paid-tier and active filters are still applied."""
+        row = {"user_id": "user-1", "retry_count": 3, "email": "a@example.com"}
+        result = MagicMock()
+        result.mappings.return_value.all.return_value = [row]
+        mock_db.execute = AsyncMock(return_value=result)
+
+        before = datetime.now(UTC)
+        overdue = await dunning.get_overdue_accounts(grace_period_days=7)
+
+        assert overdue == [row]
+        sql = " ".join(str(mock_db.execute.await_args.args[0]).split())
+        assert "SELECT DISTINCT ON (prh.user_id)" in sql
+        assert "prh.created_at <= :cutoff" in sql
+        assert "u.subscription_tier != 'free'" in sql
+        assert "u.is_active = TRUE" in sql
+        assert "ORDER BY prh.user_id, prh.created_at DESC" in sql
+        cutoff = mock_db.execute.await_args.args[1]["cutoff"]
+        assert abs((before - timedelta(days=7)) - cutoff) < timedelta(seconds=5)
+
+
+class TestMigration070Structure:
+    def _sql(self) -> str:
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parent.parent / "migrations"
+        return (path / "070_payment_retry_resolved.sql").read_text()
+
+    def test_adds_nullable_resolved_at_idempotently(self):
+        sql = " ".join(self._sql().split())
+        assert "ALTER TABLE payment_retry_history" in sql
+        assert "ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;" in sql
+
+    def test_partial_index_is_idempotent(self):
+        sql = " ".join(self._sql().split())
+        assert "CREATE INDEX IF NOT EXISTS idx_payment_retry_unresolved" in sql
+        assert "WHERE resolved_at IS NULL" in sql

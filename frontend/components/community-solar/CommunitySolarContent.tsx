@@ -1,28 +1,28 @@
-'use client'
+"use client";
 
-import React, { useState } from 'react'
-import { useSettingsStore } from '@/lib/store/settings'
+import React, { useState } from "react";
+import { useSettingsStore } from "@/lib/store/settings";
 import {
   useCommunitySolarPrograms,
   useCommunitySolarStates,
-} from '@/lib/hooks/useCommunitySolar'
-import { CommunitySolarService } from './SavingsCalculator'
-import { Sun, ExternalLink, Users, MapPin } from 'lucide-react'
-import { isSafeHref } from '@/lib/utils/url'
+} from "@/lib/hooks/useCommunitySolar";
+import { CommunitySolarService } from "./SavingsCalculator";
+import { Sun, ExternalLink, Users, MapPin } from "lucide-react";
+import { isSafeHref } from "@/lib/utils/url";
 
 export default function CommunitySolarContent() {
-  const region = useSettingsStore((s) => s.region)
-  const stateCode = region?.startsWith('us_')
+  const region = useSettingsStore((s) => s.region);
+  const stateCode = region?.startsWith("us_")
     ? region.slice(3).toUpperCase()
-    : null
+    : null;
 
-  const [filter, setFilter] = useState<'open' | 'waitlist' | undefined>(
-    undefined
-  )
+  const [filter, setFilter] = useState<"open" | "waitlist" | undefined>(
+    undefined,
+  );
 
   const { data: programsData, isLoading: programsLoading } =
-    useCommunitySolarPrograms(stateCode, filter)
-  const { data: statesData } = useCommunitySolarStates()
+    useCommunitySolarPrograms(stateCode, filter);
+  const { data: statesData } = useCommunitySolarStates();
 
   if (!region) {
     return (
@@ -33,7 +33,7 @@ export default function CommunitySolarContent() {
           Set your region in Settings to browse community solar programs.
         </p>
       </div>
-    )
+    );
   }
 
   return (
@@ -65,8 +65,8 @@ export default function CommunitySolarContent() {
                 key={s.state}
                 className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                   s.state === stateCode
-                    ? 'bg-primary-100 text-primary-700'
-                    : 'bg-gray-100 text-gray-600'
+                    ? "bg-primary-100 text-primary-700"
+                    : "bg-gray-100 text-gray-600"
                 }`}
               >
                 {s.state} ({s.program_count})
@@ -83,28 +83,28 @@ export default function CommunitySolarContent() {
           onClick={() => setFilter(undefined)}
           className={`rounded-full px-3 py-1 text-xs font-medium ${
             !filter
-              ? 'bg-primary-100 text-primary-700'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              ? "bg-primary-100 text-primary-700"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
         >
           All
         </button>
         <button
-          onClick={() => setFilter('open')}
+          onClick={() => setFilter("open")}
           className={`rounded-full px-3 py-1 text-xs font-medium ${
-            filter === 'open'
-              ? 'bg-success-100 text-success-700'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            filter === "open"
+              ? "bg-success-100 text-success-700"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
         >
           Open
         </button>
         <button
-          onClick={() => setFilter('waitlist')}
+          onClick={() => setFilter("waitlist")}
           className={`rounded-full px-3 py-1 text-xs font-medium ${
-            filter === 'waitlist'
-              ? 'bg-warning-100 text-warning-700'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            filter === "waitlist"
+              ? "bg-warning-100 text-warning-700"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
         >
           Waitlist
@@ -140,18 +140,18 @@ export default function CommunitySolarContent() {
                     </h3>
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        program.enrollment_status === 'open'
-                          ? 'bg-success-100 text-success-700'
-                          : program.enrollment_status === 'waitlist'
-                          ? 'bg-warning-100 text-warning-700'
-                          : 'bg-gray-100 text-gray-600'
+                        program.enrollment_status === "open"
+                          ? "bg-success-100 text-success-700"
+                          : program.enrollment_status === "waitlist"
+                            ? "bg-warning-100 text-warning-700"
+                            : "bg-gray-100 text-gray-600"
                       }`}
                     >
-                      {program.enrollment_status === 'open'
-                        ? 'Open'
-                        : program.enrollment_status === 'waitlist'
-                        ? 'Waitlist'
-                        : 'Closed'}
+                      {program.enrollment_status === "open"
+                        ? "Open"
+                        : program.enrollment_status === "waitlist"
+                          ? "Waitlist"
+                          : "Closed"}
                     </span>
                   </div>
                   <p className="text-sm text-gray-500 mt-1">
@@ -204,9 +204,9 @@ export default function CommunitySolarContent() {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
                   >
-                    {program.enrollment_status === 'open'
-                      ? 'Enroll Now'
-                      : 'Join Waitlist'}
+                    {program.enrollment_status === "open"
+                      ? "Enroll Now"
+                      : "Join Waitlist"}
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 </div>
@@ -219,10 +219,10 @@ export default function CommunitySolarContent() {
           <Sun className="mx-auto h-10 w-10 text-gray-300 mb-3" />
           <p className="text-sm text-gray-500">
             No community solar programs found for your state
-            {filter ? ` with status "${filter}"` : ''}.
+            {filter ? ` with status "${filter}"` : ""}.
           </p>
         </div>
       )}
     </div>
-  )
+  );
 }

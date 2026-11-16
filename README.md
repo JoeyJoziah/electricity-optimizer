@@ -32,7 +32,7 @@ RateShift is a full-stack multi-utility optimization platform that helps US cons
 |-------|-----------|
 | **Frontend** | Next.js 16, React 19, TypeScript, Tailwind CSS |
 | **Backend** | FastAPI, Python 3.12, asyncpg + SQLAlchemy ORM |
-| **Database** | Neon PostgreSQL (serverless), 69 migrations, 70 tables, UUID PKs |
+| **Database** | Neon PostgreSQL (serverless), raw SQL migrations in `backend/migrations/`, UUID PKs |
 | **Auth** | Neon Auth (Better Auth) — session-based, httpOnly cookies |
 | **Edge Layer** | Cloudflare Worker — 2-tier caching, native rate limiting, bot detection, CORS |
 | **ML** | Python ensemble predictor, HNSW vector store, XGBoost |
@@ -42,7 +42,7 @@ RateShift is a full-stack multi-utility optimization platform that helps US cons
 | **Hosting** | Render (backend), Vercel (frontend), Cloudflare (edge/DNS) |
 | **Notifications** | OneSignal (push), Email (Resend + SMTP) |
 | **Observability** | OpenTelemetry + Grafana Cloud Tempo (distributed tracing) |
-| **CI/CD** | GitHub Actions (35 workflows), self-healing automation |
+| **CI/CD** | GitHub Actions workflows (see `.github/workflows/`), self-healing automation |
 | **Security** | OWASP ZAP, pip-audit, npm audit, Gitleaks, 1Password |
 
 ## Getting Started
@@ -67,8 +67,8 @@ pip install -r backend/requirements.txt
 cp .env.example .env
 # Edit .env with your API keys (Stripe, Resend, NREL, etc.)
 
-# Run migrations (apply SQL files in backend/migrations/ against your DATABASE_URL)
-# Migrations are raw SQL, not Alembic. Apply sequentially via psql or your migration tool.
+# Run migrations: raw, idempotent SQL files (no Alembic). Apply init_neon.sql first, then the numbered files in order:
+for f in backend/migrations/init_neon.sql $(ls backend/migrations/[0-9]*.sql | sort); do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
 
 # Start development server
 .venv/bin/python -m uvicorn backend.main:app --reload --port 8000
@@ -125,21 +125,21 @@ electricity-optimizer/
       (dev)/                 Dev-only pages (architecture editor)
     components/              React components (charts, forms, layouts, auth, ...)
     lib/                     Utilities, hooks, API clients, state
-    __tests__/               Jest unit tests (2,015 total, 153 suites)
-    e2e/                     Playwright E2E tests (1,605 total, 25 specs)
+    __tests__/               Jest unit tests
+    e2e/                     Playwright E2E tests
   ml/                        Machine learning pipelines
     models/                  Predictor definitions, HNSW indexing
     training/                Model training and evaluation
     inference/               Serving and prediction batching
-  workers/                   Cloudflare Worker edge layer (API gateway, 90 tests)
+  workers/                   Cloudflare Worker edge layer (API gateway)
   scripts/                   Deployment and utility scripts
   docs/                      Project documentation (ARCHITECTURE, DEVELOPER_GUIDE, 5 ADRs, ...)
-  .github/workflows/         CI/CD automation (33 GitHub Actions workflows)
+  .github/workflows/         CI/CD automation (GitHub Actions workflows)
 ```
 
 ## Testing
 
-### Backend (2,976 tests)
+### Backend
 
 ```bash
 .venv/bin/python -m pytest backend/tests/ -v
@@ -147,7 +147,7 @@ electricity-optimizer/
 
 Always use `.venv/bin/python` (system Python lacks required dependencies).
 
-### Frontend (2,015 tests, 153 suites)
+### Frontend
 
 ```bash
 cd frontend
@@ -155,13 +155,13 @@ npm test                    # Watch mode
 npm run test:ci            # Full coverage
 ```
 
-### ML (676 tests)
+### ML
 
 ```bash
 .venv/bin/python -m pytest ml/tests/ -v
 ```
 
-### E2E (1,605 tests, 25 specs, 5 browsers)
+### E2E (Playwright)
 
 ```bash
 cd frontend
@@ -169,14 +169,14 @@ npx playwright test
 npx playwright test --ui    # Interactive mode
 ```
 
-### CF Worker (90 tests)
+### CF Worker
 
 ```bash
 cd workers/api-gateway
 npm test
 ```
 
-**Total test count:** ~7,362 across all suites (2,976 backend + 2,015 frontend + 676 ML + 1,605 E2E + 90 CF Worker). See [docs/TESTING.md](docs/TESTING.md) for testing guides and coverage targets.
+Test counts change with every PR, so none are quoted here: run the suites above for current numbers. See [docs/TESTING.md](docs/TESTING.md) for testing guides and coverage targets.
 
 ## API Documentation
 
@@ -222,7 +222,7 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instruction
 
 ## CI/CD
 
-33 GitHub Actions workflows including:
+GitHub Actions workflows (see `.github/workflows/`), including:
 
 - **Test workflows** — Backend (pytest), Frontend (Jest, Playwright), ML (pytest), utility-type tests, CF Worker tests
 - **Cron automation** — Price sync, alerts (30min), weather fetch (6h), market research (daily), dunning cycle (daily), KPI reports (daily), email scan (daily), portal scrape (weekly), gas/heating-oil/propane fetch, rate change detection
@@ -231,7 +231,7 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instruction
 - **Security** — OWASP ZAP (weekly), pip-audit, npm audit, Gitleaks, code analysis
 - **Observability** — Gateway health checks (6h), data health checks
 
-See [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) for the full workflow inventory.
+See [docs/WORKFLOWS.md](docs/WORKFLOWS.md) for the full workflow inventory.
 
 ## Documentation
 
@@ -242,7 +242,7 @@ See [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) for the full workflow inven
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deployment guide (local, staging, production) |
 | [INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) | Service catalog, CI/CD workflow inventory |
 | [TESTING.md](docs/TESTING.md) | Test suites, coverage targets, running tests |
-| [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) | All 70 tables, migration history |
+| [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) | Tables and migration history |
 | [API_REFERENCE.md](docs/API_REFERENCE.md) | Complete API endpoint reference |
 | [OBSERVABILITY.md](docs/OBSERVABILITY.md) | OpenTelemetry tracing, Grafana Cloud |
 | [STRIPE_ARCHITECTURE.md](docs/STRIPE_ARCHITECTURE.md) | Payment flow, webhooks, dunning cycle |

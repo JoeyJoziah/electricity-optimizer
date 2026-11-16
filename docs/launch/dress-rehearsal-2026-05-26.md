@@ -70,10 +70,10 @@ curl -s https://api.rateshift.app/health | jq '{version: .version, sha: .sha}'
 ```bash
 cd /Users/devinmcgrath/projects/electricity-optimizer
 STAGING_KEY=$(op read 'op://RateShift/RATE_LIMIT_BYPASS_KEY/credential')
-STAGING_KEY="${STAGING_KEY}" ./loadtest/run.sh
+STAGING_KEY="${STAGING_KEY}" ./tests/load/k6/run.sh
 ```
 
-**Expected output**: Results JSON written to `loadtest/results/`. Copy summary to `docs/launch/load-test-results.md`.
+**Expected output**: Results JSON written to `tests/load/results/`. Copy summary to `docs/launch/load-test-results.md`.
 
 **Pass thresholds** (from PRD Scope #8):
 | Metric | Threshold |

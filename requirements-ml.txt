@@ -1,7 +1,0 @@
-# DEPRECATED — DO NOT USE
-# This legacy file has been superseded by ml/requirements.txt (the canonical ML requirements).
-# It contained version constraints that conflict with the current stack (e.g. numpy<2.0, keras>=3.0).
-# All build pipelines (ml/Dockerfile, CI) use ml/requirements.txt directly.
-# This stub is kept only to prevent silent breakage if any script still references it.
-#
-# For ML dependencies, see: ml/requirements.txt

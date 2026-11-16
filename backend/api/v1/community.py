@@ -88,12 +88,12 @@ async def create_post(
     """Create a new community post."""
     if payload.post_type not in VALID_POST_TYPES:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid post_type. Must be one of: {sorted(VALID_POST_TYPES)}",
         )
     if payload.utility_type not in VALID_UTILITY_TYPES:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid utility_type. Must be one of: {sorted(VALID_UTILITY_TYPES)}",
         )
 

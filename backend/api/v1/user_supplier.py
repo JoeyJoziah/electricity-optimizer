@@ -13,13 +13,13 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import SessionData, get_current_user, get_db_session
+from lib.encryption import decrypt_field, encrypt_field, mask_account_number
 from models.user_supplier import (
     LinkAccountRequest,
     LinkedAccountResponse,
     SetSupplierRequest,
     UserSupplierResponse,
 )
-from utils.encryption import decrypt_field, encrypt_field, mask_account_number
 
 logger = structlog.get_logger()
 
@@ -265,16 +265,16 @@ async def link_supplier_account(
             raise HTTPException(
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
                 detail="Request timed out. Please try again.",
-            )
+            ) from e
         if "unique" in error_msg or "duplicate" in error_msg:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="This account is already linked to this supplier.",
-            )
+            ) from e
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to link account. Please try again.",
-        )
+        ) from e
 
     logger.info("account_linked", user_id=current_user.user_id, supplier_id=supplier_id_str)
 

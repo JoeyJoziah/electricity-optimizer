@@ -170,13 +170,15 @@ class UptimeRobotClient:
                     print(f"    Rate limited — waiting {wait}s...")
                     time.sleep(wait)
                     continue
-                raise UptimeRobotError(f"HTTP {exc.code} from {endpoint}: {exc.read().decode()}")
+                raise UptimeRobotError(
+                    f"HTTP {exc.code} from {endpoint}: {exc.read().decode()}"
+                ) from exc
             except urllib_error.URLError as exc:
                 if attempt < 2:
                     print(f"    Network error (attempt {attempt + 1}/3): {exc.reason} — retrying in 5s")
                     time.sleep(5)
                     continue
-                raise UptimeRobotError(f"Network error after 3 attempts: {exc.reason}")
+                raise UptimeRobotError(f"Network error after 3 attempts: {exc.reason}") from exc
 
         raise UptimeRobotError(f"All 3 attempts exhausted for {endpoint}")
 

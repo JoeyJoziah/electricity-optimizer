@@ -74,4 +74,5 @@ paths = [
   '''.*\.env\.example''',
   # Audit report directories
   '''\.audit-.*/.*''',
+  '''docs/archive/audits/.*''',
 ]

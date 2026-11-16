@@ -1,4 +1,4 @@
-import { Skeleton } from '@/components/ui/skeleton'
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AssistantLoading() {
   return (
@@ -35,5 +35,5 @@ export default function AssistantLoading() {
         </div>
       </div>
     </div>
-  )
+  );
 }

@@ -1,17 +1,21 @@
-'use client'
+"use client";
 
-import React from 'react'
-import { CommunityStats } from '@/components/community/CommunityStats'
-import { PostForm } from '@/components/community/PostForm'
-import { PostList } from '@/components/community/PostList'
-import { ErrorBoundary } from '@/components/error-boundary'
-import { useSettingsStore } from '@/lib/store/settings'
-import { useAuth } from '@/lib/hooks/useAuth'
+import React from "react";
+import { CommunityStats } from "@/components/community/CommunityStats";
+import { PostForm } from "@/components/community/PostForm";
+import { PostList } from "@/components/community/PostList";
+import { ErrorBoundary } from "@/components/error-boundary";
+import { useSettingsStore } from "@/lib/store/settings";
+import { useAuth } from "@/lib/hooks/useAuth";
 
 export default function CommunityPage() {
-  const { user } = useAuth()
-  const utilityTypes = useSettingsStore((s) => s.utilityTypes) || ['electricity']
-  const [activeUtility, setActiveUtility] = React.useState<string>(utilityTypes[0] || 'electricity')
+  const { user } = useAuth();
+  const utilityTypes = useSettingsStore((s) => s.utilityTypes) || [
+    "electricity",
+  ];
+  const [activeUtility, setActiveUtility] = React.useState<string>(
+    utilityTypes[0] || "electricity",
+  );
 
   return (
     <div className="flex flex-col">
@@ -36,12 +40,12 @@ export default function CommunityPage() {
                 onClick={() => setActiveUtility(ut)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   activeUtility === ut
-                    ? 'bg-primary-100 text-primary-700'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? "bg-primary-100 text-primary-700"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
                 data-testid={`community-filter-${ut}`}
               >
-                {ut.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                {ut.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
               </button>
             ))}
           </div>
@@ -54,12 +58,9 @@ export default function CommunityPage() {
 
         {/* Post list */}
         <ErrorBoundary>
-          <PostList
-            utilityType={activeUtility}
-            currentUserId={user?.id}
-          />
+          <PostList utilityType={activeUtility} currentUserId={user?.id} />
         </ErrorBoundary>
       </div>
     </div>
-  )
+  );
 }

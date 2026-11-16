@@ -73,17 +73,17 @@ async def initiate_utilityapi_authorization(
     accept_addon_pricing = payload.get("accept_addon_pricing", False)
     if not consent_given:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Consent is required.",
         )
     if not accept_addon_pricing:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="You must accept the $2.25/meter/month add-on pricing to continue.",
         )
     if not supplier_id:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="supplier_id is required.",
         )
 
@@ -179,8 +179,8 @@ async def utilityapi_callback(
     5. Trigger an initial data sync in the background.
     """
     from integrations.utilityapi import UtilityAPIClient, UtilityAPIError
+    from lib.encryption import encrypt_field
     from services.connection_sync_service import ConnectionSyncService
-    from utils.encryption import encrypt_field
 
     connection_id, state_user_id = verify_callback_state(state)
     log = logger.bind(connection_id=connection_id, authorization_uid=authorization_uid)

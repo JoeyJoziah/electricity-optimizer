@@ -129,4 +129,6 @@ async def sync_connections(db: AsyncSession = Depends(get_db_session)):
         }
     except Exception as exc:
         logger.error("sync_connections_failed", error=str(exc))
-        raise HTTPException(status_code=500, detail="Connection sync failed. See server logs.")
+        raise HTTPException(
+            status_code=500, detail="Connection sync failed. See server logs."
+        ) from exc

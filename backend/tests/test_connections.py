@@ -386,8 +386,8 @@ class TestCreateDirectConnection:
         # encrypt_field / mask_account_number are imported locally inside the
         # route handler, so we patch at the source module level.
         with (
-            patch("utils.encryption.encrypt_field", return_value=b"encrypted"),
-            patch("utils.encryption.mask_account_number", return_value="******5678"),
+            patch("lib.encryption.encrypt_field", return_value=b"encrypted"),
+            patch("lib.encryption.mask_account_number", return_value="******5678"),
         ):
             response = client.post(
                 f"{BASE}/direct",
@@ -453,8 +453,8 @@ class TestCreateDirectConnection:
         db.execute = AsyncMock(side_effect=[supplier_result, dup_result])
 
         with (
-            patch("utils.encryption.encrypt_field", return_value=b"encrypted"),
-            patch("utils.encryption.mask_account_number", return_value="******1234"),
+            patch("lib.encryption.encrypt_field", return_value=b"encrypted"),
+            patch("lib.encryption.mask_account_number", return_value="******1234"),
         ):
             response = client.post(
                 f"{BASE}/direct",
@@ -479,8 +479,8 @@ class TestCreateDirectConnection:
 
         # Patch at source module so the locally-imported name is intercepted.
         with (
-            patch("utils.encryption.encrypt_field") as mock_encrypt,
-            patch("utils.encryption.mask_account_number", return_value="******9999"),
+            patch("lib.encryption.encrypt_field") as mock_encrypt,
+            patch("lib.encryption.mask_account_number", return_value="******9999"),
         ):
             mock_encrypt.return_value = b"super-encrypted"
 

@@ -14,8 +14,6 @@ import numpy as np
 
 try:
     import matplotlib.pyplot as plt
-    import matplotlib.patches as mpatches
-    from matplotlib.colors import LinearSegmentedColormap
 
     MATPLOTLIB_AVAILABLE = True
 except ImportError:

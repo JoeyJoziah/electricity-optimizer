@@ -77,7 +77,7 @@ This guide covers the public launch and ongoing operations for RateShift. For de
 3. Backend: Render auto-deploys via deploy hook (2min)
 4. Frontend: Vercel auto-deploys
 5. Worker: Deploy via GHA workflow (manual or release trigger)
-6. Database: Migrations applied automatically by backend startup (Alembic)
+6. Database: Migrations are raw SQL files in `backend/migrations/`, applied manually with `psql` (see CONTRIBUTING.md); nothing applies them automatically
 
 For detailed deployment procedures, see **DEPLOYMENT.md**.
 

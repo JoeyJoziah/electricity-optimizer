@@ -1,141 +1,137 @@
-'use client'
+"use client";
 
-import React, { useMemo } from 'react'
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-} from 'recharts'
-import { cn } from '@/lib/utils/cn'
-import { formatCurrency } from '@/lib/utils/format'
-import { CHART_COLORS, chartTooltipStyle } from '@/lib/constants/chartTokens'
+import React, { useMemo } from "react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { cn } from "@/lib/utils/cn";
+import { formatCurrency } from "@/lib/utils/format";
+import { CHART_COLORS, chartTooltipStyle } from "@/lib/constants/chartTokens";
 
 export interface SavingsCategory {
-  category: string
-  amount: number
-  percentage: number
+  category: string;
+  amount: number;
+  percentage: number;
 }
 
 export interface SavingsData {
-  totalSavings: number
-  breakdown: SavingsCategory[]
-  period: 'day' | 'week' | 'month' | 'year'
+  totalSavings: number;
+  breakdown: SavingsCategory[];
+  period: "day" | "week" | "month" | "year";
 }
 
 export interface SavingsDonutProps {
-  data: SavingsData
-  showLegend?: boolean
-  currency?: 'USD' | 'GBP' | 'EUR'
-  className?: string
+  data: SavingsData;
+  showLegend?: boolean;
+  currency?: "USD" | "GBP" | "EUR";
+  className?: string;
 }
 
-const periodLabels: Record<SavingsData['period'], string> = {
-  day: 'Today',
-  week: 'This week',
-  month: 'This month',
-  year: 'This year',
-}
+const periodLabels: Record<SavingsData["period"], string> = {
+  day: "Today",
+  week: "This week",
+  month: "This month",
+  year: "This year",
+};
 
-export const SavingsDonut: React.FC<SavingsDonutProps> = React.memo(({
-  data,
-  showLegend = false,
-  currency = 'USD',
-  className,
-}) => {
-  const { totalSavings, breakdown, period } = data
+export const SavingsDonut: React.FC<SavingsDonutProps> = React.memo(
+  ({ data, showLegend = false, currency = "USD", className }) => {
+    const { totalSavings, breakdown, period } = data;
 
-  const chartData = useMemo(() => {
-    return breakdown.map((item, index) => ({
-      ...item,
-      color: CHART_COLORS[index % CHART_COLORS.length],
-    }))
-  }, [breakdown])
+    const chartData = useMemo(() => {
+      return breakdown.map((item, index) => ({
+        ...item,
+        color: CHART_COLORS[index % CHART_COLORS.length],
+      }));
+    }, [breakdown]);
 
-  // Empty state
-  if (totalSavings === 0 || breakdown.length === 0) {
+    // Empty state
+    if (totalSavings === 0 || breakdown.length === 0) {
+      return (
+        <div
+          className={cn(
+            "flex flex-col items-center justify-center py-8",
+            className,
+          )}
+          role="img"
+          aria-label="Savings chart - no savings yet"
+        >
+          <div className="mb-2 h-32 w-32 rounded-full border-4 border-dashed border-gray-200" />
+          <p className="text-gray-500">No savings yet</p>
+          <p className="text-sm text-gray-400">{periodLabels[period]}</p>
+        </div>
+      );
+    }
+
     return (
-      <div
-        className={cn('flex flex-col items-center justify-center py-8', className)}
-        role="img"
-        aria-label="Savings chart - no savings yet"
-      >
-        <div className="mb-2 h-32 w-32 rounded-full border-4 border-dashed border-gray-200" />
-        <p className="text-gray-500">No savings yet</p>
-        <p className="text-sm text-gray-400">{periodLabels[period]}</p>
-      </div>
-    )
-  }
+      <div className={cn("flex flex-col", className)}>
+        <div
+          role="img"
+          aria-label={`Savings chart showing ${formatCurrency(totalSavings, currency)} total savings ${periodLabels[period].toLowerCase()}`}
+          className="relative"
+        >
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie
+                data={chartData}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={80}
+                paddingAngle={2}
+                dataKey="amount"
+              >
+                {chartData.map((entry, _index) => (
+                  <Cell key={entry.category} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip
+                formatter={(value) => formatCurrency(Number(value), currency)}
+                contentStyle={chartTooltipStyle}
+              />
+            </PieChart>
+          </ResponsiveContainer>
 
-  return (
-    <div className={cn('flex flex-col', className)}>
-      <div
-        role="img"
-        aria-label={`Savings chart showing ${formatCurrency(totalSavings, currency)} total savings ${periodLabels[period].toLowerCase()}`}
-        className="relative"
-      >
-        <ResponsiveContainer width="100%" height={200}>
-          <PieChart>
-            <Pie
-              data={chartData}
-              cx="50%"
-              cy="50%"
-              innerRadius={60}
-              outerRadius={80}
-              paddingAngle={2}
-              dataKey="amount"
-            >
-              {chartData.map((entry, _index) => (
-                <Cell key={entry.category} fill={entry.color} />
-              ))}
-            </Pie>
-            <Tooltip
-              formatter={(value) => formatCurrency(Number(value), currency)}
-              contentStyle={chartTooltipStyle}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-
-        {/* Center text */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-bold text-gray-900">
-            {formatCurrency(totalSavings, currency)}
-          </span>
-          <span className="text-sm text-gray-500">{periodLabels[period]}</span>
+          {/* Center text */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-2xl font-bold text-gray-900">
+              {formatCurrency(totalSavings, currency)}
+            </span>
+            <span className="text-sm text-gray-500">
+              {periodLabels[period]}
+            </span>
+          </div>
         </div>
+
+        {/* Legend */}
+        {showLegend && (
+          <div className="mt-4 space-y-2">
+            {chartData.map((item) => (
+              <div
+                key={item.category}
+                data-testid="legend-item"
+                className="flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className="h-3 w-3 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="text-sm text-gray-700">{item.category}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-900">
+                    {formatCurrency(item.amount, currency)}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    ({item.percentage.toFixed(2)}%)
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+    );
+  },
+);
 
-      {/* Legend */}
-      {showLegend && (
-        <div className="mt-4 space-y-2">
-          {chartData.map((item) => (
-            <div
-              key={item.category}
-              data-testid="legend-item"
-              className="flex items-center justify-between"
-            >
-              <div className="flex items-center gap-2">
-                <div
-                  className="h-3 w-3 rounded-full"
-                  style={{ backgroundColor: item.color }}
-                />
-                <span className="text-sm text-gray-700">{item.category}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-900">
-                  {formatCurrency(item.amount, currency)}
-                </span>
-                <span className="text-xs text-gray-500">
-                  ({item.percentage.toFixed(2)}%)
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-})
-
-SavingsDonut.displayName = 'SavingsDonut'
+SavingsDonut.displayName = "SavingsDonut";

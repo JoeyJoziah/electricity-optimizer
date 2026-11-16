@@ -87,7 +87,7 @@ async def handle_github_webhook(request: Request):
         verify_github_signature(payload, signature, secret)
     except ValueError as e:
         logger.warning("github_webhook_signature_invalid", error=str(e))
-        raise HTTPException(status_code=400, detail="Invalid webhook signature.")
+        raise HTTPException(status_code=400, detail="Invalid webhook signature.") from e
 
     event_type = request.headers.get("X-GitHub-Event", "unknown")
     delivery_id = request.headers.get("X-GitHub-Delivery", "")

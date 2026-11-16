@@ -112,8 +112,8 @@ describe("queryAgent", () => {
       messages.push(msg);
     }
     expect(messages).toHaveLength(1);
-    expect(messages[0].role).toBe("error");
-    expect(messages[0].content).toBe("Server error");
+    expect(messages[0]!.role).toBe("error");
+    expect(messages[0]!.content).toBe("Server error");
   });
 
   it("returns immediately after 401 when handle401Redirect returns true", async () => {
@@ -132,7 +132,8 @@ describe("queryAgent", () => {
     for await (const msg of queryAgent("test")) {
       messages.push(msg);
     }
-    expect(messages[0].role).toBe("error");
-    expect(messages[0].content).toMatch(/streaming not supported/i);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]!.role).toBe("error");
+    expect(messages[0]!.content).toMatch(/streaming not supported/i);
   });
 });

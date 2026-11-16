@@ -1,5 +1,7 @@
 # Full Codebase Refactoring Roadmap
 
+> **Status 2026-11-16: superseded in part.** `backend/integrations/weather_service.py`, cited below, was removed; weather access lives in `backend/services/weather_service.py`. The body is kept as written for history.
+
 > Last Updated: 2026-03-16 (test counts recorded at that date; current counts are Backend 2,480, Frontend 1,835, ~5,674+ total — see docs/TESTING.md)
 > Current State: 2,480 backend tests (pass), 1,835 frontend tests (pass), 611 ML tests (pass), 55 ML tests (skipped), 16 E2E spec files, 5,674+ total tests
 > Status: 100% Complete — All refactoring items resolved, codebase optimized for production, PRD gap remediation 100%
@@ -85,7 +87,7 @@ All 52 refactoring items (P0-P3 + Quick Wins) have been successfully resolved. T
 
 ### P1-4: Wire user preferences to database or remove [RESOLVED]
 - **Dimension**: Architecture
-- **File**: `backend/api/v1/user.py`
+- **File**: `backend/api/v1/users.py` (merged from `user.py`)
 - **Resolution**: Complete rewrite from stub to DB-backed implementation. GET /preferences reads from `UserRepository.get_by_id()` and merges with `UserPreferences` defaults. POST /preferences validates via `UserPreferences` model, persists via `UserRepository.update_preferences()`. Returns 404 if user not found on update. Tests rewritten with proper DB mocking (11 tests).
 - **Test**: `test_api_user.py` — 11 tests passing
 
@@ -111,7 +113,7 @@ All 52 refactoring items (P0-P3 + Quick Wins) have been successfully resolved. T
 
 ### P1-9: Replace predictions router Region enum with canonical Region [RESOLVED]
 - **Dimension**: Code Quality
-- **File**: `backend/routers/predictions.py:33-39`
+- **File**: `backend/api/v1/predictions.py:33-39`
 - **Resolution**: Replaced local 6-value Region enum with canonical `Region` from `models/region.py`. Added `_get_currency()` helper with full international currency mapping. Updated all 16 prediction tests to use canonical region values (us_ct, uk, de). Added `test_predict_price_eu_uses_eur` test.
 
 ---
@@ -227,7 +229,7 @@ All 52 refactoring items (P0-P3 + Quick Wins) have been successfully resolved. T
 | # | Item | File | Status |
 |---|------|------|--------|
 | 1 | Fix session cache key to SHA-256 | `neon_auth.py:63` | **RESOLVED** (P0-2) |
-| 2 | Replace predictions Region enum | `routers/predictions.py:33-39` | **RESOLVED** (P1-9) |
+| 2 | Replace predictions Region enum | `api/v1/predictions.py` | **RESOLVED** (P1-9) |
 | 3 | Fix `parseInt('7d')` dashboard bug | `dashboard/page.tsx:70` | **RESOLVED** |
 | 4 | Tighten CORS regex | `main.py:135` | **RESOLVED** (prev session) |
 | 5 | Update test counts in docs | `TESTING.md` | **RESOLVED** |

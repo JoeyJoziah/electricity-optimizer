@@ -17,6 +17,7 @@ import json
 import re
 import time
 from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
 
 import structlog
 from fastapi import FastAPI, Request, status
@@ -29,6 +30,10 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from config.database import db_manager
 from config.settings import settings
+
+if TYPE_CHECKING:
+    # Imported lazily inside create_app() at runtime (see module docstring).
+    from middleware.rate_limiter import UserRateLimiter
 
 logger = structlog.get_logger()
 
@@ -558,7 +563,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         logger.warning("validation_error", errors=sanitized_errors, path=request.url.path)
 
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": sanitized_errors},
         )
 
@@ -660,6 +665,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
     from api.v1 import internal as internal_v1
     from api.v1 import neighborhood as neighborhood_v1
     from api.v1 import notifications as notifications_v1
+    from api.v1 import predictions as predictions_v1
     from api.v1 import prices as prices_v1
     from api.v1 import prices_analytics as prices_analytics_v1
     from api.v1 import prices_sse as prices_sse_v1
@@ -673,17 +679,15 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
     from api.v1 import reports as reports_v1
     from api.v1 import savings as savings_v1
     from api.v1 import suppliers as suppliers_v1
-    from api.v1 import user as user_v1
     from api.v1 import user_supplier as user_supplier_v1
     from api.v1 import users as users_v1
     from api.v1 import utility_accounts as utility_accounts_v1
     from api.v1 import utility_discovery as utility_discovery_v1
     from api.v1 import water as water_v1
     from api.v1 import webhooks as webhooks_v1
-    from routers import predictions
 
     app.include_router(
-        predictions.router,
+        predictions_v1.router,
         prefix=f"{settings.api_prefix}/ml",
         tags=["ML Predictions"],
     )
@@ -726,7 +730,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         tags=["Compliance"],
     )
     app.include_router(
-        user_v1.router,
+        users_v1.user_router,
         prefix=f"{settings.api_prefix}/user",
         tags=["User"],
     )

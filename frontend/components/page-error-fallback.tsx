@@ -1,10 +1,10 @@
-'use client'
+"use client";
 
-import React from 'react'
+import React from "react";
 
 interface PageErrorFallbackProps {
-  error?: Error | null
-  onReset?: () => void
+  error?: Error | null;
+  onReset?: () => void;
 }
 
 export function PageErrorFallback({ error, onReset }: PageErrorFallbackProps) {
@@ -31,7 +31,7 @@ export function PageErrorFallback({ error, onReset }: PageErrorFallbackProps) {
         </h2>
         <p className="mt-2 text-sm text-gray-500">
           {error?.message ||
-            'An unexpected error occurred while loading this page.'}
+            "An unexpected error occurred while loading this page."}
         </p>
         <div className="mt-6 flex items-center justify-center gap-3">
           <button
@@ -49,5 +49,5 @@ export function PageErrorFallback({ error, onReset }: PageErrorFallbackProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }

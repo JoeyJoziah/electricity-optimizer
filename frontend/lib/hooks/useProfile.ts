@@ -1,8 +1,12 @@
-'use client'
+"use client";
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getUserProfile, updateUserProfile, UpdateProfileData } from '@/lib/api/profile'
-import { useSettingsStore } from '@/lib/store/settings'
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  getUserProfile,
+  updateUserProfile,
+  UpdateProfileData,
+} from "@/lib/api/profile";
+import { useSettingsStore } from "@/lib/store/settings";
 
 /**
  * Hook for fetching and syncing the user profile from the backend.
@@ -12,36 +16,36 @@ import { useSettingsStore } from '@/lib/store/settings'
  */
 export function useProfile() {
   return useQuery({
-    queryKey: ['user-profile'],
+    queryKey: ["user-profile"],
     queryFn: async ({ signal }) => {
-      const profile = await getUserProfile(signal)
+      const profile = await getUserProfile(signal);
       // Sync region from backend → Zustand store
       if (profile.region) {
-        const store = useSettingsStore.getState()
+        const store = useSettingsStore.getState();
         if (store.region !== profile.region) {
-          store.setRegion(profile.region)
+          store.setRegion(profile.region);
         }
       }
-      return profile
+      return profile;
     },
     staleTime: 60000,
-  })
+  });
 }
 
 /**
  * Hook for updating the user profile on the backend.
  */
 export function useUpdateProfile() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (data: UpdateProfileData) => updateUserProfile(data),
     onSuccess: (profile) => {
-      queryClient.setQueryData(['user-profile'], profile)
+      queryClient.setQueryData(["user-profile"], profile);
       // Sync region to Zustand store
       if (profile.region) {
-        useSettingsStore.getState().setRegion(profile.region)
+        useSettingsStore.getState().setRegion(profile.region);
       }
     },
-  })
+  });
 }

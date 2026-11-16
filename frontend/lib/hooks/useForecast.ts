@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
-import { getForecast, getForecastTypes } from '../api/forecast'
+import { useQuery } from "@tanstack/react-query";
+import { getForecast, getForecastTypes } from "@/lib/api/forecast";
 
 export function useForecast(
   utilityType?: string,
@@ -7,17 +7,18 @@ export function useForecast(
   horizonDays?: number,
 ) {
   return useQuery({
-    queryKey: ['forecast', utilityType, state, horizonDays],
-    queryFn: ({ signal }) => getForecast(utilityType!, state, horizonDays, signal),
+    queryKey: ["forecast", utilityType, state, horizonDays],
+    queryFn: ({ signal }) =>
+      getForecast(utilityType!, state, horizonDays, signal),
     enabled: !!utilityType,
     staleTime: 1000 * 60 * 30, // 30 minutes
-  })
+  });
 }
 
 export function useForecastTypes() {
   return useQuery({
-    queryKey: ['forecast', 'types'],
+    queryKey: ["forecast", "types"],
     queryFn: ({ signal }) => getForecastTypes(signal),
     staleTime: 1000 * 60 * 60 * 24, // 24 hours
-  })
+  });
 }

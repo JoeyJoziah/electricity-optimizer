@@ -1,4 +1,4 @@
-import { Skeleton, ChartSkeleton } from '@/components/ui/skeleton'
+import { Skeleton, ChartSkeleton } from "@/components/ui/skeleton";
 
 export default function GasRatesLoading() {
   return (
@@ -23,5 +23,5 @@ export default function GasRatesLoading() {
         </div>
       </div>
     </div>
-  )
+  );
 }

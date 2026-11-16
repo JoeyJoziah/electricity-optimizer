@@ -1,26 +1,37 @@
-'use client'
+"use client";
 
-import React from 'react'
-import { cn } from '@/lib/utils/cn'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Plus, FileText } from 'lucide-react'
-import type { DiagramEntry } from '@/lib/hooks/useDiagrams'
+import React from "react";
+import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Plus, FileText } from "lucide-react";
+import type { DiagramEntry } from "@/lib/hooks/useDiagrams";
 
 interface DiagramListProps {
-  diagrams: DiagramEntry[] | undefined
-  isLoading: boolean
-  selected: string | null
-  onSelect: (name: string) => void
-  onCreateClick: () => void
+  diagrams: DiagramEntry[] | undefined;
+  isLoading: boolean;
+  selected: string | null;
+  onSelect: (name: string) => void;
+  onCreateClick: () => void;
 }
 
-export function DiagramList({ diagrams, isLoading, selected, onSelect, onCreateClick }: DiagramListProps) {
+export function DiagramList({
+  diagrams,
+  isLoading,
+  selected,
+  onSelect,
+  onCreateClick,
+}: DiagramListProps) {
   return (
     <div className="flex h-full flex-col border-r border-gray-200 bg-gray-50">
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
         <h2 className="text-sm font-semibold text-gray-700">Diagrams</h2>
-        <Button variant="ghost" size="sm" onClick={onCreateClick} aria-label="Create diagram">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onCreateClick}
+          aria-label="Create diagram"
+        >
           <Plus className="h-4 w-4" />
         </Button>
       </div>
@@ -39,10 +50,10 @@ export function DiagramList({ diagrams, isLoading, selected, onSelect, onCreateC
                 <button
                   onClick={() => onSelect(d.name)}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors',
+                    "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors",
                     selected === d.name
-                      ? 'bg-primary-100 text-primary-700 font-medium'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      ? "bg-primary-100 text-primary-700 font-medium"
+                      : "text-gray-600 hover:bg-gray-100",
                   )}
                 >
                   <FileText className="h-4 w-4 flex-shrink-0" />
@@ -58,5 +69,5 @@ export function DiagramList({ diagrams, isLoading, selected, onSelect, onCreateC
         )}
       </div>
     </div>
-  )
+  );
 }

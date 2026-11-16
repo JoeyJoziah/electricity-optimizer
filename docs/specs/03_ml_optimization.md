@@ -3,7 +3,7 @@
 > Spec ID: 03
 > Status: Draft
 > Last updated: 2026-02-22
-> Modules: `ml/`, `backend/routers/predictions.py`, `backend/services/vector_store.py`
+> Modules: `ml/`, `backend/api/v1/predictions.py`, `backend/services/vector_store.py`
 >
 > **Current Status (2026-03-16):** This spec remains largely accurate for the ML architecture. Key updates since it was written:
 > - **Vector Store**: HNSW vector store upgraded with geometric growth (resize *2), async wrappers (`async_insert`, `async_search`, etc.), and batched metadata lookups (single `SELECT ... WHERE id IN`).
@@ -795,5 +795,5 @@ FUNCTION run_backtest(model, feature_engine, df, config):
 | `ml/evaluation/metrics.py` | ForecastMetrics, MAE/RMSE/MAPE/sMAPE/interval_score |
 | `ml/evaluation/backtesting.py` | ModelBacktester, walk-forward validation |
 | `ml/tests/test_milp_standalone.py` | 9 standalone MILP tests (no TF dependency) |
-| `backend/routers/predictions.py` | FastAPI endpoints for inference + optimization |
+| `backend/api/v1/predictions.py` | FastAPI endpoints for inference + optimization |
 | `backend/services/vector_store.py` | VectorStore with SQLite + cosine similarity |

@@ -1,40 +1,42 @@
-'use client'
+"use client";
 
-import React, { useState, useMemo } from 'react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { MapPin, Search, Zap } from 'lucide-react'
-import { US_REGIONS, DEREGULATED_ELECTRICITY_STATES } from '@/lib/constants/regions'
-import type { StateOption } from '@/lib/constants/regions'
+import React, { useState, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { MapPin, Search, Zap } from "lucide-react";
+import {
+  US_REGIONS,
+  DEREGULATED_ELECTRICITY_STATES,
+} from "@/lib/constants/regions";
+import type { StateOption } from "@/lib/constants/regions";
 
 interface RegionSelectorProps {
-  onSelect: (region: string) => void
-  isLoading?: boolean
+  onSelect: (region: string) => void;
+  isLoading?: boolean;
 }
 
 export function RegionSelector({ onSelect, isLoading }: RegionSelectorProps) {
-  const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState<string | null>(null)
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<string | null>(null);
 
   const filteredRegions = useMemo(() => {
-    if (!search.trim()) return US_REGIONS
+    if (!search.trim()) return US_REGIONS;
 
-    const q = search.toLowerCase()
+    const q = search.toLowerCase();
     return US_REGIONS.map((group) => ({
       ...group,
       states: group.states.filter(
         (s) =>
-          s.label.toLowerCase().includes(q) ||
-          s.abbr.toLowerCase().includes(q)
+          s.label.toLowerCase().includes(q) || s.abbr.toLowerCase().includes(q),
       ),
-    })).filter((group) => group.states.length > 0)
-  }, [search])
+    })).filter((group) => group.states.length > 0);
+  }, [search]);
 
   const handleSubmit = () => {
     if (selected) {
-      onSelect(selected)
+      onSelect(selected);
     }
-  }
+  };
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -44,7 +46,8 @@ export function RegionSelector({ onSelect, isLoading }: RegionSelectorProps) {
         </div>
         <h1 className="text-2xl font-bold text-gray-900">Select your state</h1>
         <p className="mt-2 text-gray-600">
-          We&apos;ll show you local electricity rates and supplier options for your area.
+          We&apos;ll show you local electricity rates and supplier options for
+          your area.
         </p>
       </div>
 
@@ -68,8 +71,10 @@ export function RegionSelector({ onSelect, isLoading }: RegionSelectorProps) {
               {group.label}
             </div>
             {group.states.map((state: StateOption) => {
-              const isDeregulated = DEREGULATED_ELECTRICITY_STATES.has(state.abbr)
-              const isSelected = selected === state.value
+              const isDeregulated = DEREGULATED_ELECTRICITY_STATES.has(
+                state.abbr,
+              );
+              const isSelected = selected === state.value;
               return (
                 <button
                   key={state.value}
@@ -77,8 +82,8 @@ export function RegionSelector({ onSelect, isLoading }: RegionSelectorProps) {
                   onClick={() => setSelected(state.value)}
                   className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors ${
                     isSelected
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-gray-700 hover:bg-gray-50'
+                      ? "bg-primary-50 text-primary-700"
+                      : "text-gray-700 hover:bg-gray-50"
                   }`}
                 >
                   <span className="flex items-center gap-2">
@@ -92,7 +97,7 @@ export function RegionSelector({ onSelect, isLoading }: RegionSelectorProps) {
                     </Badge>
                   )}
                 </button>
-              )
+              );
             })}
           </div>
         ))}
@@ -110,13 +115,13 @@ export function RegionSelector({ onSelect, isLoading }: RegionSelectorProps) {
         disabled={!selected || isLoading}
         onClick={handleSubmit}
       >
-        {isLoading ? 'Saving...' : 'Continue to Dashboard'}
+        {isLoading ? "Saving..." : "Continue to Dashboard"}
       </Button>
 
       <p className="text-center text-xs text-gray-500">
-        * States marked with &quot;Supplier choice&quot; have deregulated electricity markets,
-        meaning you can choose your energy supplier.
+        * States marked with &quot;Supplier choice&quot; have deregulated
+        electricity markets, meaning you can choose your energy supplier.
       </p>
     </div>
-  )
+  );
 }

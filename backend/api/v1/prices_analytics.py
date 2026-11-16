@@ -82,7 +82,7 @@ async def get_price_statistics(
             raise HTTPException(
                 status_code=503,
                 detail="Price service temporarily unavailable",
-            )
+            ) from e
         return PriceStatisticsResponse(
             region=region.value,
             period_days=days,
@@ -143,7 +143,7 @@ async def get_optimal_usage_windows(
             raise HTTPException(
                 status_code=503,
                 detail="Price service temporarily unavailable",
-            )
+            ) from e
         now = datetime.now(UTC)
         all_windows = [
             {
@@ -208,7 +208,7 @@ async def get_price_trends(
             raise HTTPException(
                 status_code=503,
                 detail="Price service temporarily unavailable",
-            )
+            ) from e
         return {
             "region": region.value,
             "period_days": days,
@@ -254,7 +254,7 @@ async def get_peak_hours_analysis(
             raise HTTPException(
                 status_code=503,
                 detail="Price service temporarily unavailable",
-            )
+            ) from e
         return {
             "region": region.value,
             "period_days": days,

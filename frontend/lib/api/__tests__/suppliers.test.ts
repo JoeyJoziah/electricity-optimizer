@@ -247,10 +247,9 @@ describe("initiateSwitch", () => {
       mockJsonResponse({ referenceNumber: "ref-42", status: "pending" }),
     );
     const result = await initiateSwitch({
-      supplierId: "sup-2",
+      newSupplierId: "sup-2",
       currentSupplierId: "sup-1",
-      annualUsage: 10500,
-      region: "us_ct",
+      gdprConsent: true,
     });
     const calledUrl = mockFetch.mock.calls[0]![0] as string;
     expect(calledUrl).toContain("/api/v1/suppliers/switch");

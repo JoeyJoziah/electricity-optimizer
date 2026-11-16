@@ -1,43 +1,46 @@
-'use client'
+"use client";
 
-import React, { useState, useRef, useEffect } from 'react'
-import { Badge } from '@/components/ui/badge'
-import { Star, Leaf, ChevronDown, Search, X, Zap } from 'lucide-react'
-import type { Supplier } from '@/types'
+import React, { useState, useRef, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Star, Leaf, ChevronDown, Search, X, Zap } from "lucide-react";
+import type { Supplier } from "@/types";
 
 interface SupplierSelectorProps {
-  suppliers: Supplier[]
-  value: Supplier | null
-  onChange: (supplier: Supplier | null) => void
-  placeholder?: string
-  disabled?: boolean
+  suppliers: Supplier[];
+  value: Supplier | null;
+  onChange: (supplier: Supplier | null) => void;
+  placeholder?: string;
+  disabled?: boolean;
 }
 
 export const SupplierSelector: React.FC<SupplierSelectorProps> = ({
   suppliers,
   value,
   onChange,
-  placeholder = 'Select a supplier...',
+  placeholder = "Select a supplier...",
   disabled = false,
 }) => {
-  const [isOpen, setIsOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const filtered = suppliers.filter((s) =>
-    s.name.toLowerCase().includes(search.toLowerCase())
-  )
+    s.name.toLowerCase().includes(search.toLowerCase()),
+  );
 
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsOpen(false)
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
       }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -59,7 +62,9 @@ export const SupplierSelector: React.FC<SupplierSelectorProps> = ({
         ) : (
           <span className="text-gray-400">{placeholder}</span>
         )}
-        <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+        />
       </button>
 
       {/* Dropdown */}
@@ -78,7 +83,7 @@ export const SupplierSelector: React.FC<SupplierSelectorProps> = ({
                 autoFocus
               />
               {search && (
-                <button onClick={() => setSearch('')}>
+                <button onClick={() => setSearch("")}>
                   <X className="h-3 w-3 text-gray-400" />
                 </button>
               )}
@@ -88,21 +93,23 @@ export const SupplierSelector: React.FC<SupplierSelectorProps> = ({
           {/* Options */}
           <div className="max-h-60 overflow-y-auto p-1">
             {filtered.length === 0 ? (
-              <p className="px-3 py-2 text-sm text-gray-500">No suppliers found</p>
+              <p className="px-3 py-2 text-sm text-gray-500">
+                No suppliers found
+              </p>
             ) : (
               filtered.map((supplier) => (
                 <button
                   key={supplier.id}
                   type="button"
                   onClick={() => {
-                    onChange(supplier)
-                    setIsOpen(false)
-                    setSearch('')
+                    onChange(supplier);
+                    setIsOpen(false);
+                    setSearch("");
                   }}
                   className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors ${
                     value?.id === supplier.id
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'hover:bg-gray-50'
+                      ? "bg-primary-50 text-primary-700"
+                      : "hover:bg-gray-50"
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -125,5 +132,5 @@ export const SupplierSelector: React.FC<SupplierSelectorProps> = ({
         </div>
       )}
     </div>
-  )
-}
+  );
+};

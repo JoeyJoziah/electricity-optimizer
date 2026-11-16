@@ -1,84 +1,89 @@
-'use client'
+"use client";
 
-import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
-import type { Appliance, Supplier } from '@/types'
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import type { Appliance, Supplier } from "@/types";
 
-export type UtilityType = 'electricity' | 'natural_gas' | 'heating_oil' | 'propane' | 'community_solar'
+export type UtilityType =
+  | "electricity"
+  | "natural_gas"
+  | "heating_oil"
+  | "propane"
+  | "community_solar";
 
 interface PriceAlert {
-  id: string
-  type: 'below' | 'above'
-  threshold: number
-  enabled: boolean
+  id: string;
+  type: "below" | "above";
+  threshold: number;
+  enabled: boolean;
 }
 
 interface SettingsState {
   // User settings
-  region: string | undefined
-  utilityTypes: UtilityType[]
-  currentSupplier: Supplier | null
-  annualUsageKwh: number
-  peakDemandKw: number
-  appliances: Appliance[]
-  priceAlerts: PriceAlert[]
+  region: string | undefined;
+  utilityTypes: UtilityType[];
+  currentSupplier: Supplier | null;
+  annualUsageKwh: number;
+  peakDemandKw: number;
+  appliances: Appliance[];
+  priceAlerts: PriceAlert[];
 
   // Notification preferences
   notificationPreferences: {
-    priceAlerts: boolean
-    optimalTimes: boolean
-    supplierUpdates: boolean
-  }
+    priceAlerts: boolean;
+    optimalTimes: boolean;
+    supplierUpdates: boolean;
+  };
 
   // Display preferences
   displayPreferences: {
-    currency: 'GBP' | 'EUR' | 'USD'
-    theme: 'light' | 'dark' | 'system'
-    timeFormat: '12h' | '24h'
-  }
+    currency: "GBP" | "EUR" | "USD";
+    theme: "light" | "dark" | "system";
+    timeFormat: "12h" | "24h";
+  };
 
   // Actions
-  setRegion: (region: string | undefined) => void
-  setUtilityTypes: (types: UtilityType[]) => void
-  setCurrentSupplier: (supplier: Supplier | null) => void
-  setAnnualUsage: (usage: number) => void
-  setPeakDemand: (demand: number) => void
-  setAppliances: (appliances: Appliance[]) => void
-  addAppliance: (appliance: Appliance) => void
-  updateAppliance: (id: string, updates: Partial<Appliance>) => void
-  removeAppliance: (id: string) => void
-  addPriceAlert: (alert: PriceAlert) => void
-  removePriceAlert: (id: string) => void
-  togglePriceAlert: (id: string) => void
+  setRegion: (region: string | undefined) => void;
+  setUtilityTypes: (types: UtilityType[]) => void;
+  setCurrentSupplier: (supplier: Supplier | null) => void;
+  setAnnualUsage: (usage: number) => void;
+  setPeakDemand: (demand: number) => void;
+  setAppliances: (appliances: Appliance[]) => void;
+  addAppliance: (appliance: Appliance) => void;
+  updateAppliance: (id: string, updates: Partial<Appliance>) => void;
+  removeAppliance: (id: string) => void;
+  addPriceAlert: (alert: PriceAlert) => void;
+  removePriceAlert: (id: string) => void;
+  togglePriceAlert: (id: string) => void;
   setNotificationPreferences: (
-    prefs: Partial<SettingsState['notificationPreferences']>
-  ) => void
+    prefs: Partial<SettingsState["notificationPreferences"]>,
+  ) => void;
   setDisplayPreferences: (
-    prefs: Partial<SettingsState['displayPreferences']>
-  ) => void
-  resetSettings: () => void
+    prefs: Partial<SettingsState["displayPreferences"]>,
+  ) => void;
+  resetSettings: () => void;
 }
 
 const defaultSettings: Omit<
   SettingsState,
-  | 'setRegion'
-  | 'setUtilityTypes'
-  | 'setCurrentSupplier'
-  | 'setAnnualUsage'
-  | 'setPeakDemand'
-  | 'setAppliances'
-  | 'addAppliance'
-  | 'updateAppliance'
-  | 'removeAppliance'
-  | 'addPriceAlert'
-  | 'removePriceAlert'
-  | 'togglePriceAlert'
-  | 'setNotificationPreferences'
-  | 'setDisplayPreferences'
-  | 'resetSettings'
+  | "setRegion"
+  | "setUtilityTypes"
+  | "setCurrentSupplier"
+  | "setAnnualUsage"
+  | "setPeakDemand"
+  | "setAppliances"
+  | "addAppliance"
+  | "updateAppliance"
+  | "removeAppliance"
+  | "addPriceAlert"
+  | "removePriceAlert"
+  | "togglePriceAlert"
+  | "setNotificationPreferences"
+  | "setDisplayPreferences"
+  | "resetSettings"
 > = {
   region: undefined,
-  utilityTypes: ['electricity'] as UtilityType[],
+  utilityTypes: ["electricity"] as UtilityType[],
   currentSupplier: null,
   annualUsageKwh: 10500, // US average
   peakDemandKw: 5,
@@ -90,11 +95,11 @@ const defaultSettings: Omit<
     supplierUpdates: false,
   },
   displayPreferences: {
-    currency: 'USD',
-    theme: 'system',
-    timeFormat: '12h',
+    currency: "USD",
+    theme: "system",
+    timeFormat: "12h",
   },
-}
+};
 
 /**
  * SSR-safe storage factory.
@@ -104,8 +109,8 @@ const defaultSettings: Omit<
  * on the server. On the client the real `localStorage` is used.
  */
 function getStorage() {
-  if (typeof window !== 'undefined') {
-    return localStorage
+  if (typeof window !== "undefined") {
+    return localStorage;
   }
   // No-op storage for SSR — zustand persist will use defaults and
   // rehydrate from localStorage on the client after mount.
@@ -116,7 +121,7 @@ function getStorage() {
     length: 0,
     clear: () => {},
     key: () => null,
-  } satisfies Storage
+  } satisfies Storage;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -144,7 +149,7 @@ export const useSettingsStore = create<SettingsState>()(
       updateAppliance: (id, updates) =>
         set((state) => ({
           appliances: state.appliances.map((a) =>
-            a.id === id ? { ...a, ...updates } : a
+            a.id === id ? { ...a, ...updates } : a,
           ),
         })),
 
@@ -166,7 +171,7 @@ export const useSettingsStore = create<SettingsState>()(
       togglePriceAlert: (id) =>
         set((state) => ({
           priceAlerts: state.priceAlerts.map((a) =>
-            a.id === id ? { ...a, enabled: !a.enabled } : a
+            a.id === id ? { ...a, enabled: !a.enabled } : a,
           ),
         })),
 
@@ -189,7 +194,7 @@ export const useSettingsStore = create<SettingsState>()(
       resetSettings: () => set(defaultSettings),
     }),
     {
-      name: 'electricity-optimizer-settings',
+      name: "electricity-optimizer-settings",
       storage: createJSONStorage(() => getStorage()),
       partialize: (state) => ({
         region: state.region,
@@ -202,19 +207,21 @@ export const useSettingsStore = create<SettingsState>()(
         notificationPreferences: state.notificationPreferences,
         displayPreferences: state.displayPreferences,
       }),
-    }
-  )
-)
+    },
+  ),
+);
 
 // Selector hooks for specific parts of state
-export const useRegion = () => useSettingsStore((s) => s.region)
-export const useUtilityTypes = () => useSettingsStore((s) => s.utilityTypes)
-export const useCurrentSupplier = () => useSettingsStore((s) => s.currentSupplier)
-export const useAnnualUsage = () => useSettingsStore((s) => s.annualUsageKwh)
-export const useStoredAppliances = () => useSettingsStore((s) => s.appliances)
+export const useRegion = () => useSettingsStore((s) => s.region);
+export const useUtilityTypes = () => useSettingsStore((s) => s.utilityTypes);
+export const useCurrentSupplier = () =>
+  useSettingsStore((s) => s.currentSupplier);
+export const useAnnualUsage = () => useSettingsStore((s) => s.annualUsageKwh);
+export const useStoredAppliances = () => useSettingsStore((s) => s.appliances);
 export const useCurrency = () =>
-  useSettingsStore((s) => s.displayPreferences.currency)
-export const useTheme = () => useSettingsStore((s) => s.displayPreferences.theme)
-export const usePriceAlerts = () => useSettingsStore((s) => s.priceAlerts)
+  useSettingsStore((s) => s.displayPreferences.currency);
+export const useTheme = () =>
+  useSettingsStore((s) => s.displayPreferences.theme);
+export const usePriceAlerts = () => useSettingsStore((s) => s.priceAlerts);
 
-export type { PriceAlert }
+export type { PriceAlert };

@@ -453,7 +453,7 @@ class TestTokenEncryption:
     def test_encrypt_tokens_returns_bytes(self):
         from services.email_oauth_service import encrypt_tokens
 
-        with patch("utils.encryption.settings") as mock_settings:
+        with patch("lib.encryption.settings") as mock_settings:
             mock_settings.field_encryption_key = TEST_ENCRYPTION_KEY
             enc_access, enc_refresh = encrypt_tokens("access_token_value", "refresh_token_value")
 
@@ -464,7 +464,7 @@ class TestTokenEncryption:
         """When refresh_token is None, second returned value is None."""
         from services.email_oauth_service import encrypt_tokens
 
-        with patch("utils.encryption.settings") as mock_settings:
+        with patch("lib.encryption.settings") as mock_settings:
             mock_settings.field_encryption_key = TEST_ENCRYPTION_KEY
             enc_access, enc_refresh = encrypt_tokens("access_token_value", None)
 
@@ -473,10 +473,10 @@ class TestTokenEncryption:
 
     def test_encrypt_tokens_roundtrip(self):
         """Encrypted token can be decrypted back to original value."""
+        from lib.encryption import decrypt_field
         from services.email_oauth_service import encrypt_tokens
-        from utils.encryption import decrypt_field
 
-        with patch("utils.encryption.settings") as mock_settings:
+        with patch("lib.encryption.settings") as mock_settings:
             mock_settings.field_encryption_key = TEST_ENCRYPTION_KEY
             enc_access, _ = encrypt_tokens("my_access_token", None)
             decrypted = decrypt_field(enc_access)
@@ -487,7 +487,7 @@ class TestTokenEncryption:
         """Each encryption produces different ciphertext (random nonce)."""
         from services.email_oauth_service import encrypt_tokens
 
-        with patch("utils.encryption.settings") as mock_settings:
+        with patch("lib.encryption.settings") as mock_settings:
             mock_settings.field_encryption_key = TEST_ENCRYPTION_KEY
             enc1, _ = encrypt_tokens("same_token", None)
             enc2, _ = encrypt_tokens("same_token", None)
@@ -1010,7 +1010,7 @@ class TestEmailOAuthCallback:
                 "services.email_oauth_service.exchange_gmail_code",
                 return_value=token_response,
             ),
-            patch("utils.encryption.settings") as enc_settings,
+            patch("lib.encryption.settings") as enc_settings,
         ):
             mock_settings.internal_api_key = "test-key"
             mock_settings.jwt_secret = "fallback"
@@ -1051,7 +1051,7 @@ class TestEmailOAuthCallback:
                 "services.email_oauth_service.exchange_outlook_code",
                 return_value=token_response,
             ),
-            patch("utils.encryption.settings") as enc_settings,
+            patch("lib.encryption.settings") as enc_settings,
         ):
             mock_settings.internal_api_key = "test-key"
             mock_settings.jwt_secret = "fallback"
@@ -1166,7 +1166,7 @@ class TestEmailOAuthCallbackOwnership:
                 "services.email_oauth_service.exchange_gmail_code",
                 return_value=token_response,
             ),
-            patch("utils.encryption.settings") as enc_settings,
+            patch("lib.encryption.settings") as enc_settings,
         ):
             mock_settings.internal_api_key = "test-key"
             mock_settings.gmail_client_id = "client-id"
@@ -1255,9 +1255,9 @@ class TestTriggerEmailScan:
         db = _install_auth()
 
         # Encrypt a fake access token — stored as raw BYTEA (migration 059)
-        with patch("utils.encryption.settings") as enc_settings:
+        with patch("lib.encryption.settings") as enc_settings:
             enc_settings.field_encryption_key = TEST_ENCRYPTION_KEY
-            from utils.encryption import encrypt_field
+            from lib.encryption import encrypt_field
 
             enc_token = encrypt_field("fake_access_token")
         # Pass raw bytes — no base64 wrapper (BYTEA column, not TEXT)
@@ -1289,7 +1289,7 @@ class TestTriggerEmailScan:
         )
 
         with (
-            patch("utils.encryption.settings") as enc_settings,
+            patch("lib.encryption.settings") as enc_settings,
             patch(
                 "services.email_scanner_service.scan_gmail_inbox", return_value=[mock_scan_result]
             ) as mock_scan,
@@ -1310,9 +1310,9 @@ class TestTriggerEmailScan:
         """Only utility bill emails are included in the response."""
         db = _install_auth()
 
-        with patch("utils.encryption.settings") as enc_settings:
+        with patch("lib.encryption.settings") as enc_settings:
             enc_settings.field_encryption_key = TEST_ENCRYPTION_KEY
-            from utils.encryption import encrypt_field
+            from lib.encryption import encrypt_field
 
             enc_token = encrypt_field("fake_access_token")
         # Pass raw bytes — BYTEA column (migration 059, no base64 wrapper)
@@ -1351,7 +1351,7 @@ class TestTriggerEmailScan:
         )
 
         with (
-            patch("utils.encryption.settings") as enc_settings,
+            patch("lib.encryption.settings") as enc_settings,
             patch(
                 "services.email_scanner_service.scan_gmail_inbox",
                 return_value=[non_bill, utility_bill],

@@ -1,25 +1,25 @@
-const nextJest = require('next/jest')
+const nextJest = require("next/jest");
 
 const createJestConfig = nextJest({
-  dir: './',
-})
+  dir: "./",
+});
 
 const customJestConfig = {
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  testEnvironment: 'jest-environment-jsdom',
+  setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
+  testEnvironment: "jest-environment-jsdom",
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/$1',
-    '^better-auth/react$': '<rootDir>/__mocks__/better-auth-react.js',
+    "^@/(.*)$": "<rootDir>/$1",
+    "^better-auth/react$": "<rootDir>/__mocks__/better-auth-react.js",
   },
-  testPathIgnorePatterns: ['<rootDir>/e2e/'],
-  modulePathIgnorePatterns: ['<rootDir>/.next/'],
+  testPathIgnorePatterns: ["<rootDir>/e2e/"],
+  modulePathIgnorePatterns: ["<rootDir>/.next/"],
   collectCoverageFrom: [
-    'components/**/*.{ts,tsx}',
-    'lib/**/*.{ts,tsx}',
-    'app/**/*.{ts,tsx}',
-    '!**/*.d.ts',
-    '!**/*.stories.{ts,tsx}',
-    '!**/node_modules/**',
+    "components/**/*.{ts,tsx}",
+    "lib/**/*.{ts,tsx}",
+    "app/**/*.{ts,tsx}",
+    "!**/*.d.ts",
+    "!**/*.stories.{ts,tsx}",
+    "!**/node_modules/**",
   ],
   coverageThreshold: {
     global: {
@@ -29,6 +29,6 @@ const customJestConfig = {
       statements: 80,
     },
   },
-}
+};
 
-module.exports = createJestConfig(customJestConfig)
+module.exports = createJestConfig(customJestConfig);

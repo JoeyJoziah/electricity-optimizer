@@ -1045,7 +1045,7 @@ class TestAuthorizationCallbackEndpoint:
                 new_callable=AsyncMock,
             ),
             patch(
-                "utils.encryption.encrypt_field",
+                "lib.encryption.encrypt_field",
                 return_value=b"encrypted_uid",
             ),
             patch(

@@ -1,15 +1,15 @@
-'use client'
+"use client";
 
-import React from 'react'
-import { useReportPost } from '@/lib/hooks/useCommunity'
+import React from "react";
+import { useReportPost } from "@/lib/hooks/useCommunity";
 
 interface ReportButtonProps {
-  postId: string
+  postId: string;
 }
 
 export function ReportButton({ postId }: ReportButtonProps) {
-  const mutation = useReportPost()
-  const [showConfirm, setShowConfirm] = React.useState(false)
+  const mutation = useReportPost();
+  const [showConfirm, setShowConfirm] = React.useState(false);
 
   function handleReport() {
     mutation.mutate(
@@ -17,12 +17,15 @@ export function ReportButton({ postId }: ReportButtonProps) {
       {
         onSuccess: () => setShowConfirm(false),
       },
-    )
+    );
   }
 
   if (showConfirm) {
     return (
-      <div className="flex items-center gap-2" data-testid={`report-confirm-${postId}`}>
+      <div
+        className="flex items-center gap-2"
+        data-testid={`report-confirm-${postId}`}
+      >
         <span className="text-xs text-gray-500">Report this post?</span>
         <button
           onClick={handleReport}
@@ -39,7 +42,7 @@ export function ReportButton({ postId }: ReportButtonProps) {
           No
         </button>
       </div>
-    )
+    );
   }
 
   return (
@@ -50,5 +53,5 @@ export function ReportButton({ postId }: ReportButtonProps) {
     >
       Report
     </button>
-  )
+  );
 }

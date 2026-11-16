@@ -6,7 +6,7 @@ Utility scripts for managing infrastructure, testing, data migration, and operat
 
 | Script | Type | Description | Prerequisites |
 |--------|------|-------------|---------------|
-| `dsp_bootstrap.py` | Python | Build codebase dependency graph (363 entities, 741 imports, 0 cycles) | `dsp-cli.py` in root |
+| `dsp_auto_bootstrap.py` | Python | Rebuild the `.dsp/` codebase dependency graph by auto-discovery | `dsp-cli.py` in root |
 | `webapp_test.py` | Python | Playwright E2E tests for live production site (25 tests) | System `python3` + Playwright |
 | `scale_check.py` | Python | Infrastructure scaling diagnostic with threshold alerts | Optional: RENDER_API_KEY |
 | `health-check.sh` | Bash | Service health verification (backend, frontend, Redis) | curl, redis-cli |
@@ -23,20 +23,16 @@ Utility scripts for managing infrastructure, testing, data migration, and operat
 | `loki-feature.sh` | Bash | Loki Mode feature scaffolding | Python 3 |
 | `loki-verify.sh` | Bash | Verify Loki memory index integrity | Python 3 |
 | `loki-decompose.py` | Python | Decompose Loki RARV cycles into tasks | Loki Python SDK |
-| `run_migrations_*.py` | Python | Database migration runners (direct Neon connect) | `.venv`, psycopg2 |
-| `load_test.js` | JavaScript | K6 load testing script (10K RPS simulation) | Node.js, k6 |
 | `setup_uptimerobot.py` | Python | Configure UptimeRobot monitoring for endpoints | UptimeRobot API key |
-| `init_timescaledb.sql` | SQL | Legacy TimescaleDB initialization (archived, now using Neon PostgreSQL) | psql |
 
 ## Core Scripts
 
-### dsp_bootstrap.py
+### dsp_auto_bootstrap.py
 
-Build and maintain the DSP (Data Structure Protocol) codebase graph -- a map of 363 entities with 741 import relationships and 0 circular dependencies.
+Rebuild the DSP (Data Structure Protocol) codebase graph in `.dsp/` by auto-discovering source files and imports. The bootstrap appends, so wipe first:
 
 ```bash
-# Run full bootstrap (registers all entities)
-python3 scripts/dsp_bootstrap.py
+rm -rf .dsp && python3 dsp-cli.py --root . init && python3 scripts/dsp_auto_bootstrap.py
 
 # Query the DSP graph
 python3 dsp-cli.py --root . search "ensemble"     # Find entities matching term
@@ -152,7 +148,7 @@ python3 scripts/notion_hub_setup.py
 # - Architecture Decisions DB (decision logs, rationale)
 # - Dashboard views (linked to each database)
 
-# Output: `.notion_hub_ids.json` (database IDs for future updates)
+# Output: `scripts/notion/notion_hub_ids.json` (database IDs for future updates)
 ```
 
 Requires Notion API key in `~/.config/notion/api_key`
@@ -178,24 +174,9 @@ Backup and restore databases with retention policy:
 # Backup location: /backups/ (configurable via BACKUP_DIR)
 ```
 
-## Database Migration Scripts
+## Database Migrations
 
-### run_migrations_*.py
-
-Direct migration runners using `psycopg2` for Neon PostgreSQL:
-
-```bash
-# Run specific migration batch
-.venv/bin/python scripts/run_migrations_018_019.py
-
-# Or run all migrations
-.venv/bin/python scripts/run_migrations_007_019.py
-
-# Prerequisites:
-# - .venv activated
-# - DATABASE_URL env var set (Neon connection string)
-# - Direct endpoint (for DDL): ep-withered-morning-aix83cfw.c-4...
-```
+There is no migration runner script and no Alembic. Migrations are idempotent raw SQL files in `backend/migrations/`, applied with `psql` in order (`init_neon.sql` first, then the numbered files). See "Database Setup" in `CONTRIBUTING.md` for the exact loop.
 
 ## CI/CD & Development Scripts
 
@@ -303,9 +284,9 @@ PYTHONPATH="$HOME/.claude/skills/loki-mode" python3 scripts/loki-decompose.py
 
 ## Load Testing
 
-### load_test.js
+### Load tests (moved)
 
-K6 load testing script for stress testing endpoints:
+Load tests now live in `tests/load/` (see `tests/load/README.md`). K6 load testing script for stress testing endpoints:
 
 ```bash
 # Install K6 if needed
@@ -314,7 +295,7 @@ brew install k6  # macOS
 apt-get install k6  # Linux
 
 # Run load test
-k6 run scripts/load_test.js
+k6 run tests/load/k6/load_test.js
 
 # Configuration (in script):
 # - 10K RPS target

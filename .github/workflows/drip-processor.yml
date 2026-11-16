@@ -14,31 +14,10 @@ concurrency:
 
 jobs:
   process:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          sparse-checkout: .github/actions
-
-      - name: Warmup backend
-        uses: ./.github/actions/warmup-backend
-        with:
-          backend-url: ${{ secrets.BACKEND_URL }}
-
-      - name: Run drip batch processor
-        uses: ./.github/actions/retry-curl
-        with:
-          url: ${{ secrets.BACKEND_URL }}/api/v1/internal/drip/process
-          headers: |
-            X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
-            Content-Type: application/json
-          body: '{}'
-          timeout: '120'
-
-      - name: Notify on failure
-        if: failure()
-        uses: ./.github/actions/notify-slack
-        with:
-          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
-          message: "Drip processor failed — check GHA run ${{ github.run_id }}"
+    uses: ./.github/workflows/_internal-cron.yml
+    with:
+      display-name: "Drip Email Processor"
+      endpoint-path: /api/v1/internal/drip/process
+      slack-severity: warning
+      job-timeout-minutes: 10
+    secrets: inherit

@@ -10,7 +10,7 @@ This script tests the complete ML pipeline including:
 5. Model save/load
 
 Requirements:
-    pip install -r requirements-ml.txt
+    pip install -r requirements.txt
 
 Usage:
     python test_forecaster.py

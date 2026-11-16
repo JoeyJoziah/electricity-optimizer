@@ -1,5 +1,5 @@
 """
-Tests for the User API Router (backend/api/v1/user.py)
+Tests for the User API Router (backend/api/v1/users.py, user_router)
 
 Tests cover:
 - GET /preferences - get user preferences (DB-backed)
@@ -60,7 +60,7 @@ def unauth_client():
 class TestGetPreferences:
     """Tests for the GET /api/v1/user/preferences endpoint."""
 
-    @patch("api.v1.user.UserRepository")
+    @patch("api.v1.users.UserRepository")
     def test_get_preferences_success(self, mock_repo_cls, auth_client):
         """Authenticated user should receive preferences with defaults."""
         mock_repo = MagicMock()
@@ -77,7 +77,7 @@ class TestGetPreferences:
         assert prefs["auto_switch_enabled"] is False
         assert prefs["green_energy_only"] is False
 
-    @patch("api.v1.user.UserRepository")
+    @patch("api.v1.users.UserRepository")
     def test_get_preferences_returns_stored_values(self, mock_repo_cls, auth_client):
         """Stored preferences should override defaults."""
         mock_repo = MagicMock()
@@ -92,7 +92,7 @@ class TestGetPreferences:
         assert prefs["notification_enabled"] is False
         assert prefs["green_energy_only"] is True
 
-    @patch("api.v1.user.UserRepository")
+    @patch("api.v1.users.UserRepository")
     def test_get_preferences_user_not_found(self, mock_repo_cls, auth_client):
         """Missing user should return default preferences."""
         mock_repo = MagicMock()
@@ -108,7 +108,7 @@ class TestGetPreferences:
         response = unauth_client.get("/api/v1/user/preferences")
         assert response.status_code == 401
 
-    @patch("api.v1.user.UserRepository")
+    @patch("api.v1.users.UserRepository")
     def test_get_preferences_returns_user_id(self, mock_repo_cls, auth_client):
         """Response should contain the authenticated user's ID."""
         mock_repo = MagicMock()
@@ -127,7 +127,7 @@ class TestGetPreferences:
 class TestUpdatePreferences:
     """Tests for the POST /api/v1/user/preferences endpoint."""
 
-    @patch("api.v1.user.UserRepository")
+    @patch("api.v1.users.UserRepository")
     def test_update_single_preference(self, mock_repo_cls, auth_client):
         """Updating one preference should persist and return the merged result."""
         mock_repo = MagicMock()
@@ -148,7 +148,7 @@ class TestUpdatePreferences:
         assert "message" in data
         mock_repo.update_preferences.assert_called_once()
 
-    @patch("api.v1.user.UserRepository")
+    @patch("api.v1.users.UserRepository")
     def test_update_multiple_preferences(self, mock_repo_cls, auth_client):
         """Updating multiple preferences should persist all updated fields."""
         mock_repo = MagicMock()
@@ -169,7 +169,7 @@ class TestUpdatePreferences:
         assert prefs["auto_switch_enabled"] is True
         assert prefs["green_energy_only"] is True
 
-    @patch("api.v1.user.UserRepository")
+    @patch("api.v1.users.UserRepository")
     def test_update_user_not_found(self, mock_repo_cls, auth_client):
         """Updating preferences for missing user should return 404."""
         mock_repo = MagicMock()
@@ -190,7 +190,7 @@ class TestUpdatePreferences:
         )
         assert response.status_code == 401
 
-    @patch("api.v1.user.UserRepository")
+    @patch("api.v1.users.UserRepository")
     def test_update_preferences_message(self, mock_repo_cls, auth_client):
         """Response should contain success message."""
         mock_repo = MagicMock()
@@ -204,7 +204,7 @@ class TestUpdatePreferences:
         )
         assert "Preferences updated successfully" in response.json()["message"]
 
-    @patch("api.v1.user.UserRepository")
+    @patch("api.v1.users.UserRepository")
     def test_update_ignores_unknown_fields(self, mock_repo_cls, auth_client):
         """Unknown fields should be ignored (Pydantic model validation)."""
         mock_repo = MagicMock()

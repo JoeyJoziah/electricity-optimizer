@@ -185,7 +185,7 @@ class TestSessionCacheEncryption:
                 "role": "user",
             }
         )
-        with patch("utils.encryption.settings") as mock_settings:
+        with patch("lib.encryption.settings") as mock_settings:
             import secrets
 
             mock_settings.field_encryption_key = secrets.token_hex(32)
@@ -200,7 +200,7 @@ class TestSessionCacheEncryption:
     def test_encrypt_fallback_without_key(self):
         """Without FIELD_ENCRYPTION_KEY, encrypt falls back to plaintext bytes."""
         plaintext = '{"user_id": "u-no-key"}'
-        with patch("utils.encryption.settings") as mock_settings:
+        with patch("lib.encryption.settings") as mock_settings:
             mock_settings.field_encryption_key = None
             result = _encrypt_session_cache(plaintext)
             assert result == plaintext.encode("utf-8")
@@ -237,7 +237,7 @@ class TestSessionCacheEncryption:
         mock_result.fetchone.return_value = mock_row
         mock_db.execute = AsyncMock(return_value=mock_result)
 
-        with patch("utils.encryption.settings") as mock_settings:
+        with patch("lib.encryption.settings") as mock_settings:
             import secrets
 
             mock_settings.field_encryption_key = secrets.token_hex(32)
@@ -271,7 +271,7 @@ class TestSessionCacheEncryption:
         )
 
         # Encrypt with the test key
-        with patch("utils.encryption.settings") as mock_settings:
+        with patch("lib.encryption.settings") as mock_settings:
             mock_settings.field_encryption_key = test_key
             encrypted = _encrypt_session_cache(session_payload)
 
@@ -286,7 +286,7 @@ class TestSessionCacheEncryption:
         mock_redis.get = AsyncMock(side_effect=_redis_get)
         mock_db = AsyncMock()
 
-        with patch("utils.encryption.settings") as mock_settings:
+        with patch("lib.encryption.settings") as mock_settings:
             mock_settings.field_encryption_key = test_key
 
             session = await _get_session_from_token("enc-hit-token", mock_db, redis=mock_redis)

@@ -1,15 +1,14 @@
 # RateShift Backend Services Codemap
 
-**Last Updated**: 2026-04-07
-**Total Services**: 59 (58 + 1 pricing-source adapter in the new `services/pricing/` package)
-**Total Test Files**: 105+
+**Last Updated**: 2026-11-16
+**Services**: every module in `backend/services/` (list with `ls backend/services`); tests in `backend/tests/`
 **Repositories**: 1 (monorepo)
 
 ---
 
 ## Quick Navigation
 
-This document maps all 58 backend services across 10 functional domains. Use this to:
+This document maps the backend services by functional domain. Use this to:
 - Find which service handles a feature
 - Understand service dependencies
 - Locate related tests
@@ -17,16 +16,16 @@ This document maps all 58 backend services across 10 functional domains. Use thi
 
 **Table of Contents**:
 1. [Service Domains Overview](#service-domains-overview)
-2. [Pricing Services (5)](#pricing-services)
-3. [Billing Services (2)](#billing-services)
-4. [ML/AI Services (8)](#mlai-services)
-5. [Utility Services (5)](#utility-services)
-6. [Connection Services (6)](#connection-services)
-7. [Community Services (4)](#community-services)
-8. [Notification Services (6)](#notification-services)
-9. [Analytics Services (4)](#analytics-services)
-10. [Utility Support Services (11)](#utility-support-services)
-11. [Auto Rate Switcher Services (7)](#auto-rate-switcher-services)
+2. [Pricing Services](#pricing-services)
+3. [Billing Services](#billing-services)
+4. [ML/AI Services](#mlai-services)
+5. [Utility Services](#utility-services)
+6. [Connection Services](#connection-services)
+7. [Community Services](#community-services)
+8. [Notification Services](#notification-services)
+9. [Analytics Services](#analytics-services)
+10. [Utility Support Services](#utility-support-services)
+11. [Auto Rate Switcher Services](#auto-rate-switcher-services)
 12. [Service Dependency Diagram](#service-dependency-diagram)
 
 ---
@@ -106,8 +105,8 @@ This document maps all 58 backend services across 10 functional domains. Use thi
 - **Purpose**: Pluggable, source-agnostic supplier-pricing abstraction that feeds the `supplier_offers` read model
 - **Pattern**: `SupplierOfferSource` protocol (`base.py`) defines a uniform interface; concrete sources implement it and write normalized offers into `supplier_offers` via `SupplierOfferRepository.upsert_offers`
 - **Wired source**: `RegionalEstimateSource` (`regional_estimate.py`) — the only source currently wired. Computes offers live (`is_estimate=true`), not persisted from a vendor feed
-- **Future sources**: `ct_rate_board`, `arcadia`, `energybot`, `manual` — each would implement `SupplierOfferSource` and `upsert_offers` into `supplier_offers`
-- **Note**: EnergyBot / `available_plans` are **dormant** — EnergyBot is treated as a competitor (auto-switcher enrollment provider), not a data vendor feeding this read model
+- **Future sources**: e.g. `ct_rate_board`, `manual` — each would implement `SupplierOfferSource` and `upsert_offers` into `supplier_offers`
+- **Note**: The product is advisory-only. The EnergyBot service was removed (EnergyBot is a competitor) and the `available_plans` table is unused; the only wired source is the regional estimate
 - **Dependencies**: `SupplierOfferRepository`, `supplier_offers` table, `Region` enum
 
 ---
@@ -442,6 +441,13 @@ This document maps all 58 backend services across 10 functional domains. Use thi
 - **Dependencies**: OneSignal SDK, `UserRepository`
 - **Tests**: `test_push_notification_service.py`
 
+### drip_service.py
+- **Class**: `DripService`
+- **Purpose**: 3-email onboarding sequence (welcome on signup, day-2 value email, day-7 Pro nudge); state machine in `user_drip_state` (migrations 067, 068)
+- **Key Methods**: `enroll_user(...)`, `process_welcome_retry_batch()`, `process_day2_batch()`, `process_day7_batch()`
+- **Dependencies**: `EmailService`, AsyncSession (raw `text()` SQL), HMAC unsubscribe tokens, structlog
+- **Tests**: `test_drip_service.py`, `test_drip_endpoint.py`
+
 ### alert_service.py
 - **Class**: `AlertService`, `AlertThreshold` (dataclass), `PriceAlert` (dataclass)
 - **Purpose**: Price alert configuration (CRUD), triggering, and routing via `NotificationDispatcher`
@@ -501,16 +507,6 @@ This document maps all 58 backend services across 10 functional domains. Use thi
 - **Dependencies**: `UserRepository`, `AnalyticsRepository`, `StripeService`, structlog
 - **Tests**: `test_kpi_report_service.py`, `test_internal_operations.py`
 
-### ab_test_service.py
-- **Class**: `ABTestService`
-- **Purpose**: A/B test framework for UI variants, pricing, onboarding flows
-- **Key Methods**:
-  - `assign_variant(user_id: str, test_name: str) -> str` — deterministic split (variant A or B)
-  - `record_conversion(user_id: str, test_name: str, event: str)` — mark goal completion
-  - `get_results(test_name: str) -> dict` — conversion rate + statistical significance
-- **Dependencies**: `ABTestRepository`, MD5 hash for deterministic assignment, structlog
-- **Tests**: `test_ab_test_service.py`
-
 ---
 
 ## Utility Support Services
@@ -534,7 +530,7 @@ This document maps all 58 backend services across 10 functional domains. Use thi
   - `get_forecast(lat: float, lon: float, days: int) -> list[dict]` — 7-day forecast
   - `get_heating_cooling_degree_days(region: str) -> dict` — for HVAC estimation
 - **Dependencies**: OpenWeatherMap API, `GeocodingService`, structlog
-- **Tests**: `test_weather_service.py`, `test_internal_operations.py`
+- **Tests**: `test_internal_data_pipeline.py`
 
 ### market_intelligence_service.py
 - **Class**: `MarketIntelligenceService`
@@ -653,13 +649,23 @@ This document maps all 58 backend services across 10 functional domains. Use thi
 - **Tests**: `test_switch_execution_service.py`
 
 ### switch_executor.py
-- **Class**: `SwitchExecutor`
-- **Purpose**: Adapter pattern for plan enrollment via external providers (EnergyBot primary)
-- **Key Methods**:
-  - `execute_switch(plan: AvailablePlan, user_settings: UserAgentSettings) -> str` — submit enrollment
-  - `check_enrollment_status(enrollment_id: str) -> dict` — poll provider for status
-- **Dependencies**: `EnergyBotService`, httpx, structlog
-- **Tests**: `test_switch_executor.py`
+- **Protocol**: `SwitchExecutor`; adapter: `AdvisoryOnlyFallback`; factory: `get_executor`
+- **Purpose**: The product is advisory-only. The single adapter never enrols anyone with a supplier; it only reports that a recommendation was recorded. The protocol and factory remain so a real enrollment provider could be added later without changing callers
+- **Dependencies**: structlog
+- **Tests**: `test_switch_executor.py`, `test_switch_executor_adapters.py`
+
+### switch_context_builder.py
+- **Functions**: `build_user_context(...)`, `market_data_is_estimate(ctx)`, `annotate_decision(decision, ctx)`
+- **Purpose**: Builds the `UserContext` the decision engine consumes, from `user_plans`, the vendor-neutral supplier-offers layer, `meter_readings` and `switch_executions`. Missing data stays missing; when every market plan is a regional estimate the context's `data_source` gets a `+market_estimate` suffix
+- **Dependencies**: `services/pricing/`, `SwitchDecisionEngine` types, structlog
+- **Tests**: no dedicated test file (exercised through the agent-switcher tests)
+
+### contract_lifecycle_service.py
+- **Class**: `ContractLifecycleService`
+- **Purpose**: Contract state per user: active plan details, cooldown windows, rescission periods (static per-state lookup) and the free-switch window before contract end
+- **Key Methods**: `get_contract_status(user_id)`, `is_in_cooldown(user_id)`, `is_in_rescission(user_id)`, `get_free_switch_window(user_id)`
+- **Dependencies**: AsyncSession (raw `text()` SQL), structlog
+- **Tests**: `test_contract_lifecycle_service.py`
 
 ### switch_notification_service.py
 - **Class**: `SwitchNotificationService`
@@ -738,7 +744,6 @@ This document maps all 58 backend services across 10 functional domains. Use thi
    │- data_qual   │     │- analytics    │            │              │
    └────┬─────────┘     │- kpi_report   │            │              │
         │               │- optimization │            │              │
-        │               │- ab_test      │            │              │
         │               └───────────────┘            │              │
         │                                            │              │
    ┌────▼─────────┐  ┌───────────────┐    ┌────────▼─────────┐   │
@@ -882,4 +887,4 @@ Services depend on database tables created by migrations:
 
 ## Last Updated
 
-2026-04-07 — 58 services documented, 105+ test files, dependency diagram included.
+2026-11-16 — reconciled against `backend/services/` (stale entries removed, missing services added).

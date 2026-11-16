@@ -27,7 +27,7 @@ env:
 jobs:
   generate-baselines:
     name: Generate Visual Baselines (${{ inputs.project || 'chromium' }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright has no browser builds for ubuntu-26.04 yet
     timeout-minutes: 20
 
     steps:

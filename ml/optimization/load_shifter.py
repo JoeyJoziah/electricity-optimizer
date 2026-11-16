@@ -80,7 +80,6 @@ class MILPOptimizer:
 
         for appliance in self.appliances:
             app_vars = {}
-            valid_slots = set(appliance.get_valid_slots(self.config.time_slots))
 
             for t in range(self.config.time_slots):
                 # Create variable even for invalid slots (will be constrained to 0)

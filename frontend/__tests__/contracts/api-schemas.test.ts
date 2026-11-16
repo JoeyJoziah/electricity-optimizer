@@ -9,7 +9,6 @@
  * Field names are derived from the backend Pydantic models:
  *   - Price/PriceHistoryResponse  → backend/models/price.py
  *   - SupplierResponse            → backend/models/supplier.py (SuppliersResponse in suppliers.py)
- *   - TariffResponse              → backend/models/supplier.py
  *   - SavingsSummary              → frontend/lib/hooks/useSavings.ts (mirrors /savings/summary)
  *   - ConnectionResponse          → backend/models/connections.py
  *   - Notifications               → backend/services/notification_service.py
@@ -194,7 +193,7 @@ describe("API Response Contracts", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Supplier API  (GET /api/v1/suppliers, /suppliers/:id/tariffs)
+  // Supplier API  (GET /api/v1/suppliers)
   // ---------------------------------------------------------------------------
   describe("Supplier API", () => {
     it("suppliers list response has expected fields", async () => {
@@ -247,67 +246,6 @@ describe("API Response Contracts", () => {
       expect(typeof supplier.id).toBe("string");
       expect(typeof supplier.name).toBe("string");
       // Pagination envelope
-      expect(result).toHaveProperty("total");
-      expect(typeof result.total).toBe("number");
-    });
-
-    it("tariffs response has expected fields", async () => {
-      /**
-       * GET /api/v1/suppliers/:id/tariffs
-       * Backend model: SupplierTariffsResponse / TariffResponse (supplier.py)
-       *
-       * Key fields:
-       *   tariffs[].id                    – UUID string
-       *   tariffs[].supplier_id           – UUID string
-       *   tariffs[].name                  – tariff display name
-       *   tariffs[].type                  – TariffType enum value
-       *   tariffs[].unit_rate             – Decimal serialised as string
-       *   tariffs[].standing_charge       – Decimal serialised as string
-       *   tariffs[].green_energy_percentage – integer 0–100
-       *   tariffs[].contract_length       – ContractLength enum value
-       *   tariffs[].is_available          – boolean
-       */
-      const backendPayload = {
-        supplier_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-        supplier_name: "Eversource Energy",
-        tariffs: [
-          {
-            id: "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-            supplier_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-            name: "Standard Variable",
-            type: "variable",
-            unit_rate: "0.2500",
-            standing_charge: "0.4000",
-            green_energy_percentage: 0,
-            contract_length: "rolling",
-            is_available: true,
-          },
-        ],
-        total: 1,
-      };
-      mockFetch.mockResolvedValue(mockJsonResponse(backendPayload));
-
-      // No standalone export — use apiClient directly (same as component usage)
-      const result = await apiClient.get<typeof backendPayload>(
-        "/suppliers/a1b2c3d4-e5f6-7890-abcd-ef1234567890/tariffs",
-      );
-
-      expect(result).toHaveProperty("supplier_id");
-      expect(result).toHaveProperty("supplier_name");
-      expect(result).toHaveProperty("tariffs");
-      expect(Array.isArray(result.tariffs)).toBe(true);
-      const tariff = result.tariffs[0]!;
-      expect(tariff).toHaveProperty("id");
-      expect(tariff).toHaveProperty("supplier_id");
-      expect(tariff).toHaveProperty("name");
-      expect(tariff).toHaveProperty("type");
-      expect(tariff).toHaveProperty("unit_rate");
-      expect(tariff).toHaveProperty("standing_charge");
-      expect(tariff).toHaveProperty("green_energy_percentage");
-      expect(tariff).toHaveProperty("contract_length");
-      expect(tariff).toHaveProperty("is_available");
-      expect(typeof tariff.unit_rate).toBe("string");
-      expect(typeof tariff.standing_charge).toBe("string");
       expect(result).toHaveProperty("total");
       expect(typeof result.total).toBe("number");
     });

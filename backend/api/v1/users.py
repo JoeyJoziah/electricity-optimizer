@@ -1,11 +1,13 @@
 """
-Users API Router — User profile management
+Users API — the signed-in user's profile, preferences and geocoding
 
-Provides GET /profile and PUT /profile endpoints for reading and updating
-a user's extended profile data (region, utility_types, current_supplier_id,
-annual_usage_kwh, onboarding_completed).
+Two routers, because the public URLs use two prefixes that must not change:
 
-These columns are added by migration 013_user_profile_columns.sql.
+- ``router`` (mounted at ``/users``): GET/PUT ``/users/profile`` — extended
+  profile data (region, utility_types, current_supplier_id, annual_usage_kwh,
+  onboarding_completed; columns from migration 013_user_profile_columns.sql).
+- ``user_router`` (mounted at ``/user``): GET/POST ``/user/preferences``
+  (persisted via UserRepository) and POST ``/user/geocode``.
 """
 
 import structlog
@@ -16,10 +18,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import SessionData, get_current_user, get_db_session
 from auth.neon_auth import ensure_user_profile
+from config.database import get_pg_session
+from models.user import UserPreferences
+from repositories.user_repository import UserRepository
 
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
+# Mounted by app_factory under ``{api_prefix}/user`` (singular).
+user_router = APIRouter(tags=["User"])
 
 
 # =============================================================================
@@ -182,7 +190,7 @@ async def get_profile(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User profile not found and could not be created automatically.",
-            )
+            ) from sync_err
         # Re-fetch after creating the profile
         result = await db.execute(
             text(
@@ -294,3 +302,112 @@ async def update_profile(
 
     # Return the refreshed profile
     return await get_profile(current_user, db)
+
+
+# =============================================================================
+# PREFERENCES + GEOCODE  (user_router — /user/*)
+# =============================================================================
+
+
+class GeocodeRequest(BaseModel):
+    """Geocode request body"""
+
+    address: str
+
+
+class UserPreferencesUpdate(BaseModel):
+    """User preferences update request (partial update)"""
+
+    notification_enabled: bool | None = None
+    auto_switch_enabled: bool | None = None
+    green_energy_only: bool | None = None
+    region: str | None = None
+
+
+@user_router.get("/preferences")
+async def get_preferences(
+    current_user: SessionData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_pg_session),
+):
+    """Get current user preferences from database."""
+    repo = UserRepository(db)
+    user = await repo.get_by_id(current_user.user_id)
+
+    if not user:
+        return {
+            "user_id": current_user.user_id,
+            "preferences": UserPreferences().model_dump(),
+        }
+
+    # Merge stored dict with UserPreferences defaults
+    stored = user.preferences or {}
+    prefs = UserPreferences(
+        **{k: v for k, v in stored.items() if k in UserPreferences.model_fields}
+    )
+
+    return {
+        "user_id": current_user.user_id,
+        "preferences": prefs.model_dump(),
+    }
+
+
+@user_router.post("/preferences")
+async def update_preferences(
+    preferences: UserPreferencesUpdate,
+    current_user: SessionData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_pg_session),
+):
+    """Update user preferences in database (partial update — only non-null fields)."""
+    repo = UserRepository(db)
+    user = await repo.get_by_id(current_user.user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    # Merge incoming non-null fields into existing preferences
+    existing = user.preferences or {}
+    updates = preferences.model_dump(exclude_none=True)
+    existing.update(updates)
+
+    # Validate merged preferences against the full schema
+    merged_prefs = UserPreferences(
+        **{k: v for k, v in existing.items() if k in UserPreferences.model_fields}
+    )
+
+    updated = await repo.update_preferences(current_user.user_id, merged_prefs)
+
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update preferences",
+        )
+
+    logger.info("preferences_updated", user_id=current_user.user_id, fields=list(updates.keys()))
+
+    return {
+        "user_id": current_user.user_id,
+        "preferences": merged_prefs.model_dump(),
+        "message": "Preferences updated successfully",
+    }
+
+
+@user_router.post("/geocode", tags=["User"])
+async def geocode_address(
+    request: GeocodeRequest,
+    current_user: SessionData = Depends(get_current_user),
+):
+    """Resolve a US address to coordinates and state/region.
+
+    Public endpoint (session auth) used by frontend onboarding and settings.
+    Delegates to the same GeocodingService used by the internal pipeline.
+    """
+    from services.geocoding_service import GeocodingService
+
+    service = GeocodingService()
+    result = await service.geocode(request.address)
+    if not result:
+        raise HTTPException(status_code=404, detail="Could not geocode address")
+    return {"result": result}

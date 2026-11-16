@@ -111,7 +111,6 @@ frontend/
 │   │   ├── useAgent.ts         # AI agent (stream/task/usage)
 │   │   ├── useAlerts.ts        # Alert CRUD + history
 │   │   ├── useConnections.ts   # Connections list + OAuth
-│   │   ├── useNotifications.ts # Push notification state
 │   │   ├── usePrices.ts        # Current + historical prices
 │   │   ├── useSuppliers.ts     # Supplier list + details
 │   │   ├── useSavings.ts       # Savings calculation

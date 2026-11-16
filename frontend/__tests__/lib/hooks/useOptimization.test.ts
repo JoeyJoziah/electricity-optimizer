@@ -30,6 +30,10 @@ import {
   usePotentialSavings,
 } from "@/lib/hooks/useOptimization";
 import type { Appliance } from "@/types";
+import { waitFor, act } from "@testing-library/react";
+import { ReactNode } from "react";
+import "@testing-library/jest-dom";
+import { useAppliances } from "@/lib/hooks/useOptimization";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -48,24 +52,17 @@ function makeWrapper() {
 const mockAppliance: Appliance = {
   id: "app-1",
   name: "Washer",
-  watts: 500,
-  hoursPerDay: 1,
-  category: "laundry",
-} as Appliance;
+  powerKw: 0.5,
+  typicalDurationHours: 1,
+  isFlexible: true,
+  priority: "medium",
+};
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 describe("useOptimalSchedule", () => {
-  it("is disabled when appliances array is empty", () => {
-    const { result } = renderHook(
-      () => useOptimalSchedule({ appliances: [], region: "us_ct" }),
-      { wrapper: makeWrapper() },
-    );
-    expect(result.current.fetchStatus).toBe("idle");
-  });
-
   it("is enabled when appliances are present", () => {
     mockGetOptimalSchedule.mockReturnValue(new Promise(() => {}));
     const { result } = renderHook(
@@ -116,13 +113,6 @@ describe("useSaveAppliances", () => {
 });
 
 describe("usePotentialSavings", () => {
-  it("is disabled when appliances array is empty", () => {
-    const { result } = renderHook(() => usePotentialSavings([], "us_ct"), {
-      wrapper: makeWrapper(),
-    });
-    expect(result.current.fetchStatus).toBe("idle");
-  });
-
   it("is disabled when region is null", () => {
     const { result } = renderHook(
       () => usePotentialSavings([mockAppliance], null),
@@ -140,3 +130,498 @@ describe("usePotentialSavings", () => {
     expect(result.current.fetchStatus).toBe("fetching");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Cases merged from __tests__/hooks/useOptimization.test.ts (block-scoped so its helpers do not
+// collide with the ones above)
+// ---------------------------------------------------------------------------
+{
+  // --- Helpers ---
+
+  function createWrapper() {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, gcTime: 0 },
+      },
+    });
+    return {
+      queryClient,
+      wrapper: ({ children }: { children: ReactNode }) =>
+        React.createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          children,
+        ),
+    };
+  }
+
+  // --- Mock data ---
+
+  const mockAppliance = {
+    id: "app-1",
+    name: "Washing Machine",
+    powerKw: 0.5,
+    typicalDurationHours: 1.5,
+    isFlexible: true,
+    preferredTimeRange: { start: 22, end: 6 },
+    priority: "medium" as const,
+  };
+
+  const mockScheduleResponse = {
+    schedules: [
+      {
+        applianceId: "app-1",
+        startTime: "2026-02-25T02:00:00Z",
+        endTime: "2026-02-25T03:30:00Z",
+        estimatedCost: 0.12,
+      },
+    ],
+    totalSavings: 0.15,
+    totalCost: 0.12,
+  };
+
+  const mockOptimizationResult = {
+    date: "2026-02-25",
+    region: "us_ct",
+    optimalHours: [2, 3, 4],
+    peakHours: [17, 18, 19],
+    estimatedSavings: 1.2,
+  };
+
+  const mockAppliancesResponse = {
+    appliances: [mockAppliance],
+  };
+
+  const mockSavingsResponse = {
+    dailySavings: 0.15,
+    weeklySavings: 1.05,
+    monthlySavings: 4.5,
+    annualSavings: 54.75,
+  };
+
+  // ==========================================================================
+  // useOptimalSchedule
+  // ==========================================================================
+  describe("useOptimalSchedule", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockGetOptimalSchedule.mockResolvedValue(mockScheduleResponse);
+    });
+
+    it("fetches optimal schedule when appliances are provided", async () => {
+      const { wrapper } = createWrapper();
+
+      const request = {
+        appliances: [mockAppliance],
+        region: "us_ct",
+        date: "2026-02-25",
+      };
+
+      const { result } = renderHook(() => useOptimalSchedule(request), {
+        wrapper,
+      });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      expect(result.current.data).toEqual(mockScheduleResponse);
+      expect(mockGetOptimalSchedule).toHaveBeenCalledWith(
+        request,
+        expect.anything(),
+      );
+    });
+
+    it("is disabled when appliances array is empty", () => {
+      const { wrapper } = createWrapper();
+
+      const request = {
+        appliances: [] as (typeof mockAppliance)[],
+        region: "us_ct",
+      };
+
+      const { result } = renderHook(() => useOptimalSchedule(request), {
+        wrapper,
+      });
+
+      expect(result.current.fetchStatus).toBe("idle");
+      expect(mockGetOptimalSchedule).not.toHaveBeenCalled();
+    });
+
+    it("uses stable primitive queryKey with sorted appliance IDs", async () => {
+      const { wrapper, queryClient } = createWrapper();
+
+      const request = {
+        appliances: [mockAppliance],
+        region: "us_ct",
+        date: "2026-02-25",
+      };
+
+      renderHook(() => useOptimalSchedule(request), { wrapper });
+
+      await waitFor(() => {
+        const queries = queryClient.getQueryCache().getAll();
+        const keys = queries.map((q) => q.queryKey);
+        // applianceIds = sorted IDs joined by comma
+        expect(keys).toContainEqual([
+          "optimization",
+          "schedule",
+          "app-1",
+          "us_ct",
+          "2026-02-25",
+        ]);
+      });
+    });
+
+    it("handles API error", async () => {
+      mockGetOptimalSchedule.mockRejectedValue(
+        new Error("Schedule unavailable"),
+      );
+
+      const { wrapper } = createWrapper();
+
+      const request = { appliances: [mockAppliance] };
+
+      const { result } = renderHook(() => useOptimalSchedule(request), {
+        wrapper,
+      });
+
+      await waitFor(() => {
+        expect(result.current.isError).toBe(true);
+      });
+
+      expect(result.current.error?.message).toBe("Schedule unavailable");
+    });
+  });
+
+  // ==========================================================================
+  // useOptimizationResult
+  // ==========================================================================
+  describe("useOptimizationResult", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockGetOptimizationResult.mockResolvedValue(mockOptimizationResult);
+    });
+
+    it("fetches optimization result for a date", async () => {
+      const { wrapper } = createWrapper();
+
+      const { result } = renderHook(
+        () => useOptimizationResult("2026-02-25", "us_ct"),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      expect(result.current.data).toEqual(mockOptimizationResult);
+      expect(mockGetOptimizationResult).toHaveBeenCalledWith(
+        "2026-02-25",
+        "us_ct",
+        expect.anything(),
+      );
+    });
+
+    it("passes region explicitly", async () => {
+      const { wrapper } = createWrapper();
+
+      renderHook(() => useOptimizationResult("2026-02-25", "us_ny"), {
+        wrapper,
+      });
+
+      await waitFor(() => {
+        expect(mockGetOptimizationResult).toHaveBeenCalledWith(
+          "2026-02-25",
+          "us_ny",
+          expect.anything(),
+        );
+      });
+    });
+
+    it("is disabled when date is empty", () => {
+      const { wrapper } = createWrapper();
+
+      const { result } = renderHook(() => useOptimizationResult("", "us_ct"), {
+        wrapper,
+      });
+
+      expect(result.current.fetchStatus).toBe("idle");
+      expect(mockGetOptimizationResult).not.toHaveBeenCalled();
+    });
+
+    it("uses correct query key", async () => {
+      const { wrapper, queryClient } = createWrapper();
+
+      renderHook(() => useOptimizationResult("2026-02-25", "us_ny"), {
+        wrapper,
+      });
+
+      await waitFor(() => {
+        const queries = queryClient.getQueryCache().getAll();
+        const keys = queries.map((q) => q.queryKey);
+        expect(keys).toContainEqual([
+          "optimization",
+          "result",
+          "2026-02-25",
+          "us_ny",
+        ]);
+      });
+    });
+  });
+
+  // ==========================================================================
+  // useSavedAppliances (renamed from useAppliances)
+  // ==========================================================================
+  describe("useSavedAppliances", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockGetAppliances.mockResolvedValue(mockAppliancesResponse);
+    });
+
+    it("fetches saved appliances", async () => {
+      const { wrapper } = createWrapper();
+
+      const { result } = renderHook(() => useSavedAppliances(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      expect(result.current.data).toEqual(mockAppliancesResponse);
+      expect(result.current.data?.appliances).toHaveLength(1);
+      expect(result.current.data?.appliances[0]!.name).toBe("Washing Machine");
+      expect(mockGetAppliances).toHaveBeenCalled();
+    });
+
+    it("uses correct query key", async () => {
+      const { wrapper, queryClient } = createWrapper();
+
+      renderHook(() => useSavedAppliances(), { wrapper });
+
+      await waitFor(() => {
+        const queries = queryClient.getQueryCache().getAll();
+        const keys = queries.map((q) => q.queryKey);
+        expect(keys).toContainEqual(["appliances"]);
+      });
+    });
+
+    it("handles error", async () => {
+      mockGetAppliances.mockRejectedValue(new Error("Not authenticated"));
+
+      const { wrapper } = createWrapper();
+
+      const { result } = renderHook(() => useSavedAppliances(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isError).toBe(true);
+      });
+
+      expect(result.current.error?.message).toBe("Not authenticated");
+    });
+
+    it("deprecated useAppliances alias points to useSavedAppliances", () => {
+      expect(useAppliances).toBe(useSavedAppliances);
+    });
+  });
+
+  // ==========================================================================
+  // useSaveAppliances
+  // ==========================================================================
+  describe("useSaveAppliances", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockSaveAppliances.mockResolvedValue({ success: true });
+    });
+
+    it("saves appliances and invalidates queries", async () => {
+      const { wrapper, queryClient } = createWrapper();
+      const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
+
+      const { result } = renderHook(() => useSaveAppliances(), { wrapper });
+
+      await act(async () => {
+        await result.current.mutateAsync([mockAppliance]);
+      });
+
+      expect(mockSaveAppliances).toHaveBeenCalledWith([mockAppliance]);
+      expect(invalidateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ["appliances"] }),
+      );
+      expect(invalidateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ["optimization"] }),
+      );
+    });
+
+    it("handles save failure", async () => {
+      mockSaveAppliances.mockRejectedValue(new Error("Save failed"));
+
+      const { wrapper } = createWrapper();
+
+      const { result } = renderHook(() => useSaveAppliances(), { wrapper });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync([mockAppliance]);
+        }),
+      ).rejects.toThrow("Save failed");
+    });
+  });
+
+  // ==========================================================================
+  // usePotentialSavings
+  // ==========================================================================
+  describe("usePotentialSavings", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockCalculatePotentialSavings.mockResolvedValue(mockSavingsResponse);
+    });
+
+    it("calculates potential savings", async () => {
+      const { wrapper } = createWrapper();
+
+      const { result } = renderHook(
+        () => usePotentialSavings([mockAppliance], "us_ct"),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      expect(result.current.data).toEqual(mockSavingsResponse);
+      expect(result.current.data?.annualSavings).toBe(54.75);
+      expect(mockCalculatePotentialSavings).toHaveBeenCalledWith(
+        [mockAppliance],
+        "us_ct",
+        expect.anything(),
+      );
+    });
+
+    it("passes region explicitly", async () => {
+      const { wrapper } = createWrapper();
+
+      renderHook(() => usePotentialSavings([mockAppliance], "us_ny"), {
+        wrapper,
+      });
+
+      await waitFor(() => {
+        expect(mockCalculatePotentialSavings).toHaveBeenCalledWith(
+          [mockAppliance],
+          "us_ny",
+          expect.anything(),
+        );
+      });
+    });
+
+    it("is disabled when appliances array is empty", () => {
+      const { wrapper } = createWrapper();
+
+      const { result } = renderHook(() => usePotentialSavings([], "us_ct"), {
+        wrapper,
+      });
+
+      expect(result.current.fetchStatus).toBe("idle");
+      expect(mockCalculatePotentialSavings).not.toHaveBeenCalled();
+    });
+
+    it("uses JSON.stringify for stable appliance queryKey", async () => {
+      const { wrapper, queryClient } = createWrapper();
+
+      renderHook(() => usePotentialSavings([mockAppliance], "us_ny"), {
+        wrapper,
+      });
+
+      await waitFor(() => {
+        const queries = queryClient.getQueryCache().getAll();
+        const keys = queries.map((q) => q.queryKey);
+        expect(keys).toContainEqual([
+          "potential-savings",
+          JSON.stringify([mockAppliance]),
+          "us_ny",
+        ]);
+      });
+    });
+
+    it("does not refetch when appliances array is recreated with same content", async () => {
+      const { wrapper } = createWrapper();
+
+      const appliances1 = [{ ...mockAppliance }];
+      const appliances2 = [{ ...mockAppliance }];
+
+      const { rerender } = renderHook(
+        ({ appliances }: { appliances: typeof appliances1 }) =>
+          usePotentialSavings(appliances, "us_ct"),
+        {
+          wrapper,
+          initialProps: { appliances: appliances1 },
+        },
+      );
+
+      await waitFor(() => {
+        expect(mockCalculatePotentialSavings).toHaveBeenCalledTimes(1);
+      });
+
+      // Rerender with a new array reference but same content
+      rerender({ appliances: appliances2 });
+
+      // Should NOT trigger a second fetch because JSON.stringify produces
+      // the same string for both arrays
+      await waitFor(() => {
+        expect(mockCalculatePotentialSavings).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it("handles calculation error", async () => {
+      mockCalculatePotentialSavings.mockRejectedValue(
+        new Error("Calculation failed"),
+      );
+
+      const { wrapper } = createWrapper();
+
+      const { result } = renderHook(
+        () => usePotentialSavings([mockAppliance], "us_ct"),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.isError).toBe(true);
+      });
+
+      expect(result.current.error?.message).toBe("Calculation failed");
+    });
+  });
+
+  // ==========================================================================
+  // Null-region guard tests
+  // ==========================================================================
+  describe("null-region guards", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it("useOptimizationResult is disabled when region is null", () => {
+      const { wrapper } = createWrapper();
+
+      const { result } = renderHook(
+        () => useOptimizationResult("2026-02-25", null),
+        { wrapper },
+      );
+
+      expect(result.current.fetchStatus).toBe("idle");
+      expect(mockGetOptimizationResult).not.toHaveBeenCalled();
+    });
+
+    it("usePotentialSavings is disabled when region is null", () => {
+      const { wrapper } = createWrapper();
+
+      const { result } = renderHook(
+        () => usePotentialSavings([mockAppliance], null),
+        { wrapper },
+      );
+
+      expect(result.current.fetchStatus).toBe("idle");
+      expect(mockCalculatePotentialSavings).not.toHaveBeenCalled();
+    });
+  });
+}

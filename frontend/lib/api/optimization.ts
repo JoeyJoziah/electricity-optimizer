@@ -2,19 +2,23 @@
  * Optimization API functions
  */
 
-import { apiClient } from './client'
-import type { Appliance, OptimizationResult, OptimizationSchedule } from '@/types'
+import { apiClient } from "./client";
+import type {
+  Appliance,
+  OptimizationResult,
+  OptimizationSchedule,
+} from "@/types";
 
 export interface GetOptimalScheduleRequest {
-  appliances: Appliance[]
-  region?: string
-  date?: string
+  appliances: Appliance[];
+  region?: string;
+  date?: string;
 }
 
 export interface GetOptimalScheduleResponse {
-  schedules: OptimizationSchedule[]
-  totalSavings: number
-  totalCost: number
+  schedules: OptimizationSchedule[];
+  totalSavings: number;
+  totalCost: number;
 }
 
 /**
@@ -25,10 +29,10 @@ export async function getOptimalSchedule(
   signal?: AbortSignal,
 ): Promise<GetOptimalScheduleResponse> {
   return apiClient.post<GetOptimalScheduleResponse>(
-    '/optimization/schedule',
+    "/optimization/schedule",
     request,
     { signal },
-  )
+  );
 }
 
 /**
@@ -39,26 +43,32 @@ export async function getOptimizationResult(
   region: string,
   signal?: AbortSignal,
 ): Promise<OptimizationResult> {
-  return apiClient.get<OptimizationResult>('/optimization/result', {
-    date,
-    region,
-  }, { signal })
+  return apiClient.get<OptimizationResult>(
+    "/optimization/result",
+    {
+      date,
+      region,
+    },
+    { signal },
+  );
 }
 
 /**
  * Save user's appliance configuration
  */
 export async function saveAppliances(
-  appliances: Appliance[]
+  appliances: Appliance[],
 ): Promise<{ success: boolean }> {
-  return apiClient.post('/optimization/appliances', { appliances })
+  return apiClient.post("/optimization/appliances", { appliances });
 }
 
 /**
  * Get saved appliances
  */
-export async function getAppliances(signal?: AbortSignal): Promise<{ appliances: Appliance[] }> {
-  return apiClient.get('/optimization/appliances', undefined, { signal })
+export async function getAppliances(
+  signal?: AbortSignal,
+): Promise<{ appliances: Appliance[] }> {
+  return apiClient.get("/optimization/appliances", undefined, { signal });
 }
 
 /**
@@ -69,13 +79,17 @@ export async function calculatePotentialSavings(
   region: string,
   signal?: AbortSignal,
 ): Promise<{
-  dailySavings: number
-  weeklySavings: number
-  monthlySavings: number
-  annualSavings: number
+  dailySavings: number;
+  weeklySavings: number;
+  monthlySavings: number;
+  annualSavings: number;
 }> {
-  return apiClient.post('/optimization/potential-savings', {
-    appliances,
-    region,
-  }, { signal })
+  return apiClient.post(
+    "/optimization/potential-savings",
+    {
+      appliances,
+      region,
+    },
+    { signal },
+  );
 }

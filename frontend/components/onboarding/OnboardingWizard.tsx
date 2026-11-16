@@ -1,12 +1,12 @@
-'use client'
+"use client";
 
-import React from 'react'
-import { RegionSelector } from './RegionSelector'
-import { useUpdateProfile } from '@/lib/hooks/useProfile'
-import { useSettingsStore } from '@/lib/store/settings'
+import React from "react";
+import { RegionSelector } from "./RegionSelector";
+import { useUpdateProfile } from "@/lib/hooks/useProfile";
+import { useSettingsStore } from "@/lib/store/settings";
 
 interface OnboardingWizardProps {
-  onComplete: () => void
+  onComplete: () => void;
 }
 
 /**
@@ -17,22 +17,22 @@ interface OnboardingWizardProps {
  * on the dashboard (progressive, not front-loaded).
  */
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
-  const updateProfile = useUpdateProfile()
-  const settingsStore = useSettingsStore
+  const updateProfile = useUpdateProfile();
+  const settingsStore = useSettingsStore;
 
   const handleRegionSelect = async (selectedRegion: string) => {
     // Save region + default electricity utility type
     await updateProfile.mutateAsync({
       region: selectedRegion,
-      utility_types: ['electricity'],
-    })
-    settingsStore.getState().setRegion(selectedRegion)
-    settingsStore.getState().setUtilityTypes(['electricity'])
+      utility_types: ["electricity"],
+    });
+    settingsStore.getState().setRegion(selectedRegion);
+    settingsStore.getState().setUtilityTypes(["electricity"]);
 
     // Mark onboarding complete — straight to dashboard
-    await updateProfile.mutateAsync({ onboarding_completed: true })
-    onComplete()
-  }
+    await updateProfile.mutateAsync({ onboarding_completed: true });
+    onComplete();
+  };
 
   return (
     <div className="mx-auto max-w-xl">
@@ -41,5 +41,5 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         isLoading={updateProfile.isPending}
       />
     </div>
-  )
+  );
 }

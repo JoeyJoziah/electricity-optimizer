@@ -338,15 +338,6 @@ class TestSupplierEndpoints:
         response = client.get("/api/v1/suppliers/not-a-uuid")
         assert response.status_code == 422
 
-    def test_get_supplier_tariffs(self, single_supplier_client):
-        """Test GET /api/v1/suppliers/{id}/tariffs endpoint with non-existent UUID"""
-        response = single_supplier_client.get(
-            "/api/v1/suppliers/00000000-0000-0000-0000-000000000001/tariffs"
-        )
-
-        # Mock DB returns no supplier, so endpoint returns 404
-        assert response.status_code == 404
-
 
 # =============================================================================
 # AUTHENTICATION TESTS

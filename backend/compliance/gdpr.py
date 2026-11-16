@@ -500,7 +500,7 @@ class GDPRComplianceService:
                 try:
                     from sqlalchemy import text as sa_text
 
-                    from utils.encryption import decrypt_field
+                    from lib.encryption import decrypt_field
 
                     result = await self.db_session.execute(
                         sa_text("""

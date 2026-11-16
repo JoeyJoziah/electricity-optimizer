@@ -408,7 +408,7 @@ if backtest_results.overall_mape < 10.0:
 
 ## Dependencies
 
-Added to `ml/requirements-ml.txt`:
+Added to `ml/requirements.txt` (originally `ml/requirements-ml.txt`, since removed):
 ```
 # Hyperparameter Optimization
 optuna>=3.5.0

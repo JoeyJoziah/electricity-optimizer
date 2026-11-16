@@ -107,7 +107,6 @@ frontend/
       Header.tsx                # Top header (logo, user menu, mobile toggle)
       NotificationBell.tsx      # In-app notification bell (sidebar, unread count badge, dropdown panel, mark read)
       Sidebar.tsx               # Main navigation sidebar (16 nav items: Dashboard, Prices, Suppliers, Connections, Optimize, Alerts, Settings, Gas Rates, Community Solar, Heating Oil, Propane, Water, Analytics, Community, Assistant, Auto Switcher)
-      StatusBadge.tsx           # Connection/service status indicator badge
     dev/
       DevBanner.tsx             # Development-only banner (top of page)
       DiagramEditor.tsx         # Excalidraw diagram editor
@@ -116,7 +115,6 @@ frontend/
     dashboard/
       AllUtilitiesTab.tsx       # Cross-utility overview tab (combined savings, discovery)
       CombinedSavingsCard.tsx   # Aggregate savings across all utility types
-      CompletionProgress.tsx    # Utility setup completion progress bar
       DashboardCharts.tsx       # Price charts section (line chart + donut)
       DashboardContent.tsx      # Main dashboard orchestrator (tabs, stats, charts)
       DashboardForecast.tsx     # Forecast widget section
@@ -170,7 +168,6 @@ frontend/
     feedback/
       FeedbackWidget.tsx        # In-app feedback collection widget (survey, rating, comment submission)
     affiliate/                  # Affiliate feature components (Wave 3)
-      FTCDisclosure.tsx         # FTC disclosure banner for affiliate links
     analytics/                  # Cross-utility analytics components (Wave 4)
       AnalyticsDashboard.tsx    # Cross-utility analytics overview
       DataExport.tsx            # Rate data export UI (CSV/JSON)
@@ -192,7 +189,6 @@ frontend/
       SavingsCalculator.tsx     # Community solar savings calculator
     cca/                        # CCA detection components (Wave 3)
       CCAAlert.tsx              # CCA availability alert banner
-      CCAComparison.tsx         # CCA vs standard rate comparison
       CCAInfo.tsx               # CCA program information display
     heating-oil/                # Heating oil components (Wave 3)
       DealerList.tsx            # Heating oil dealer list/comparison
@@ -221,8 +217,6 @@ frontend/
       OnboardingWizard.tsx      # Region-only 1-step onboarding (simplified from 4-step)
       RegionSelector.tsx        # Region selection dropdown (50 states + DC)
       SupplierPicker.tsx        # Supplier selection during onboarding
-      UtilityTypeSelector.tsx   # Utility type selection
-      AccountLinkStep.tsx       # Account linking step
     providers/                  # React context providers
       QueryProvider.tsx         # TanStack React Query provider wrapper
     pwa/                        # Progressive Web App components
@@ -231,7 +225,6 @@ frontend/
     rate-changes/               # Rate change components (Wave 3)
       AlertPreferences.tsx      # Rate change alert preferences form
       RateChangeCard.tsx        # Rate change notification card
-      RateChangeFeed.tsx        # Rate change history feed/timeline
     seo/                        # SEO components (Wave 3)
       RatePageContent.tsx       # ISR state rate page content template
     error-boundary.tsx          # Error boundary component with fallback UI
@@ -250,10 +243,8 @@ frontend/
       useExport.ts              # Rate data export hooks (Wave 4)
       useForecast.ts            # Multi-utility forecast hooks (Wave 4)
       useGasRates.ts            # Natural gas rate hooks (Wave 2)
-      useGeocoding.ts           # Geocoding hooks (OWM + Nominatim)
       useHeatingOil.ts          # Heating oil hooks (Wave 3)
       useNeighborhood.ts        # Neighborhood comparison hooks (Wave 5)
-      useNotifications.ts       # TanStack Query hooks: useNotifications (staleTime 30s), useNotificationCount (refetch 30s), useMarkRead, useMarkAllRead
       useOptimization.ts        # Optimization hooks
       usePrices.ts              # Price data hooks
       useProfile.ts             # User profile hooks
@@ -266,7 +257,6 @@ frontend/
       useUtilityDiscovery.ts    # Utility discovery hooks (Wave 2)
       useWater.ts               # Water rate hooks (Wave 4)
     utils/
-      calculations.ts           # Energy calculations and unit conversions
       cn.ts                     # clsx + tailwind-merge for className composition
       devGate.ts                # Development mode gating utility
       format.ts                 # Currency formatting (Intl.NumberFormat, en-US)
@@ -805,22 +795,6 @@ Without token (default):
 
 ### Dashboard Components
 
-#### StatsCard (`components/dashboard/StatsCard.tsx`)
-
-**Metric display card with change indicator.**
-
-```
-┌─────────────────────┐
-│ Label: "Monthly Bill"│
-│ Value: "$125.34"    │
-│ Change: +5.2% ▲     │ (green or red)
-└─────────────────────┘
-```
-
-#### RecommendationCard (`components/dashboard/RecommendationCard.tsx`)
-
-**Optimization suggestion with action button.**
-
 **Memoization strategy:** Prop-driven components (`UtilityTabShell`, `DashboardStatsRow`, `DashboardCharts`, `DashboardForecast`) are wrapped in `React.memo` to avoid re-renders from parent state changes. `DashboardContent` and `DashboardTabs` are intentionally NOT memoized because they are store-driven via `useSettingsStore` (memoizing would be ineffective since store subscriptions trigger re-renders directly).
 
 ---
@@ -843,37 +817,37 @@ Without token (default):
 
 ---
 
-### Connection Components (10 files)
+### Connection Components
 
-#### Overview (`components/connections/Overview.tsx`)
+#### ConnectionsOverview (`components/connections/ConnectionsOverview.tsx`)
 
 **Dashboard of user connections (bills, utilities, sync status).** Supports `adding-portal` view state for PortalConnectionFlow.
 
-#### MethodPicker (`components/connections/MethodPicker.tsx`)
+#### ConnectionMethodPicker (`components/connections/ConnectionMethodPicker.tsx`)
 
 **Select connection type: Direct, Bill Upload, Email OAuth, UtilityAPI, or Utility Portal.** 5 options in 2x2+1 grid (`sm:grid-cols-2 lg:grid-cols-4`). Includes `onSelectPortal` callback prop and Globe icon for portal option.
 
-#### DirectLogin (`components/connections/DirectLogin.tsx`)
+#### DirectLoginForm (`components/connections/DirectLoginForm.tsx`)
 
 **UtilityAPI login form, styled with `bg-white text-gray-900`.**
 
-#### EmailFlow (`components/connections/EmailFlow.tsx`)
+#### EmailConnectionFlow (`components/connections/EmailConnectionFlow.tsx`)
 
 **Gmail/Outlook OAuth flow with HMAC-SHA256 state validation.**
 
-#### BillUpload (`components/connections/BillUpload.tsx`)
+#### BillUploadForm (`components/connections/BillUploadForm.tsx`)
 
 **Bill PDF/image upload with OCR parsing.**
 
-#### UploadFlow (`components/connections/UploadFlow.tsx`)
+#### ConnectionUploadFlow (`components/connections/ConnectionUploadFlow.tsx`)
 
 **Multi-step upload wizard.**
 
-#### Rates (`components/connections/Rates.tsx`)
+#### ConnectionRates (`components/connections/ConnectionRates.tsx`)
 
 **Imported rates table (sortable, filterable).**
 
-#### Analytics (`components/connections/Analytics.tsx`)
+#### ConnectionAnalytics (`components/connections/ConnectionAnalytics.tsx`)
 
 **Rate comparison + savings calculator (kWh input styled with `bg-white text-gray-900`).**
 
@@ -1042,11 +1016,10 @@ Floating button (bottom-right, primary-600)
 - `notifications`: List of Notification objects
 - `unreadCount`: Badge count
 
-**Hooks:**
-- `useNotificationCount()`: Polling unread count
-- `useNotifications()`: Full notification list (staleTime: 30s)
-- `useMarkRead()`: Mark single notification as read
-- `useMarkAllRead()`: Batch mark all as read
+**Data fetching** (inline TanStack Query calls in the component; there is no `useNotifications` hook module):
+- `useQuery(['notifications', 'count'])`: polls `GET /notifications/count` every 120s (staleTime 60s, paused when the tab is hidden)
+- `useQuery(['notifications'])`: `GET /notifications`, enabled only while the panel is open
+- `useMutation`: `PUT /notifications/{id}/read` and `PUT /notifications/read-all`; both invalidate the list and count queries
 
 **UI Structure:**
 ```
@@ -1167,7 +1140,7 @@ if (response.status === 401) {
 
 ## State Management
 
-### Auth Hook (`lib/hooks/useAuth.ts`)
+### Auth Hook (`lib/hooks/useAuth.tsx`)
 
 ```typescript
 const {
@@ -1246,36 +1219,6 @@ const { data: usage, isLoading } = useAgentStatus()
 - Tool tracking: Composio tools used listed as badges
 - Token usage: tracked and displayed with response
 - Message types: 'user' (blue), 'assistant' (gray), 'error' (red), 'tool' (info)
-
-### Notifications Hooks (`lib/hooks/useNotifications.ts`)
-
-**TanStack Query hooks for notification CRUD and polling. All use staleTime: 30s.**
-
-```typescript
-// Poll unread count every 30 seconds (for badge)
-const { data: countData } = useNotificationCount()
-// Returns: { unread: number }
-// refetchInterval: 30_000 (badge stays current)
-
-// Fetch full notification list (only when panel open)
-const { data: notifData } = useNotifications()
-// Returns: { notifications: Notification[], total: number }
-// enabled: open (only fetch when dropdown open)
-
-// Mark single notification as read
-const markRead = useMarkRead()
-// mutationFn: markNotificationRead(id), invalidates ['notifications', 'count']
-
-// Mark all notifications as read (batch)
-const markAllRead = useMarkAllRead()
-// mutationFn: markAllRead(), invalidates ['notifications', 'count']
-```
-
-**Performance Optimization:**
-- Count polling: Every 30s for badge (cheap)
-- Full list: Only fetch when panel open (expensive, stale after 30s)
-- Batch invalidation: Both queries refetch on mutation success
-- Example notification types: price_alert, optimal_window, payment_failed, system
 
 ### React Query Integration
 
@@ -1487,7 +1430,7 @@ triggerPortalScrape(connectionId: string) // POST /connections/portal/{id}/scrap
 **Key test files:**
 - `__tests__/components/auth/LoginForm.test.tsx` (magic link failure, conditional OAuth)
 - `__tests__/components/auth/SignupForm.test.tsx` (conditional OAuth)
-- `__tests__/hooks/useAuth.test.tsx` (email verification redirect, real magic link, clearError)
+- `__tests__/lib/hooks/useAuth.test.tsx` (email verification redirect, real magic link, clearError)
 - `__tests__/lib/email/send.test.ts` (Resend SDK: send, error handling, missing API key)
 - `lib/api/__tests__/client-401-redirect.test.ts` (9 tests for 401 edge cases)
 - `__tests__/a11y/` (51 jest-axe tests)
@@ -1968,7 +1911,7 @@ BETTER_AUTH_URL=...                      # (Server-only)
 **2. Notification Bell (`NotificationBell.tsx` in sidebar)**
    - In-app notification center: Bell icon with unread badge (top-right sidebar)
    - Dropdown panel: Notification list, mark-as-read actions, batch clear
-   - Hooks: `useNotificationCount()` (poll 30s), `useNotifications()` (staleTime 30s), `useMarkRead()`, `useMarkAllRead()`
+   - Data: inline `useQuery`/`useMutation` in `NotificationBell.tsx` (count polled every 120s; list fetched while open); the `useNotifications.ts` hook module was removed 2026-11-16
    - API: `lib/api/notifications.ts` — CRUD operations + polling endpoints
    - Notification types: price_alert, optimal_window, payment, system
    - Performance: Count polls every 30s (cheap), full list only fetches when dropdown open
@@ -2023,7 +1966,7 @@ BETTER_AUTH_URL=...                      # (Server-only)
 
 **Files Created/Modified (26 files):**
    - New: AgentChat.tsx, NotificationBell.tsx, FeedbackWidget.tsx, assistant/page.tsx, beta-signup/page.tsx
-   - New: useAgent.ts, useNotifications.ts, agent.ts, notifications.ts
+   - New: useAgent.ts, agent.ts, notifications.ts (the notifications hook module added here was removed 2026-11-16)
    - Modified: Sidebar.tsx (added Assistant route + NotificationBell), layout.tsx (Bot icon nav)
    - Tests: +60 new tests across agent, notifications, beta-signup
 

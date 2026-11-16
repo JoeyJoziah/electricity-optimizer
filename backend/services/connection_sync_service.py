@@ -43,8 +43,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from integrations.utilityapi import UtilityAPIClient, UtilityAPIError
+from lib.encryption import decrypt_field
 from lib.tracing import traced
-from utils.encryption import decrypt_field
 
 logger = structlog.get_logger(__name__)
 

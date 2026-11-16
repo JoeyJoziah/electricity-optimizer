@@ -7,8 +7,8 @@
 
 ## Test Profile
 
-- **Tool**: k6 (script at `scripts/load-test/k6-launch.js` → `loadtest/rateshift-staging.js`)
-- **Wrapper**: `loadtest/run.sh` (`--quick` smoke or full launch run)
+- **Tool**: k6 (script at `tests/load/k6/k6-launch.js` → `tests/load/k6/rateshift-staging.js`)
+- **Wrapper**: `tests/load/k6/run.sh` (`--quick` smoke or full launch run)
 - **Target**: 300 RPS sustained × 5 min, 30 % cache-miss ratio
 - **Surface**: `https://api.rateshift.app` (CF Worker → Render Starter → Neon pooler)
 - **Endpoint mix**: `/health` 35 %, `prices/current` 25 %, `prices/history` 15 %, `suppliers` 10 %, `public/rates` 5 %, `auth/session` 5 %, `unsubscribe` 5 %
@@ -27,16 +27,16 @@
 
 1. `brew install k6` (or `apt install k6`).
 2. Obtain `STAGING_KEY` from 1Password (entry: "RateShift — RATE_LIMIT_BYPASS_KEY").
-3. `STAGING_KEY=<key> ./loadtest/run.sh` (full run) or `./loadtest/run.sh --quick` (30 VU smoke).
-4. Results JSON written to `loadtest/results/` (git-ignored).
+3. `STAGING_KEY=<key> ./tests/load/k6/run.sh` (full run) or `./tests/load/k6/run.sh --quick` (30 VU smoke).
+4. Results JSON written to `tests/load/results/` (git-ignored).
 5. Copy summary numbers into the "Run Log" table below.
 6. Commit this file with results table populated; reference run timestamp.
 
 ## Readiness Check — 2026-05-15
 
-- ✅ `loadtest/rateshift-staging.js` exists (282 LOC); k6/http import structure valid.
-- ✅ `scripts/load-test/k6-launch.js` re-exports the canonical scenarios (14 LOC).
-- ✅ `loadtest/run.sh` shellcheck-clean (`bash -n` passes); supports `--quick` smoke and full profile.
+- ✅ `tests/load/k6/rateshift-staging.js` exists (282 LOC); k6/http import structure valid.
+- ✅ `tests/load/k6/k6-launch.js` re-exports the canonical scenarios (14 LOC).
+- ✅ `tests/load/k6/run.sh` shellcheck-clean (`bash -n` passes); supports `--quick` smoke and full profile.
 - ⏳ k6 not installed on dev workstation — `brew install k6` required before first run.
 - ⏳ `STAGING_KEY` not in shell env — fetch from 1Password before run.
 
@@ -60,6 +60,6 @@ If any threshold breaches:
 ## References
 
 - Runbook: `docs/runbooks/load-test.md`
-- k6 script: `loadtest/rateshift-staging.js`
-- Wrapper: `loadtest/run.sh`
+- k6 script: `tests/load/k6/rateshift-staging.js`
+- Wrapper: `tests/load/k6/run.sh`
 - Abort thresholds: `docs/runbooks/LAUNCH_DAY_RUNBOOK.md` §Abort Thresholds

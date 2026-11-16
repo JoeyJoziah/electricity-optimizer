@@ -13,13 +13,11 @@ from uuid import UUID
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from pydantic import BaseModel
-from sqlalchemy import text
 
 from api.dependencies import get_db_session, get_redis
 from models.supplier import (
     SupplierDetailResponse,
     SupplierResponse,
-    TariffResponse,
 )
 from repositories.supplier_offer_repository import SupplierOfferRepository
 from repositories.supplier_repository import SupplierRegistryRepository
@@ -40,17 +38,17 @@ def _validate_uuid(value: str, label: str = "ID") -> None:
     """Raise 404 if value is not a valid UUID."""
     try:
         UUID(value)
-    except (ValueError, AttributeError):
+    except (ValueError, AttributeError) as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"{label} '{value}' not found"
-        )
+        ) from exc
 
 
 def _validate_region_code(value: str) -> None:
     """Raise 422 if value doesn't look like a valid region code."""
     if not _REGION_RE.match(value):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid region code: '{value}'",
         )
 
@@ -69,15 +67,6 @@ class SuppliersResponse(BaseModel):
     page_size: int
     region: str | None = None
     utility_type: str | None = None
-
-
-class SupplierTariffsResponse(BaseModel):
-    """Response for supplier tariffs endpoint"""
-
-    supplier_id: str
-    supplier_name: str
-    tariffs: list[TariffResponse]
-    total: int
 
 
 # =============================================================================
@@ -319,95 +308,6 @@ async def get_supplier(
         description=None,
         logo_url=None,
         is_active=supplier["is_active"],
-    )
-
-
-@router.get(
-    "/{supplier_id}/tariffs",
-    response_model=SupplierTariffsResponse,
-    summary="Get supplier tariffs",
-    responses={
-        200: {"description": "Tariffs retrieved successfully"},
-        404: {"description": "Supplier not found"},
-    },
-)
-async def get_supplier_tariffs(
-    supplier_id: UUID = Path(..., description="Supplier ID (UUID)"),
-    utility_type: str | None = Query(None, description="Filter by utility type"),
-    available_only: bool = Query(True, description="Show only available tariffs"),
-    db=Depends(get_db_session),
-    redis=Depends(get_redis),
-):
-    """
-    Get tariffs offered by a specific supplier.
-
-    Returns list of tariffs with pricing and contract details.
-    The supplier existence check uses the Redis-cached get_by_id() call.
-    """
-    repo = SupplierRegistryRepository(db, cache=redis)
-    supplier = await repo.get_by_id(str(supplier_id))
-
-    if not supplier:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Supplier with ID '{supplier_id}' not found",
-        )
-
-    from models.supplier import ContractLength, TariffType
-
-    # Build WHERE clause incrementally so we keep one parameterised query string
-    where_clauses = ["supplier_id = :supplier_id"]
-    params: dict = {"supplier_id": str(supplier_id)}
-
-    if utility_type:
-        where_clauses.append("utility_type = :utility_type")
-        params["utility_type"] = utility_type
-
-    if available_only:
-        where_clauses.append("is_available = TRUE")
-
-    where_sql = " AND ".join(where_clauses)
-    query = text(f"""
-        SELECT id, supplier_id, name, price_per_kwh, standing_charge,
-               is_available, tariff_type, utility_type
-        FROM tariffs
-        WHERE {where_sql}
-        ORDER BY name
-    """)
-
-    result = await db.execute(query, params)
-    rows = result.fetchall()
-
-    # Map DB columns → TariffResponse fields.
-    # DB tariff_type values are expected to match TariffType enum members
-    # (fixed, variable, time_of_use, prepaid, green, agile).  Unknown values
-    # fall back to VARIABLE so the endpoint never hard-crashes on stale data.
-    tariffs: list[TariffResponse] = []
-    for row in rows:
-        try:
-            tariff_type_value = TariffType(row.tariff_type)
-        except ValueError:
-            tariff_type_value = TariffType.VARIABLE
-
-        tariffs.append(
-            TariffResponse(
-                id=str(row.id),
-                supplier_id=str(row.supplier_id),
-                name=row.name,
-                type=tariff_type_value,
-                unit_rate=row.price_per_kwh,
-                standing_charge=row.standing_charge,
-                green_energy_percentage=0,
-                contract_length=ContractLength.ROLLING,
-                is_available=row.is_available,
-            )
-        )
-
-    return SupplierTariffsResponse(
-        supplier_id=str(supplier_id),
-        supplier_name=supplier["name"],
-        tariffs=tariffs,
-        total=len(tariffs),
     )
 
 

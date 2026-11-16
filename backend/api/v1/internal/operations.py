@@ -84,7 +84,9 @@ async def run_maintenance(db: AsyncSession = Depends(get_db_session)):
     electricity prices older than 365 days, forecast observations
     older than 90 days, weather cache older than 30 days, scraped
     rates older than 90 days, market intelligence older than 180 days,
-    and Stripe webhook idempotency records older than 72 hours.
+    and Stripe webhook idempotency records older than 72 hours. Also marks
+    bill uploads stuck in ``pending``/``processing`` for more than 15 minutes
+    as ``failed`` (``stale_uploads.swept`` in the response).
 
     Requires a valid X-API-Key header (enforced by the router-level dependency).
     """
@@ -96,6 +98,7 @@ async def run_maintenance(db: AsyncSession = Depends(get_db_session)):
 
     for task_name, task_fn in [
         ("activity_logs", svc.cleanup_activity_logs),
+        ("stale_uploads", svc.sweep_stale_bill_uploads),
         ("uploads", svc.cleanup_expired_uploads),
         ("prices", svc.cleanup_old_prices),
         ("observations", svc.cleanup_old_observations),
@@ -213,4 +216,4 @@ async def generate_kpi_report(
 
     except Exception as exc:
         logger.error("kpi_report_failed", error=str(exc))
-        raise HTTPException(status_code=500, detail="KPI report failed. See server logs.")
+        raise HTTPException(status_code=500, detail="KPI report failed. See server logs.") from exc

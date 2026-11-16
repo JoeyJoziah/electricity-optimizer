@@ -99,8 +99,7 @@ class Settings(BaseSettings):
         default=None, validation_alias="OPENWEATHERMAP_API_KEY"
     )
 
-    # Auto Rate Switcher (EnergyBot — plan comparison/enrollment, Arcadia — meter data)
-    energybot_api_key: str | None = Field(default=None, validation_alias="ENERGYBOT_API_KEY")
+    # Auto Rate Switcher (Arcadia — meter data)
     arcadia_api_key: str | None = Field(default=None, validation_alias="ARCADIA_API_KEY")
 
     # Rate Scraping (Diffbot — free tier, 10K credits/month)
@@ -289,8 +288,8 @@ class Settings(BaseSettings):
                 )
             try:
                 key_bytes = bytes.fromhex(v)
-            except ValueError:
-                raise ValueError("FIELD_ENCRYPTION_KEY must be a valid hex string.")
+            except ValueError as exc:
+                raise ValueError("FIELD_ENCRYPTION_KEY must be a valid hex string.") from exc
             if len(key_bytes) != 32:
                 raise ValueError(
                     "FIELD_ENCRYPTION_KEY must be exactly 32 bytes (64 hex characters)."

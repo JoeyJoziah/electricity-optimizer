@@ -38,7 +38,6 @@ select = [
 ignore = [
     "E501",   # line too long (handled by formatter)
     "B008",   # do not perform function calls in argument defaults
-    "B904",   # raise-without-from-inside-except (widespread, separate fix track)
     "B905",   # zip without strict parameter
     "C901",   # too complex
     "E402",   # module-import-not-at-top (compliance.py pattern)
@@ -47,7 +46,6 @@ ignore = [
     "SIM105", # suppressible-exception (contextlib.suppress preference)
     "SIM108", # use-ternary-operator (readability preference)
     "ARG001", # unused-function-argument (FastAPI Depends pattern)
-    "F821",   # undefined-name (forward refs in type hints)
     "UP046",  # PEP 695 type parameters (larger refactor, separate track)
     "UP047",  # PEP 695 generic functions (larger refactor, separate track)
 ]
@@ -57,7 +55,7 @@ ignore = [
 "tests/*" = ["ARG001", "ARG002", "ARG005", "S101", "F841", "SIM117", "B007"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["backend", "config", "models", "repositories", "services", "api", "routers"]
+known-first-party = ["backend", "config", "models", "repositories", "services", "api"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -82,35 +80,14 @@ module = [
 ]
 ignore_missing_imports = true
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-asyncio_mode = "auto"
-addopts = [
-    "-v",
-    "--tb=short",
-    "--strict-markers",
-    "-ra",
-]
-markers = [
-    "asyncio: mark test as async",
-    "slow: mark test as slow running",
-    "integration: mark test as integration test",
-    "unit: mark test as unit test",
-]
-filterwarnings = [
-    "ignore::DeprecationWarning",
-    "ignore::PendingDeprecationWarning",
-]
+# pytest is configured in backend/pytest.ini (pytest.ini takes precedence over
+# pyproject.toml, so a [tool.pytest.ini_options] block here would be ignored).
 
 [tool.coverage.run]
 source = ["."]
 omit = [
     "tests/*",
     "**/__init__.py",
-    "alembic/*",
 ]
 branch = true
 
@@ -127,7 +104,7 @@ fail_under = 80
 show_missing = true
 
 [tool.bandit]
-exclude_dirs = ["tests", "alembic"]
+exclude_dirs = ["tests"]
 skips = ["B101"]  # assert_used
 
 # NOTE: Black is intentionally NOT configured here. ruff-format is the

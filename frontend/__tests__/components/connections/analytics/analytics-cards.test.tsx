@@ -85,7 +85,7 @@ jest.mock("lucide-react", () => {
       "aria-hidden": ah,
     }: {
       className?: string;
-      "aria-hidden"?: string;
+      "aria-hidden"?: boolean | "true" | "false";
     }) => (
       <svg
         data-testid={`icon-${name}`}

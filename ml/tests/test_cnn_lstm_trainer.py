@@ -720,7 +720,8 @@ class TestResidualQuantileIntervals:
         torch_test.utils.data.DataLoader.return_value = [(batch_x, batch_y)]
         torch_test.utils.data.TensorDataset.return_value = MagicMock()
 
-        saved_torch = sys.modules["torch"]
+        # `import torch` above returned sys.modules["torch"]; keep it to restore.
+        saved_torch = _torch_orig
         saved_submodules = {
             k: sys.modules.get(k)
             for k in ["torch.utils.data", "torch.nn", "torch.optim"]

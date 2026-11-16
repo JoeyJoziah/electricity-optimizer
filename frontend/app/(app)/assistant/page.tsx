@@ -1,10 +1,11 @@
-import { AgentChat } from '@/components/agent/AgentChat'
-import { ErrorBoundary } from '@/components/error-boundary'
+import { AgentChat } from "@/components/agent/AgentChat";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 export const metadata = {
-  title: 'AI Assistant — RateShift',
-  description: 'Chat with RateShift AI to analyze usage, find savings, and manage alerts.',
-}
+  title: "AI Assistant — RateShift",
+  description:
+    "Chat with RateShift AI to analyze usage, find savings, and manage alerts.",
+};
 
 export default function AssistantPage() {
   return (
@@ -12,7 +13,8 @@ export default function AssistantPage() {
       <div className="mb-4">
         <h1 className="text-2xl font-bold text-gray-900">AI Assistant</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Chat with RateShift AI to find savings and optimize your electricity usage.
+          Chat with RateShift AI to find savings and optimize your electricity
+          usage.
         </p>
       </div>
       <div className="min-h-0 flex-1">
@@ -21,5 +23,5 @@ export default function AssistantPage() {
         </ErrorBoundary>
       </div>
     </div>
-  )
+  );
 }
