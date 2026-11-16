@@ -1,3 +1,0 @@
-source: backend/utils/encryption.py
-kind: object
-purpose: Field-level encryption for sensitive data (account numbers, meter numbers).

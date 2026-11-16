@@ -1,3 +1,0 @@
-source: backend/routers/predictions.py
-kind: object
-purpose: Predictions API Router - ML Model Serving Endpoints
