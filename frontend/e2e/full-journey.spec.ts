@@ -299,9 +299,10 @@ test.describe("Full User Journey - Signup to Billing", () => {
       ).toBeVisible();
 
       // Prices in USD
-      await expect(page.getByText("$0")).toBeVisible();
-      await expect(page.getByText("$4.99")).toBeVisible();
-      await expect(page.getByText("$14.99")).toBeVisible();
+      // .first(): a price can appear more than once (tier card + add-on row).
+      await expect(page.getByText("$0", { exact: true }).first()).toBeVisible();
+      await expect(page.getByText("$4.99").first()).toBeVisible();
+      await expect(page.getByText("$14.99").first()).toBeVisible();
 
       // Pro is highlighted
       await expect(page.getByText("Most Popular")).toBeVisible();
@@ -732,9 +733,10 @@ test.describe("Full User Journey - Unauthenticated Guard", () => {
       await expect(
         page.getByRole("heading", { name: /simple, transparent pricing/i }),
       ).toBeVisible();
-      await expect(page.getByText("$0")).toBeVisible();
-      await expect(page.getByText("$4.99")).toBeVisible();
-      await expect(page.getByText("$14.99")).toBeVisible();
+      // .first(): a price can appear more than once (tier card + add-on row).
+      await expect(page.getByText("$0", { exact: true }).first()).toBeVisible();
+      await expect(page.getByText("$4.99").first()).toBeVisible();
+      await expect(page.getByText("$14.99").first()).toBeVisible();
     },
   );
 });

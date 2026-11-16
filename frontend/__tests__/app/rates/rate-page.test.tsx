@@ -19,7 +19,6 @@ jest.mock("@/components/seo/RatePageContent", () => ({
 }));
 
 import RatePage, {
-  dynamicParams,
   generateMetadata,
   generateStaticParams,
 } from "@/app/rates/[state]/[utility]/page";
@@ -31,10 +30,6 @@ describe("public rate page", () => {
   const realFetch = global.fetch;
   afterEach(() => {
     global.fetch = realFetch;
-  });
-
-  it("rejects params outside the generated list with a real 404", () => {
-    expect(dynamicParams).toBe(false);
   });
 
   it("generates a page for every state and utility pair", async () => {

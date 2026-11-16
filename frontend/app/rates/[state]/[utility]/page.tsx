@@ -58,11 +58,6 @@ export async function generateStaticParams() {
 
 export const revalidate = 3600; // ISR: revalidate every hour
 
-// Every valid state/utility pair is listed by generateStaticParams. Anything
-// else gets a real HTTP 404; with loading.tsx streaming, notFound() alone
-// answered 200 with a not-found body (a soft 404 for crawlers).
-export const dynamicParams = false;
-
 export default async function RatePage({ params }: PageProps) {
   const { state: stateSlug, utility: utilitySlug } = await params;
   const stateCode = slugToStateCode(stateSlug);
