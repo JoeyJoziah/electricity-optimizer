@@ -78,7 +78,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      {/* min-h-0 + overflow: on short viewports the links scroll so the
+          account section and sign-out button stay reachable. */}
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {navigation.map((item) => {
           const isActive = pathname === item.href;
           const badgeCount = badgeCounts[item.href] ?? 0;
@@ -165,11 +167,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               </a>
               <div className="flex items-center gap-3 px-3 py-1">
                 <FileText className="h-4 w-4 text-gray-400" />
-                <div className="flex gap-2 text-xs text-gray-400">
+                <div className="flex gap-2 text-xs text-gray-500">
                   <Link
                     href="/terms"
                     onClick={onNavigate}
-                    className="hover:text-gray-600"
+                    className="hover:text-gray-700"
                   >
                     Terms
                   </Link>
@@ -177,13 +179,13 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                   <Link
                     href="/privacy"
                     onClick={onNavigate}
-                    className="hover:text-gray-600"
+                    className="hover:text-gray-700"
                   >
                     Privacy
                   </Link>
                 </div>
               </div>
-              <p className="px-3 py-1 text-[10px] text-gray-300">v1.0.0</p>
+              <p className="px-3 py-1 text-[10px] text-gray-500">v1.0.0</p>
             </div>
           </div>
         ) : (

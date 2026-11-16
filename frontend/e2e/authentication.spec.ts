@@ -4,6 +4,7 @@ import {
   setAuthenticatedState,
   clearAuthState,
 } from "./helpers/auth";
+import { createMockApi } from "./helpers/api-mocks";
 
 test.describe("Authentication Flows", () => {
   // Tests in this block exercise the login page (unauthenticated), OAuth initiation,
@@ -15,7 +16,7 @@ test.describe("Authentication Flows", () => {
     await page.goto("/auth/login");
 
     await expect(
-      page.getByRole("heading", { name: /electricity optimizer/i }),
+      page.getByRole("heading", { name: "RateShift" }),
     ).toBeVisible();
     await expect(page.locator("#email")).toBeVisible();
     await expect(page.locator("#password")).toBeVisible();
@@ -29,21 +30,9 @@ test.describe("Authentication Flows", () => {
     { tag: ["@smoke"] },
     async ({ page }) => {
       await mockBetterAuth(page);
-
-      await page.route("**/api/v1/prices/current**", async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            prices: [
-              {
-                region: "US_CT",
-                price: 0.25,
-                timestamp: new Date().toISOString(),
-              },
-            ],
-          }),
-        });
+      // Shared API mocks: they track the response shapes the app expects.
+      await createMockApi(page, {
+        pricesCurrent: { region: "US_CT", price: 0.25 },
       });
 
       await page.addInitScript(() => {

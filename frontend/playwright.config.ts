@@ -42,6 +42,10 @@ export default defineConfig({
   },
   use: {
     baseURL: "http://localhost:3000",
+    // The app registers a service worker (public/sw.js). Requests it handles
+    // never reach page.route(), so mocked API calls intermittently leaked to
+    // the real backend. Block it: these tests exercise the app, not the PWA.
+    serviceWorkers: "block",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: process.env.CI ? "retain-on-failure" : "off",
@@ -70,6 +74,11 @@ export default defineConfig({
   ],
   webServer: {
     command: "npm run dev",
+    // Build-time flags the login/signup OAuth buttons are gated on.
+    env: {
+      NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED: "true",
+      NEXT_PUBLIC_OAUTH_GITHUB_ENABLED: "true",
+    },
     url: "http://localhost:3000",
     reuseExistingServer: !!process.env.CI,
   },

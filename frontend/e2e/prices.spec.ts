@@ -1,12 +1,5 @@
 import { test, expect } from "./fixtures";
 
-// Build the 24-point history array once at module scope so it stays stable
-const now = Date.now();
-const HISTORY_PRICES = Array.from({ length: 24 }, (_, i) => ({
-  time: new Date(now - (23 - i) * 3600000).toISOString(),
-  price: 0.22 + Math.sin(i / 4) * 0.05,
-}));
-
 test.describe("Prices Page", () => {
   test.use({
     apiMockConfig: {
@@ -15,24 +8,6 @@ test.describe("Prices Page", () => {
         price: 0.2512,
         trend: "decreasing",
         changePercent: -1.8,
-      },
-      pricesHistory: { prices: HISTORY_PRICES },
-      pricesForecast: {
-        forecast: [
-          { hour: 1, price: 0.23, confidence: [0.21, 0.25] },
-          { hour: 2, price: 0.21, confidence: [0.19, 0.23] },
-          { hour: 3, price: 0.19, confidence: [0.17, 0.21] },
-          { hour: 4, price: 0.2, confidence: [0.18, 0.22] },
-        ],
-      },
-      optimalPeriods: {
-        periods: [
-          {
-            start: new Date(now + 3600000).toISOString(),
-            end: new Date(now + 7200000).toISOString(),
-            avgPrice: 0.18,
-          },
-        ],
       },
     },
   });

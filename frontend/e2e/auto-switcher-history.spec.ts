@@ -134,7 +134,11 @@ async function setupHistoryRoutes(
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(overrides.history ?? MOCK_HISTORY),
+      body: JSON.stringify(
+        ((rows) => ({ history: rows, total: rows.length }))(
+          overrides.history ?? MOCK_HISTORY,
+        ),
+      ),
     });
   });
 
@@ -143,7 +147,9 @@ async function setupHistoryRoutes(
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([]),
+      body: JSON.stringify(
+        ((rows) => ({ activity: rows, total: rows.length }))([]),
+      ),
     });
   });
 
@@ -427,7 +433,9 @@ test.describe("Auto Switcher — History", () => {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify([]),
+          body: JSON.stringify(
+            ((rows) => ({ activity: rows, total: rows.length }))([]),
+          ),
         });
       });
 

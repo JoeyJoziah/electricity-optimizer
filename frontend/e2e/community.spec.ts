@@ -75,7 +75,8 @@ test.describe("Community Page", () => {
 
       // Stats banner should show user count and savings
       await expect(page.getByText("142")).toBeVisible();
-      await expect(page.getByText(/18\.5%/)).toBeVisible();
+      // The banner rounds the 18.5% mock average to a whole percent.
+      await expect(page.getByText(/saved an average of 19%/)).toBeVisible();
     },
   );
 

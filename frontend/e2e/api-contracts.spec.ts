@@ -98,7 +98,8 @@ test.describe("API Contracts — Dashboard", () => {
     });
 
     const suppliersPromise = authenticatedPage.waitForRequest(
-      (req) => req.url().includes("/suppliers"),
+      (req) =>
+        req.url().includes("/api/v1/") && req.url().includes("/suppliers"),
       { timeout: 10000 },
     );
 
@@ -185,7 +186,8 @@ test.describe("API Contracts — Suppliers Page", () => {
     });
 
     const suppliersPromise = authenticatedPage.waitForRequest(
-      (req) => req.url().includes("/suppliers"),
+      (req) =>
+        req.url().includes("/api/v1/") && req.url().includes("/suppliers"),
       { timeout: 10000 },
     );
 
@@ -558,7 +560,7 @@ test.describe("API Contracts — Alerts Page", () => {
     });
 
     const alertsPromise = authenticatedPage.waitForRequest(
-      (req) => req.url().includes("/alerts"),
+      (req) => req.url().includes("/api/v1/") && req.url().includes("/alerts"),
       { timeout: 10000 },
     );
 

@@ -341,7 +341,7 @@ export default function SuppliersContent() {
                 <p className="font-semibold text-gray-900">
                   {cheapestSupplier?.name || "--"}
                 </p>
-                <p className="text-success-600">
+                <p className="text-success-700">
                   {cheapestSupplier
                     ? formatCurrency(cheapestSupplier.estimatedAnnualCost)
                     : "--"}

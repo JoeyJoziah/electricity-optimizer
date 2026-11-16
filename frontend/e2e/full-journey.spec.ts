@@ -75,7 +75,9 @@ test.describe("Full User Journey - Signup to Billing", () => {
       await expect(
         page.getByRole("link", { name: "Start Saving Today" }),
       ).toBeVisible();
-      await expect(page.getByRole("link", { name: "View Demo" })).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: "Try It Free" }),
+      ).toBeVisible();
 
       // Nav links
       await expect(
@@ -126,7 +128,7 @@ test.describe("Full User Journey - Signup to Billing", () => {
 
       // Signup page heading
       await expect(
-        page.getByRole("heading", { name: /sign up|electricity optimizer/i }),
+        page.getByRole("heading", { name: "Create your account" }),
       ).toBeVisible();
 
       // Fill signup form
@@ -334,7 +336,7 @@ test.describe("Full User Journey - Signup to Billing", () => {
 
       // Signup page is present
       await expect(
-        page.getByRole("heading", { name: /sign up|electricity optimizer/i }),
+        page.getByRole("heading", { name: "Create your account" }),
       ).toBeVisible();
     },
   );

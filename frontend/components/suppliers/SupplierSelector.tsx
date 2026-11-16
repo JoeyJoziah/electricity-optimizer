@@ -60,7 +60,7 @@ export const SupplierSelector: React.FC<SupplierSelectorProps> = ({
             )}
           </div>
         ) : (
-          <span className="text-gray-400">{placeholder}</span>
+          <span className="text-gray-500">{placeholder}</span>
         )}
         <ChevronDown
           className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}

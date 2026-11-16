@@ -225,7 +225,7 @@ export default function PricesContent() {
                         ? `${currentPrice.changePercent > 0 ? "+" : ""}${currentPrice.changePercent.toFixed(1)}%`
                         : "Stable"}
                     </span>
-                    <span className="text-gray-400">vs last hour</span>
+                    <span className="text-gray-500">vs last hour</span>
                   </div>
                 </>
               )}

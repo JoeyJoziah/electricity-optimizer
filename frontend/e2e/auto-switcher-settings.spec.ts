@@ -107,7 +107,9 @@ async function setupSettingsRoutes(
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([]),
+      body: JSON.stringify(
+        ((rows) => ({ activity: rows, total: rows.length }))([]),
+      ),
     });
   });
 }
@@ -310,7 +312,9 @@ test.describe("Auto Switcher — Settings", () => {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify([]),
+          body: JSON.stringify(
+            ((rows) => ({ activity: rows, total: rows.length }))([]),
+          ),
         });
       });
 
