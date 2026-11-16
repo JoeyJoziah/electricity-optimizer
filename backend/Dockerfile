@@ -22,8 +22,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 
 # Install Python dependencies (with BuildKit cache mount for faster rebuilds)
+# hnswlib compiles with -march=native by default; the image is built on a CI
+# runner and runs on a different CPU, so build it portable and uncached.
+ENV HNSWLIB_NO_NATIVE=1
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --upgrade pip && \
+    pip install --no-cache-dir --no-binary hnswlib "$(grep -iE '^hnswlib' requirements.txt)" && \
     pip install -r requirements.txt
 
 # Development stage
