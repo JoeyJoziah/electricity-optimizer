@@ -6,20 +6,43 @@ on:
     - cron: "0 9 * * *"
   workflow_dispatch:
 
+permissions: {}
+
+concurrency:
+  group: cost-cap-alerts
+  cancel-in-progress: false
+
 jobs:
   check-cost-caps:
     name: Check service cost caps
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Warmup backend
+        uses: ./.github/actions/warmup-backend
+        with:
+          backend-url: ${{ secrets.BACKEND_URL }}
+
       - name: Call cost-caps check endpoint
+        uses: ./.github/actions/retry-curl
+        with:
+          url: ${{ secrets.BACKEND_URL }}/api/v1/internal/cost-caps/check
+          headers: |
+            X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
+            Content-Type: application/json
+          body: '{}'
+          response-file: ${{ runner.temp }}/cost-caps-response.json
+
+      - name: Parse breaches
         id: check
+        env:
+          RESPONSE_FILE: ${{ runner.temp }}/cost-caps-response.json
         run: |
-          RESPONSE=$(curl -sf \
-            -X POST \
-            -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            "${{ secrets.BACKEND_URL }}/api/v1/internal/cost-caps/check")
+          RESPONSE=$(cat "$RESPONSE_FILE")
 
           echo "response=$RESPONSE" >> "$GITHUB_OUTPUT"
 
@@ -104,3 +127,11 @@ jobs:
         run: |
           echo "Breach count: ${{ steps.check.outputs.breach_count }}"
           echo "Response: ${{ steps.check.outputs.response }}"
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: "Cost-Cap Alerts"
+          severity: warning

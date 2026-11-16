@@ -28,6 +28,9 @@ export interface Env {
   // Shared secret sent on every request to the Render origin so the backend
   // can reject requests that did not pass through the CF Worker (Scope #4).
   ORIGIN_SECRET?: string;
+  // Slack incoming webhook for cron-failure alerts (handlers/scheduled.ts).
+  // When unset, failed crons are only logged via console.error.
+  SLACK_INCIDENTS_WEBHOOK_URL?: string;
 }
 
 export interface RouteConfig {

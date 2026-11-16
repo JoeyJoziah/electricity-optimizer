@@ -33,6 +33,10 @@ inputs:
     description: 'Curl timeout in seconds'
     required: false
     default: '120'
+  response-file:
+    description: 'Optional path to write the final response body to (default: body is discarded)'
+    required: false
+    default: ''
 
 outputs:
   status-code:
@@ -57,6 +61,7 @@ runs:
         INPUT_INITIAL_DELAY: ${{ inputs.initial-delay }}
         INPUT_MAX_DELAY: ${{ inputs.max-delay }}
         INPUT_TIMEOUT: ${{ inputs.timeout }}
+        INPUT_RESPONSE_FILE: ${{ inputs.response-file }}
       run: |
         URL="$INPUT_URL"
         METHOD="$INPUT_METHOD"
@@ -66,6 +71,8 @@ runs:
         INITIAL_DELAY=$INPUT_INITIAL_DELAY
         MAX_DELAY=$INPUT_MAX_DELAY
         CURL_TIMEOUT=$INPUT_TIMEOUT
+        # Response body is discarded unless the caller asks for it
+        RESPONSE_FILE="${INPUT_RESPONSE_FILE:-/dev/null}"
 
         STATUS="000"
         ATTEMPTS=0
@@ -97,7 +104,7 @@ runs:
           ATTEMPTS=$((attempt + 1))
 
           echo "Attempt ${ATTEMPTS}/${MAX_ATTEMPTS}: ${METHOD} ${URL}"
-          STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+          STATUS=$(curl -s -o "${RESPONSE_FILE}" -w '%{http_code}' \
             -X "${METHOD}" \
             --max-time "${CURL_TIMEOUT}" \
             "${HEADER_ARGS[@]}" \

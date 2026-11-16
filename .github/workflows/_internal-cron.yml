@@ -1,0 +1,121 @@
+name: Internal Cron (Reusable)
+
+# Shared "warm up + call one backend endpoint with retry + Slack on failure"
+# sequence used by the scheduled cron workflows. Each caller keeps its own file,
+# name, `schedule:` cron, `workflow_dispatch`, `permissions` and `concurrency`
+# group; only the steps live here.
+#
+# Every request sends exactly these headers (as the original per-file steps did):
+#   X-API-Key: <INTERNAL_API_KEY>
+#   Content-Type: application/json
+# Input defaults mirror the defaults of the composite actions they feed
+# (.github/actions/retry-curl and .github/actions/warmup-backend), so a caller
+# that omits an input behaves exactly like an original step that omitted it.
+
+on:
+  workflow_call:
+    inputs:
+      display-name:
+        description: "Workflow display name used in the Slack failure alert"
+        required: true
+        type: string
+      endpoint-path:
+        description: "Path appended to BACKEND_URL, e.g. /api/v1/internal/kpi-report"
+        required: true
+        type: string
+      method:
+        description: "HTTP method"
+        required: false
+        type: string
+        default: "POST"
+      body:
+        description: "JSON request body"
+        required: false
+        type: string
+        default: "{}"
+      slack-severity:
+        description: "Slack severity on failure: critical, warning, or info"
+        required: true
+        type: string
+      job-timeout-minutes:
+        description: "Job timeout in minutes"
+        required: false
+        type: number
+        default: 5
+      curl-timeout:
+        description: "Per-attempt curl timeout in seconds"
+        required: false
+        type: string
+        default: "120"
+      max-retries:
+        description: "Max retry attempts"
+        required: false
+        type: string
+        default: "3"
+      initial-delay:
+        description: "Initial retry delay in seconds"
+        required: false
+        type: string
+        default: "5"
+      max-delay:
+        description: "Max retry delay in seconds"
+        required: false
+        type: string
+        default: "60"
+      warmup-max-attempts:
+        description: "Maximum backend warmup attempts"
+        required: false
+        type: string
+        default: "6"
+      warmup-delay-seconds:
+        description: "Delay between warmup attempts in seconds"
+        required: false
+        type: string
+        default: "15"
+    secrets:
+      BACKEND_URL:
+        required: true
+      INTERNAL_API_KEY:
+        required: true
+      SLACK_INCIDENTS_WEBHOOK_URL:
+        required: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.job-timeout-minutes }}
+    steps:
+      # Local composite actions need the repo on disk; a reusable workflow in the
+      # same repository checks out the caller's commit.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Warmup backend
+        uses: ./.github/actions/warmup-backend
+        with:
+          backend-url: ${{ secrets.BACKEND_URL }}
+          max-attempts: ${{ inputs.warmup-max-attempts }}
+          delay-seconds: ${{ inputs.warmup-delay-seconds }}
+
+      - name: Call ${{ inputs.endpoint-path }}
+        uses: ./.github/actions/retry-curl
+        with:
+          url: ${{ secrets.BACKEND_URL }}${{ inputs.endpoint-path }}
+          method: ${{ inputs.method }}
+          headers: |
+            X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
+            Content-Type: application/json
+          body: ${{ inputs.body }}
+          max-retries: ${{ inputs.max-retries }}
+          initial-delay: ${{ inputs.initial-delay }}
+          max-delay: ${{ inputs.max-delay }}
+          timeout: ${{ inputs.curl-timeout }}
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: ${{ inputs.display-name }}
+          severity: ${{ inputs.slack-severity }}

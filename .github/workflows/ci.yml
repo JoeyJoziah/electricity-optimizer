@@ -225,6 +225,9 @@ jobs:
       - name: Verify lint passes
         run: cd frontend && npm run lint
 
+      - name: Type check
+        run: cd frontend && npm run type-check
+
   frontend-test:
     name: Frontend Test
     needs: changes

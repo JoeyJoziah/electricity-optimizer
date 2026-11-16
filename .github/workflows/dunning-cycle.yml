@@ -14,31 +14,9 @@ concurrency:
 
 jobs:
   dunning:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          sparse-checkout: .github/actions
-
-      - name: Warmup backend
-        uses: ./.github/actions/warmup-backend
-        with:
-          backend-url: ${{ secrets.BACKEND_URL }}
-
-      - name: Run dunning cycle
-        uses: ./.github/actions/retry-curl
-        with:
-          url: ${{ secrets.BACKEND_URL }}/api/v1/internal/dunning-cycle
-          headers: |
-            X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
-            Content-Type: application/json
-          body: '{}'
-
-      - name: Notify on failure
-        if: failure()
-        uses: ./.github/actions/notify-slack
-        with:
-          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
-          workflow-name: "Dunning Cycle"
-          severity: critical
+    uses: ./.github/workflows/_internal-cron.yml
+    with:
+      display-name: "Dunning Cycle"
+      endpoint-path: /api/v1/internal/dunning-cycle
+      slack-severity: critical
+    secrets: inherit
