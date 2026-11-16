@@ -121,11 +121,11 @@ def verify_callback_state(state: str) -> tuple:
     # Enforce timestamp expiry to prevent replay attacks
     try:
         state_time = int(timestamp_str)
-    except (ValueError, OverflowError):
+    except (ValueError, OverflowError) as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid callback state: malformed timestamp.",
-        )
+        ) from exc
 
     age = int(time.time()) - state_time
     if age > OAUTH_STATE_TIMEOUT_SECONDS or age < 0:

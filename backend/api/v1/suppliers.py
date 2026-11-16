@@ -38,10 +38,10 @@ def _validate_uuid(value: str, label: str = "ID") -> None:
     """Raise 404 if value is not a valid UUID."""
     try:
         UUID(value)
-    except (ValueError, AttributeError):
+    except (ValueError, AttributeError) as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"{label} '{value}' not found"
-        )
+        ) from exc
 
 
 def _validate_region_code(value: str) -> None:

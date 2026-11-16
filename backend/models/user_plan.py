@@ -2,8 +2,8 @@
 User Plan Models
 
 Pydantic models for tracking current and historical electricity plans per user.
-Covers plans sourced from Arcadia, EnergyBot, UtilityAPI, manual entry, and
-portal scrapes.
+Covers plans sourced from Arcadia, UtilityAPI, manual entry, and portal
+scrapes.
 """
 
 from datetime import UTC, datetime
@@ -18,7 +18,9 @@ from pydantic import BaseModel, ConfigDict, Field
 # ---------------------------------------------------------------------------
 
 PlanStatus = Literal["active", "expired", "switched_away"]
-PlanSource = Literal["arcadia", "manual", "energybot", "utilityapi", "portal"]
+# "energybot" is a legacy value kept so old rows validate; that integration
+# was removed and nothing writes it.
+PlanSource = Literal["arcadia", "manual", "utilityapi", "portal", "energybot"]
 
 
 # ---------------------------------------------------------------------------

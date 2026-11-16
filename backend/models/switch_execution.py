@@ -17,10 +17,22 @@ from pydantic import BaseModel, ConfigDict, Field
 # Enums (expressed as Literal types to stay Pydantic-native)
 # ---------------------------------------------------------------------------
 
+# "advisory_only" is the terminal status of an execution that only recorded a
+# recommendation (services.switch_execution_service.ADVISORY_STATUS).
 ExecutionStatus = Literal[
-    "initiating", "initiated", "submitted", "accepted", "active", "failed", "rolled_back"
+    "initiating",
+    "initiated",
+    "submitted",
+    "accepted",
+    "active",
+    "failed",
+    "rolled_back",
+    "advisory_only",
 ]
-ExecutorType = Literal["energybot", "powerkiosk", "advisory_only"]
+# "advisory_only" is the only executor in use. "energybot" and "powerkiosk"
+# are legacy values: no such integration exists, they are accepted only so
+# that old rows (and the column's historical default) still validate.
+ExecutorType = Literal["advisory_only", "energybot", "powerkiosk"]
 
 
 # ---------------------------------------------------------------------------
@@ -40,7 +52,7 @@ class SwitchExecution(BaseModel):
     new_plan_id: UUID | None = None
     idempotency_key: UUID
     enrollment_id: str | None = None
-    executor_type: ExecutorType = "energybot"
+    executor_type: ExecutorType = "advisory_only"
     status: ExecutionStatus = "initiating"
     initiated_at: datetime | None = None
     confirmed_at: datetime | None = None

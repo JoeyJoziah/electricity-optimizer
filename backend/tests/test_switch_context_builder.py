@@ -17,7 +17,7 @@ from services.switch_context_builder import (
     build_user_context,
     market_data_is_estimate,
 )
-from services.switch_decision_engine import SwitchDecisionEngine
+from services.switch_decision_engine import PlanDetails, SwitchDecisionEngine, UserContext
 
 USER_ID = "11111111-1111-1111-1111-111111111111"
 PLAN_ID = "22222222-2222-2222-2222-222222222222"
@@ -193,7 +193,107 @@ class TestPlanPresent:
         annotate_decision(decision, ctx)
         assert decision.data_source == "arcadia_60min+market_estimate"
         assert decision.confidence <= Decimal("0.40")
-        assert "regional market-rate estimate" in decision.reason
+        # Estimates only -> hold with no proposed plan, saving kept as an estimate.
+        assert decision.action == "hold"
+        assert decision.proposed_plan is None
+        assert decision.rule_stopped_at == "estimates_only"
+        assert decision.reason.startswith("Only estimated regional rates are available")
+        assert "Estimated potential saving versus the regional estimate" in decision.reason
+        assert "Some Supplier" not in decision.reason
+        assert decision.projected_savings_monthly > 0
+
+    @pytest.mark.asyncio
+    async def test_one_real_cheaper_offer_still_recommends(self):
+        """A real offer beside an estimate is recommended exactly as before."""
+        db = _make_db(plan=PLAN_ROW, usage=USAGE_ROW)
+        estimate = SupplierOffer(
+            supplier_name="Some Supplier",
+            supplier_id="sup-9",
+            rate_per_kwh=0.15,
+            source="regional_estimate",
+            is_estimate=True,
+            region="us_ct",
+        )
+        ctx = await _build(db, _offer_repo(estimate, _real_offer()))
+        assert market_data_is_estimate(ctx) is False
+
+        decision = await SwitchDecisionEngine(db).evaluate(ctx)
+        annotate_decision(decision, ctx)
+
+        assert decision.action == "recommend"
+        assert decision.proposed_plan.plan_id == "offer-123"
+        assert decision.rule_stopped_at == "tier_gate"
+        assert "Proposed:" in decision.reason
+        assert "estimated" not in decision.reason.lower()
+
+
+class TestEstimatesOnlyGuard:
+    """annotate_decision on contexts whose market plans are all estimates."""
+
+    @staticmethod
+    def _ctx(**overrides) -> UserContext:
+        base = {
+            "user_id": USER_ID,
+            "tier": "business",
+            "agent_enabled": True,
+            "loa_signed": True,
+            "current_plan": PlanDetails(
+                plan_id=PLAN_ID,
+                plan_name="Standard Offer",
+                provider_name="Incumbent Utility",
+                rate_kwh=Decimal("0.20"),
+            ),
+            "available_plans": [
+                {
+                    "id": "est-1",
+                    "plan_name": "Some Supplier (regional estimate)",
+                    "provider_name": "Some Supplier",
+                    "rate_kwh": Decimal("0.12"),
+                    "is_estimate": True,
+                }
+            ],
+            "monthly_kwh": Decimal("900"),
+            "data_source": "arcadia_60min+market_estimate",
+        }
+        return UserContext(**{**base, **overrides})
+
+    @pytest.mark.asyncio
+    async def test_business_tier_switch_becomes_hold(self):
+        ctx = self._ctx()
+        decision = await SwitchDecisionEngine(MagicMock()).evaluate(ctx)
+        assert decision.action == "switch"  # the engine itself is unchanged
+
+        annotate_decision(decision, ctx)
+
+        assert decision.action == "hold"
+        assert decision.proposed_plan is None
+        assert "Only estimated regional rates are available" in decision.reason
+        assert "~$72.00/month" in decision.reason
+        assert decision.projected_savings_monthly == Decimal("72.00")
+
+    @pytest.mark.asyncio
+    async def test_below_threshold_hold_drops_the_named_plan(self):
+        # saving $0.80/month: under both the $10 floor and the 50% threshold
+        ctx = self._ctx(monthly_kwh=Decimal("10"), savings_threshold_pct=Decimal("50"))
+        decision = await SwitchDecisionEngine(MagicMock()).evaluate(ctx)
+        assert decision.rule_stopped_at == "savings_floor"
+
+        annotate_decision(decision, ctx)
+
+        assert decision.action == "hold"
+        assert decision.proposed_plan is None
+        assert "Only estimated regional rates are available" in decision.reason
+        assert "below threshold" in decision.reason
+
+    @pytest.mark.asyncio
+    async def test_kill_switch_hold_is_left_alone(self):
+        ctx = self._ctx(agent_enabled=False)
+        decision = await SwitchDecisionEngine(MagicMock()).evaluate(ctx)
+
+        annotate_decision(decision, ctx)
+
+        assert decision.reason == "Auto Rate Switcher is disabled."
+        assert decision.rule_stopped_at == "kill_switch"
 
     @pytest.mark.asyncio
     async def test_loads_user_and_settings_when_not_supplied(self):

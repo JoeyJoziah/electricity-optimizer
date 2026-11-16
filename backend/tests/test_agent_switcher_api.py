@@ -932,14 +932,18 @@ class TestCheckNow:
 
         assert response.status_code == 200
         decision = response.json()["decision"]
-        assert decision["action"] == "recommend"
+        # Estimates only: never a recommendation naming a supplier or plan.
+        assert decision["action"] == "hold"
+        assert decision["proposed_plan"] is None
         assert decision["projected_savings_monthly"] == 72.0
         assert decision["data_source"] == "arcadia_60min+market_estimate"
-        assert "regional market-rate estimate" in decision["reason"]
+        assert "Only estimated regional rates are available" in decision["reason"]
+        assert "~$72.00/month" in decision["reason"]
+        assert "Some Supplier" not in decision["reason"]
         kwargs = builder.await_args.kwargs
         assert kwargs["tier"] == "pro"
         assert kwargs["region"] == "us_ct"
-        assert mock_db._audit_log[-1]["decision"] == "recommend"
+        assert mock_db._audit_log[-1]["decision"] == "hold"
 
     def test_check_now_context_failure_returns_503(self, pro_client, mock_db):
         """A real failure while building the context is a 503, not a fake hold."""

@@ -104,12 +104,12 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
         log = logger.bind(connection_id=conn_id, provider=provider)
 
         try:
+            from lib.encryption import decrypt_field
             from services.email_scanner_service import (
                 extract_rates_from_email,
                 scan_gmail_inbox,
                 scan_outlook_inbox,
             )
-            from utils.encryption import decrypt_field
 
             # ----------------------------------------------------------------
             # Decrypt access token — raw BYTEA column (migration 059)

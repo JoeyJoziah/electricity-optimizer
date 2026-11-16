@@ -100,4 +100,6 @@ async def run_dunning_cycle(
 
     except Exception as exc:
         logger.error("dunning_cycle_failed", error=str(exc))
-        raise HTTPException(status_code=500, detail="Dunning cycle failed. See server logs.")
+        raise HTTPException(
+            status_code=500, detail="Dunning cycle failed. See server logs."
+        ) from exc

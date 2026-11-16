@@ -114,11 +114,11 @@ class User(BaseModel):
         lowered = v.lower()
         try:
             Region(lowered)
-        except ValueError:
+        except ValueError as exc:
             raise ValueError(
                 f"Invalid region '{v}'. Must be a valid Region enum value "
                 f"(e.g. 'us_ct', 'us_ny', 'uk')."
-            )
+            ) from exc
         return lowered
 
     @field_validator("created_at", "updated_at", "last_login", "consent_date")

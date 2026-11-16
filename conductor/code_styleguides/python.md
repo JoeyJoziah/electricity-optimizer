@@ -58,6 +58,12 @@ async def fetch_one(region):
 results = await asyncio.gather(*[fetch_one(r) for r in regions])
 ```
 
+## Database access
+
+- New SQL belongs in a repository class under `backend/repositories/` (or in a service when the query is specific to that service's workflow). Route handlers in `backend/api/` should not contain `text(...)` SQL.
+- Existing route-level SQL is legacy: move it into a repository or service when you next change that query; do not add more.
+- Always use bound parameters with `sqlalchemy.text`; never interpolate values into SQL strings.
+
 ## Testing
 
 - Always run via `.venv/bin/python -m pytest`
@@ -67,5 +73,5 @@ results = await asyncio.gather(*[fetch_one(r) for r in regions])
 
 ## Security (Bandit)
 
-- Excludes: `tests/`, `alembic/`
+- Excludes: `tests/`
 - `B101` (assert_used) skipped

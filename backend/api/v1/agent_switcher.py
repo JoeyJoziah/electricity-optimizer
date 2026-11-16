@@ -670,7 +670,7 @@ async def check_now(
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Could not evaluate switch decision at this time. Please try again shortly.",
-            )
+            ) from exc
 
     # Store result in switch_audit_log
     audit_id = str(uuid.uuid4())
@@ -786,7 +786,7 @@ async def rollback_switch(
     # 5xx instead of a fabricated success.
     try:
         from services.switch_execution_service import SwitchExecutionService
-    except ImportError:
+    except ImportError as exc:
         logger.error(
             "switch_execution_service_unavailable",
             user_id=current_user.user_id,
@@ -795,7 +795,7 @@ async def rollback_switch(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Switch execution service is not currently available. Please try again shortly.",
-        )
+        ) from exc
 
     service = SwitchExecutionService(db)
     return await service.rollback_switch(str(execution_id), current_user.user_id)
@@ -863,7 +863,7 @@ async def approve_recommendation(
     # 5xx instead of a fabricated "approved" UPDATE.
     try:
         from services.switch_execution_service import SwitchExecutionService
-    except ImportError:
+    except ImportError as exc:
         logger.error(
             "switch_execution_service_unavailable",
             user_id=current_user.user_id,
@@ -872,7 +872,7 @@ async def approve_recommendation(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Switch execution service is not currently available. Please try again shortly.",
-        )
+        ) from exc
 
     service = SwitchExecutionService(db)
     return await service.approve_recommendation(str(audit_log_id), current_user.user_id)

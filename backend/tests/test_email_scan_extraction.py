@@ -777,7 +777,7 @@ class TestTriggerEmailScanBodyExtraction:
         bill = _make_scan_result(email_id="msg-body-1", attachment_count=0)
 
         with (
-            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch("lib.encryption.decrypt_field", return_value="fake_access_token"),
             patch(
                 "services.email_scanner_service.scan_gmail_inbox",
                 new_callable=AsyncMock,
@@ -806,7 +806,7 @@ class TestTriggerEmailScanBodyExtraction:
         bill = _make_scan_result(email_id="msg-no-rate", attachment_count=0)
 
         with (
-            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch("lib.encryption.decrypt_field", return_value="fake_access_token"),
             patch(
                 "services.email_scanner_service.scan_gmail_inbox",
                 new_callable=AsyncMock,
@@ -833,7 +833,7 @@ class TestTriggerEmailScanBodyExtraction:
         bill = _make_scan_result(email_id="msg-crash", attachment_count=0)
 
         with (
-            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch("lib.encryption.decrypt_field", return_value="fake_access_token"),
             patch(
                 "services.email_scanner_service.scan_gmail_inbox",
                 new_callable=AsyncMock,
@@ -860,7 +860,7 @@ class TestTriggerEmailScanBodyExtraction:
         bills = [_make_scan_result(email_id=f"msg-multi-{i}", attachment_count=0) for i in range(3)]
 
         with (
-            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch("lib.encryption.decrypt_field", return_value="fake_access_token"),
             patch(
                 "services.email_scanner_service.scan_gmail_inbox",
                 new_callable=AsyncMock,
@@ -894,7 +894,7 @@ class TestTriggerEmailScanBodyExtraction:
         bill = _make_scan_result(email_id="msg-bill", is_utility_bill=True)
 
         with (
-            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch("lib.encryption.decrypt_field", return_value="fake_access_token"),
             patch(
                 "services.email_scanner_service.scan_gmail_inbox",
                 new_callable=AsyncMock,
@@ -945,7 +945,7 @@ class TestTriggerEmailScanAttachmentExtraction:
         parsed_result = [{"filename": "bill.pdf", "rate_per_kwh": 0.2150}]
 
         with (
-            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch("lib.encryption.decrypt_field", return_value="fake_access_token"),
             patch(
                 "services.email_scanner_service.scan_gmail_inbox",
                 new_callable=AsyncMock,
@@ -987,7 +987,7 @@ class TestTriggerEmailScanAttachmentExtraction:
         parsed_result = [{"filename": "invoice.pdf", "rate_per_kwh": 0.1890}]
 
         with (
-            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch("lib.encryption.decrypt_field", return_value="fake_access_token"),
             patch(
                 "services.email_scanner_service.scan_outlook_inbox",
                 new_callable=AsyncMock,
@@ -1025,7 +1025,7 @@ class TestTriggerEmailScanAttachmentExtraction:
         bill = _make_scan_result(email_id="msg-att-crash", attachment_count=1)
 
         with (
-            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch("lib.encryption.decrypt_field", return_value="fake_access_token"),
             patch(
                 "services.email_scanner_service.scan_gmail_inbox",
                 new_callable=AsyncMock,
@@ -1058,7 +1058,7 @@ class TestTriggerEmailScanAttachmentExtraction:
         bill = _make_scan_result(email_id="msg-no-att", attachment_count=0)
 
         with (
-            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch("lib.encryption.decrypt_field", return_value="fake_access_token"),
             patch(
                 "services.email_scanner_service.scan_gmail_inbox",
                 new_callable=AsyncMock,
@@ -1093,7 +1093,7 @@ class TestTriggerEmailScanAttachmentExtraction:
         parsed_result = [{"filename": "bill.pdf", "supplier": "Eversource"}]
 
         with (
-            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch("lib.encryption.decrypt_field", return_value="fake_access_token"),
             patch(
                 "services.email_scanner_service.scan_gmail_inbox",
                 new_callable=AsyncMock,
@@ -1135,7 +1135,7 @@ class TestTriggerEmailScanAttachmentExtraction:
         parsed_result = [{"filename": "bill.pdf", "rate_per_kwh": 0.2200}]
 
         with (
-            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch("lib.encryption.decrypt_field", return_value="fake_access_token"),
             patch(
                 "services.email_scanner_service.scan_gmail_inbox",
                 new_callable=AsyncMock,
@@ -1190,7 +1190,7 @@ class TestTriggerEmailScanResponse:
         bill = _make_scan_result(email_id="msg-resp", attachment_count=0)
 
         with (
-            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch("lib.encryption.decrypt_field", return_value="fake_access_token"),
             patch(
                 "services.email_scanner_service.scan_gmail_inbox",
                 new_callable=AsyncMock,
@@ -1230,7 +1230,7 @@ class TestTriggerEmailScanResponse:
         ]
 
         with (
-            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch("lib.encryption.decrypt_field", return_value="fake_access_token"),
             patch(
                 "services.email_scanner_service.scan_gmail_inbox",
                 new_callable=AsyncMock,
@@ -1256,7 +1256,7 @@ class TestTriggerEmailScanResponse:
         self._setup_db(db, connection_id)
 
         with (
-            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch("lib.encryption.decrypt_field", return_value="fake_access_token"),
             patch(
                 "services.email_scanner_service.scan_gmail_inbox",
                 new_callable=AsyncMock,
@@ -1285,7 +1285,7 @@ class TestTriggerEmailScanResponse:
         db.execute.side_effect = [conn_result] + [insert_result] * 10
 
         with (
-            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch("lib.encryption.decrypt_field", return_value="fake_access_token"),
             patch(
                 "services.email_scanner_service.scan_outlook_inbox",
                 new_callable=AsyncMock,

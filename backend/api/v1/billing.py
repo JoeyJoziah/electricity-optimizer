@@ -187,7 +187,7 @@ async def create_checkout_session(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid checkout request. Please check your input and try again.",
-        )
+        ) from e
     except stripe.StripeError as e:
         logger.error(
             "checkout_session_stripe_error",
@@ -198,7 +198,7 @@ async def create_checkout_session(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create checkout session. Please try again.",
-        )
+        ) from e
 
 
 @router.post(
@@ -262,7 +262,7 @@ async def create_portal_session(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create portal session. Please try again.",
-        )
+        ) from e
 
 
 @router.get(
@@ -337,7 +337,7 @@ async def get_subscription_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve subscription status. Please try again.",
-        )
+        ) from e
 
 
 @router.post(
@@ -392,7 +392,7 @@ async def handle_stripe_webhook(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid webhook signature.",
-        )
+        ) from e
 
     # Response contract from here on:
     #   200 — event processed, or a duplicate delivery that was skipped.

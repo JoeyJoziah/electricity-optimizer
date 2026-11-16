@@ -35,12 +35,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
+from lib.encryption import decrypt_field, encrypt_field
 from models.connections import (
     CreatePortalConnectionRequest,
     PortalConnectionResponse,
     PortalScrapeResponse,
 )
-from utils.encryption import decrypt_field, encrypt_field
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)

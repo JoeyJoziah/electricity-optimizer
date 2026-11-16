@@ -180,4 +180,4 @@ async def check_alerts(
         logger.error("check_alerts_failed", error=str(exc))
         raise HTTPException(
             status_code=500, detail="Alert check failed. See server logs for details."
-        )
+        ) from exc

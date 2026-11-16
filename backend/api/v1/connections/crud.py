@@ -97,7 +97,7 @@ async def create_direct_connection(
 
     Returns the new ConnectionResponse (account number is masked in response).
     """
-    from utils.encryption import encrypt_field, mask_account_number
+    from lib.encryption import encrypt_field, mask_account_number
 
     supplier_id_str = str(payload.supplier_id)
 

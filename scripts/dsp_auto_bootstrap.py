@@ -529,13 +529,13 @@ def main() -> None:
     # ── Phase 1: Discover all source files ──
     print("Phase 1: Discovering source files...")
     files = discover_files()
-    py_files = [(f, l) for f, l in files if l == "python"]
-    ts_files = [(f, l) for f, l in files if l == "typescript"]
+    py_files = [(f, line) for f, line in files if line == "python"]
+    ts_files = [(f, line) for f, line in files if line == "typescript"]
     print(f"  Found {len(py_files)} Python + {len(ts_files)} TypeScript = {len(files)} files")
 
     if dry_run:
-        for f, l in files:
-            print(f"  [{l[:2]}] {f}")
+        for f, line in files:
+            print(f"  [{line[:2]}] {f}")
         print("\nDry run — no changes made.")
         return
 

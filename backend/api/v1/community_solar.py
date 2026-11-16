@@ -64,11 +64,11 @@ async def estimate_community_solar_savings(
     try:
         bill = Decimal(monthly_bill)
         pct = Decimal(savings_percent)
-    except InvalidOperation:
+    except InvalidOperation as exc:
         raise HTTPException(
             status_code=400,
             detail="monthly_bill and savings_percent must be valid decimal numbers",
-        )
+        ) from exc
 
     if bill <= 0:
         raise HTTPException(status_code=400, detail="monthly_bill must be positive")

@@ -52,10 +52,10 @@ class ReferralService:
                 await self._db.commit()
                 logger.info("referral_code_generated", user_id=user_id, code=code)
                 return code
-            except Exception:
+            except Exception as exc:
                 await self._db.rollback()
                 if attempt == _MAX_RETRIES - 1:
-                    raise ReferralError("Failed to generate unique referral code")
+                    raise ReferralError("Failed to generate unique referral code") from exc
         raise ReferralError("Failed to generate unique referral code")
 
     async def get_or_create_code(self, user_id: str) -> str:

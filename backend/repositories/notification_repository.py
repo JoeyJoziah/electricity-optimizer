@@ -99,7 +99,7 @@ class NotificationRepository:
                 notification_id=notification_id,
                 error=str(exc),
             )
-            raise RepositoryError(f"Failed to fetch notification {notification_id}", exc)
+            raise RepositoryError(f"Failed to fetch notification {notification_id}", exc) from exc
 
     async def get_by_delivery_status(
         self,
@@ -135,7 +135,7 @@ class NotificationRepository:
                 status=status,
                 error=str(exc),
             )
-            raise RepositoryError(f"Failed to query notifications by status={status}", exc)
+            raise RepositoryError(f"Failed to query notifications by status={status}", exc) from exc
 
     async def get_by_channel(
         self,
@@ -172,7 +172,9 @@ class NotificationRepository:
                 channel=channel,
                 error=str(exc),
             )
-            raise RepositoryError(f"Failed to query notifications by channel={channel}", exc)
+            raise RepositoryError(
+                f"Failed to query notifications by channel={channel}", exc
+            ) from exc
 
     # =========================================================================
     # Write operations
@@ -255,4 +257,6 @@ class NotificationRepository:
                 notification_id=notification_id,
                 error=str(exc),
             )
-            raise RepositoryError(f"Failed to update delivery tracking for {notification_id}", exc)
+            raise RepositoryError(
+                f"Failed to update delivery tracking for {notification_id}", exc
+            ) from exc

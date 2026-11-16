@@ -134,10 +134,10 @@ def test_app():
             if "sub" not in payload:
                 raise HTTPException(status_code=401, detail="Missing subject")
             return {"user_id": payload["sub"], "email": payload.get("email", "")}
-        except jose_jwt.ExpiredSignatureError:
-            raise HTTPException(status_code=401, detail="Token expired")
-        except Exception:
-            raise HTTPException(status_code=401, detail="Invalid token")
+        except jose_jwt.ExpiredSignatureError as exc:
+            raise HTTPException(status_code=401, detail="Token expired") from exc
+        except Exception as exc:
+            raise HTTPException(status_code=401, detail="Invalid token") from exc
 
     @app.get("/protected")
     async def protected_route(user: dict = Depends(_test_bearer_auth)):

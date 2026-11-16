@@ -1,5 +1,5 @@
 """
-Tests for the Predictions API Router (backend/routers/predictions.py)
+Tests for the Predictions API Router (backend/api/v1/predictions.py)
 
 Tests cover:
 - POST /predict/price - price prediction
@@ -40,7 +40,7 @@ def predictions_client():
 @pytest.fixture(autouse=True)
 def clear_model_cache():
     """Clear the ML model cache between tests so _load_model is re-evaluated."""
-    from routers.predictions import _model_cache
+    from api.v1.predictions import _model_cache
 
     _model_cache.clear()
     yield
@@ -55,7 +55,7 @@ def clear_model_cache():
 class TestPredictPrice:
     """Tests for the POST /api/v1/ml/predict/price endpoint."""
 
-    @patch("routers.predictions._load_model", return_value=None)
+    @patch("api.v1.predictions._load_model", return_value=None)
     def test_predict_price_success(self, _mock_model, predictions_client):
         """Valid request should return a forecast with predictions."""
         response = predictions_client.post(
@@ -69,7 +69,7 @@ class TestPredictPrice:
         assert len(data["predictions"]) == 6
         assert data["model_version"] == "v1.0.0"
 
-    @patch("routers.predictions._load_model", return_value=None)
+    @patch("api.v1.predictions._load_model", return_value=None)
     def test_predict_price_default_hours(self, _mock_model, predictions_client):
         """Omitting hours_ahead should default to 24."""
         response = predictions_client.post(
@@ -96,7 +96,7 @@ class TestPredictPrice:
         )
         assert response.status_code == 422
 
-    @patch("routers.predictions._load_model", return_value=None)
+    @patch("api.v1.predictions._load_model", return_value=None)
     def test_predict_price_currency_mapping(self, _mock_model, predictions_client):
         """UK region should use GBP."""
         response = predictions_client.post(
@@ -107,7 +107,7 @@ class TestPredictPrice:
         data = response.json()
         assert data["predictions"][0]["currency"] == "GBP"
 
-    @patch("routers.predictions._load_model", return_value=None)
+    @patch("api.v1.predictions._load_model", return_value=None)
     def test_predict_price_eu_uses_eur(self, _mock_model, predictions_client):
         """Germany region should use EUR."""
         response = predictions_client.post(
@@ -117,7 +117,7 @@ class TestPredictPrice:
         assert response.status_code == 200
         assert response.json()["predictions"][0]["currency"] == "EUR"
 
-    @patch("routers.predictions._load_model", return_value=None)
+    @patch("api.v1.predictions._load_model", return_value=None)
     def test_predict_price_us_uses_usd(self, _mock_model, predictions_client):
         """US state region should use USD."""
         response = predictions_client.post(
@@ -127,7 +127,7 @@ class TestPredictPrice:
         assert response.status_code == 200
         assert response.json()["predictions"][0]["currency"] == "USD"
 
-    @patch("routers.predictions._load_model", return_value=None)
+    @patch("api.v1.predictions._load_model", return_value=None)
     def test_predict_price_predictions_have_confidence_bounds(
         self, _mock_model, predictions_client
     ):
@@ -152,7 +152,7 @@ class TestPredictPrice:
 class TestOptimalTimes:
     """Tests for the POST /api/v1/ml/predict/optimal-times endpoint."""
 
-    @patch("routers.predictions._load_model", return_value=None)
+    @patch("api.v1.predictions._load_model", return_value=None)
     def test_optimal_times_success(self, _mock_model, predictions_client):
         """Valid request should return optimal time slots."""
         response = predictions_client.post(
@@ -170,7 +170,7 @@ class TestOptimalTimes:
         assert len(data["optimal_slots"]) <= 3
         assert "potential_savings_percent" in data
 
-    @patch("routers.predictions._load_model", return_value=None)
+    @patch("api.v1.predictions._load_model", return_value=None)
     def test_optimal_times_slots_are_ranked(self, _mock_model, predictions_client):
         """Returned slots should have ascending rank values."""
         response = predictions_client.post(
@@ -201,7 +201,7 @@ class TestOptimalTimes:
 class TestSavingsEstimate:
     """Tests for the POST /api/v1/ml/predict/savings endpoint."""
 
-    @patch("routers.predictions._load_model", return_value=None)
+    @patch("api.v1.predictions._load_model", return_value=None)
     def test_savings_estimate_success(self, _mock_model, predictions_client):
         """Valid savings request should return cost comparison."""
         future_start = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
@@ -320,7 +320,7 @@ class TestPredictionErrorSanitization:
     """
 
     @patch(
-        "routers.predictions.generate_price_forecast",
+        "api.v1.predictions.generate_price_forecast",
         side_effect=Exception("DATABASE_URL=postgresql://user:secret@host/db"),
     )
     def test_predict_price_error_does_not_leak_exception(self, _mock_gen, predictions_client):
@@ -341,7 +341,7 @@ class TestPredictionErrorSanitization:
         assert len(data["detail"]) > 0
 
     @patch(
-        "routers.predictions.generate_price_forecast",
+        "api.v1.predictions.generate_price_forecast",
         side_effect=Exception("AES-256-GCM key derivation failed: invalid padding"),
     )
     def test_predict_price_error_does_not_leak_crypto_details(self, _mock_gen, predictions_client):
@@ -356,7 +356,7 @@ class TestPredictionErrorSanitization:
         assert "invalid padding" not in body
 
     @patch(
-        "routers.predictions.generate_price_forecast",
+        "api.v1.predictions.generate_price_forecast",
         side_effect=Exception("DATABASE_URL=postgresql://user:secret@host/db"),
     )
     def test_predict_optimal_times_error_does_not_leak_exception(
@@ -373,7 +373,7 @@ class TestPredictionErrorSanitization:
         assert "postgresql://" not in body
 
     @patch(
-        "routers.predictions.generate_price_forecast",
+        "api.v1.predictions.generate_price_forecast",
         side_effect=Exception("DATABASE_URL=postgresql://user:secret@host/db"),
     )
     def test_predict_savings_error_does_not_leak_exception(self, _mock_gen, predictions_client):
@@ -405,7 +405,7 @@ class TestPredictionErrorSanitization:
         assert "postgresql://" not in body
 
     @patch(
-        "routers.predictions.generate_price_forecast",
+        "api.v1.predictions.generate_price_forecast",
         side_effect=Exception("internal db error with secret_key=sk_live_abc123"),
     )
     def test_predict_price_error_detail_is_generic_message(self, _mock_gen, predictions_client):

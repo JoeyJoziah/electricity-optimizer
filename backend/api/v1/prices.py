@@ -157,7 +157,7 @@ async def get_current_prices(
             raise HTTPException(
                 status_code=503,
                 detail="Price service temporarily unavailable",
-            )
+            ) from e
         mock = _generate_mock_prices(region.value, 3)
         return CurrentPriceResponse(
             prices=[
@@ -299,7 +299,7 @@ async def get_price_history(
             raise HTTPException(
                 status_code=503,
                 detail="Price service temporarily unavailable",
-            )
+            ) from e
         # Build the full mock dataset for the window, then slice it to the
         # requested page so that fallback behaviour mirrors live pagination.
         mock_all = _generate_mock_prices(region.value, days * 24)
@@ -378,7 +378,7 @@ async def get_price_forecast(
             raise HTTPException(
                 status_code=503,
                 detail="Price service temporarily unavailable",
-            )
+            ) from e
         now = datetime.now(UTC)
         mock = _generate_mock_prices(region.value, hours)
         forecast = PriceForecast(
@@ -455,7 +455,7 @@ async def compare_prices(
             raise HTTPException(
                 status_code=503,
                 detail="Price service temporarily unavailable",
-            )
+            ) from e
         now = datetime.now(UTC)
         mock_suppliers = [
             ("Eversource Energy", Decimal("0.2600")),

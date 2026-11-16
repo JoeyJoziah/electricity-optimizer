@@ -223,7 +223,7 @@ class SupplierRegistryRepository:
             return suppliers, total
 
         except Exception as e:
-            raise RepositoryError(f"Failed to list suppliers: {str(e)}", e)
+            raise RepositoryError(f"Failed to list suppliers: {str(e)}", e) from e
 
     async def get_region_market_rate(self, region: str) -> float | None:
         """Latest electricity market price for a region in $/kWh.
@@ -293,7 +293,7 @@ class SupplierRegistryRepository:
             return supplier
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get supplier: {str(e)}", e)
+            raise RepositoryError(f"Failed to get supplier: {str(e)}", e) from e
 
 
 # ==========================================================================
@@ -319,7 +319,7 @@ class StateRegulationRepository:
             row = result.mappings().first()
             return dict(row) if row else None
         except Exception as e:
-            raise RepositoryError(f"Failed to get state regulation: {str(e)}", e)
+            raise RepositoryError(f"Failed to get state regulation: {str(e)}", e) from e
 
     async def list_deregulated(
         self,
@@ -354,4 +354,4 @@ class StateRegulationRepository:
             return [dict(row) for row in result.mappings().all()]
 
         except Exception as e:
-            raise RepositoryError(f"Failed to list regulations: {str(e)}", e)
+            raise RepositoryError(f"Failed to list regulations: {str(e)}", e) from e

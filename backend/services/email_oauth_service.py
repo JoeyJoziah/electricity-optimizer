@@ -15,7 +15,7 @@ import httpx
 import structlog
 
 from config.settings import settings
-from utils.encryption import decrypt_field, encrypt_field
+from lib.encryption import decrypt_field, encrypt_field
 
 logger = structlog.get_logger(__name__)
 

@@ -35,6 +35,7 @@ class AvailablePlan(BaseModel):
     etf_amount: Decimal = Decimal("0")
     renewable_pct: int = 0
     plan_url: str | None = None
+    # Legacy column from the removed EnergyBot integration; never populated.
     energybot_id: str | None = None
     raw_plan_data: dict[str, Any] | None = None
     fetched_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

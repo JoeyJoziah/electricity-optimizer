@@ -216,4 +216,4 @@ async def generate_kpi_report(
 
     except Exception as exc:
         logger.error("kpi_report_failed", error=str(exc))
-        raise HTTPException(status_code=500, detail="KPI report failed. See server logs.")
+        raise HTTPException(status_code=500, detail="KPI report failed. See server logs.") from exc

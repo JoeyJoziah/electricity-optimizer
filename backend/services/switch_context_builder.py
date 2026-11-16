@@ -13,6 +13,9 @@ Rules:
   estimate (``SupplierOffer.is_estimate``) the context's ``data_source`` gets
   the ``+market_estimate`` suffix, so the decision carries it into the audit
   log and the engine falls back to its lowest base confidence.
+- Estimates never name a supplier. With estimates only, every supplier carries
+  the same regional rate, so ``annotate_decision`` turns any comparison
+  outcome into a ``hold`` with no proposed plan (see there).
 """
 
 from collections.abc import Mapping
@@ -42,10 +45,18 @@ NO_USAGE_DATA_SOURCE = "none"
 # Appended to data_source when the market plans are regional estimates.
 MARKET_ESTIMATE_SUFFIX = "+market_estimate"
 
-# Appended to a recommendation's reason when it rests on estimated market data.
-MARKET_ESTIMATE_NOTE = (
-    " This comparison uses a regional market-rate estimate, not a confirmed supplier offer."
+# Reason used when a comparison rests only on regional estimates. Every
+# supplier then carries the same estimated rate, so naming one would be
+# arbitrary: the decision is always a hold with no proposed plan.
+ESTIMATES_ONLY_REASON = (
+    "Only estimated regional rates are available for your area, so no specific "
+    "supplier or plan is recommended."
 )
+
+# rule_stopped_at value for a decision replaced by the estimates-only hold.
+ESTIMATES_ONLY_RULE = "estimates_only"
+
+_ADVISE_ACTIONS = ("recommend", "switch")
 
 _DAYS_PER_MONTH = Decimal("30.4375")
 _INTERVAL_SOURCES = ("arcadia", "utilityapi")
@@ -59,19 +70,47 @@ def market_data_is_estimate(ctx: UserContext) -> bool:
 
 
 def annotate_decision(decision: SwitchDecision, ctx: UserContext) -> None:
-    """Make a decision's ``reason`` self-describing before it is stored or shown.
+    """Make a decision honest and self-describing before it is stored or shown.
 
-    ``switch_audit_log`` has no columns for the proposed plan, so a
-    recommendation names the plan in its reason. When the comparison rests on
-    estimated market data the reason says so.
+    Called by both the daily scan and the user-facing check-now path.
+
+    - Real offers: ``switch_audit_log`` has no columns for the proposed plan,
+      so a recommendation names the plan in its reason.
+    - Estimates only (``market_data_is_estimate``): any decision that reached
+      plan comparison becomes a ``hold`` with no proposed plan whose reason
+      says only estimated regional rates are available. The engine's savings
+      figures are kept and reported as an estimate; thresholds and maths are
+      untouched. Decisions stopped earlier (kill switch, cooldown) are left
+      as they are — they say nothing about the market.
     """
-    plan = decision.proposed_plan
-    if plan is None:
-        return
-    if decision.action in ("recommend", "switch"):
-        decision.reason += f" Proposed: {plan.plan_name} at ${plan.rate_kwh}/kWh."
     if market_data_is_estimate(ctx):
-        decision.reason += MARKET_ESTIMATE_NOTE
+        _hold_on_estimates_only(decision)
+        return
+    plan = decision.proposed_plan
+    if plan is not None and decision.action in _ADVISE_ACTIONS:
+        decision.reason += f" Proposed: {plan.plan_name} at ${plan.rate_kwh}/kWh."
+
+
+def _hold_on_estimates_only(decision: SwitchDecision) -> None:
+    """Rewrite ``decision`` in place as the estimates-only hold (see above)."""
+    if decision.proposed_plan is None and decision.rule_stopped_at != "plan_comparison":
+        return
+
+    reason = ESTIMATES_ONLY_REASON
+    if decision.projected_savings_monthly > 0:
+        reason += (
+            " Estimated potential saving versus the regional estimate: "
+            f"~${decision.projected_savings_monthly:.2f}/month."
+        )
+    if decision.proposed_plan is not None and decision.action not in _ADVISE_ACTIONS:
+        # Savings-floor / ETF holds: keep the engine's explanation, which
+        # names no supplier.
+        reason += f" {decision.reason}"
+
+    decision.action = "hold"
+    decision.reason = reason
+    decision.proposed_plan = None
+    decision.rule_stopped_at = ESTIMATES_ONLY_RULE
 
 
 def _aware(value: datetime | None) -> datetime | None:

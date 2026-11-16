@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import SessionData, get_current_user, get_db_session
+from lib.encryption import encrypt_field
 from models.utility import UtilityType
 from models.utility_account import (
     UtilityAccount,
@@ -19,7 +20,6 @@ from models.utility_account import (
     UtilityAccountUpdate,
 )
 from repositories.utility_account_repository import UtilityAccountRepository
-from utils.encryption import encrypt_field
 
 logger = structlog.get_logger()
 

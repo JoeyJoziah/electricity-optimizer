@@ -170,13 +170,15 @@ class UptimeRobotClient:
                     print(f"    Rate limited — waiting {wait}s...")
                     time.sleep(wait)
                     continue
-                raise UptimeRobotError(f"HTTP {exc.code} from {endpoint}: {exc.read().decode()}")
+                raise UptimeRobotError(
+                    f"HTTP {exc.code} from {endpoint}: {exc.read().decode()}"
+                ) from exc
             except urllib_error.URLError as exc:
                 if attempt < 2:
                     print(f"    Network error (attempt {attempt + 1}/3): {exc.reason} — retrying in 5s")
                     time.sleep(5)
                     continue
-                raise UptimeRobotError(f"Network error after 3 attempts: {exc.reason}")
+                raise UptimeRobotError(f"Network error after 3 attempts: {exc.reason}") from exc
 
         raise UptimeRobotError(f"All 3 attempts exhausted for {endpoint}")
 
@@ -411,7 +413,7 @@ def setup_monitors(api_key: str, slack_webhook: Optional[str] = None, dry_run: b
                         alert_contact_ids=alert_contact_ids,
                         monitor_def=mon_def,
                     )
-                    print(f"  Alert contacts updated on existing monitor.")
+                    print("  Alert contacts updated on existing monitor.")
                     updated += 1
                 except UptimeRobotError as exc:
                     print(f"  WARNING: Could not update alert contacts: {exc}")
@@ -453,7 +455,7 @@ def setup_monitors(api_key: str, slack_webhook: Optional[str] = None, dry_run: b
 
     budget = sla_downtime_budget(SLA_TARGET_PERCENT)
     print(f"  SLA target: {SLA_TARGET_PERCENT}% uptime")
-    print(f"  Allowable downtime:")
+    print("  Allowable downtime:")
     print(f"    Monthly: {budget['monthly_minutes']} min  (~{budget['monthly_minutes'] / 60:.1f}h)")
     print(f"    Weekly:  {budget['weekly_minutes']} min")
     print(f"    Daily:   {budget['daily_minutes']} min  (~{budget['daily_minutes'] * 60:.0f}s)")

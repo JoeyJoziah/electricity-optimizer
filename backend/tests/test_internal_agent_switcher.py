@@ -168,6 +168,7 @@ class TestAgentSwitcherScan:
             "users_without_plan_data": 0,
             "users_without_market_data": 0,
             "users_without_usage_data": 0,
+            "users_with_estimates_only": 0,
         }
 
     # ------------------------------------------------------------------
@@ -576,6 +577,7 @@ class TestAgentSwitcherScanEndToEnd:
         assert data["users_without_plan_data"] == 0
         assert data["users_without_market_data"] == 0
         assert data["users_without_usage_data"] == 0
+        assert data["users_with_estimates_only"] == 0
 
         params = self._audit_params(mock_db)
         assert params["decision"] == "recommend"
@@ -586,8 +588,11 @@ class TestAgentSwitcherScanEndToEnd:
         assert "Proposed: Cheaper Co (fixed) at $0.12/kWh." in params["reason"]
         assert "estimate" not in params["reason"]
 
-    def test_estimated_offers_are_labelled_and_low_confidence(self, auth_client, mock_db):
-        """A recommendation resting on a regional estimate says so."""
+    def test_estimates_only_is_a_hold_naming_no_supplier(self, auth_client, mock_db):
+        """Estimates only: hold, counted separately, no supplier or plan named.
+
+        Fails on the old code, which sent a recommendation naming the supplier.
+        """
         from models.supplier_offer import SupplierOffer
 
         self._wire_db(mock_db, plan=self._plan(), usage=self._usage())
@@ -607,11 +612,20 @@ class TestAgentSwitcherScanEndToEnd:
         ):
             response = auth_client.post(f"{BASE_URL}/scan")
 
-        assert response.json()["recommendations_sent"] == 1
+        data = response.json()
+        assert data["recommendations_sent"] == 0
+        assert data["switches_initiated"] == 0
+        assert data["holds"] == 1
+        assert data["users_with_estimates_only"] == 1
         params = self._audit_params(mock_db)
+        assert params["decision"] == "hold"
         assert params["data_source"] == "arcadia_60min+market_estimate"
-        assert "regional market-rate estimate" in params["reason"]
-        assert "Some Supplier (regional estimate)" in params["reason"]
+        assert "Only estimated regional rates are available" in params["reason"]
+        assert "Estimated potential saving versus the regional estimate" in params["reason"]
+        assert "Some Supplier" not in params["reason"]
+        assert "Proposed:" not in params["reason"]
+        # The engine's saving is still reported, as an estimate.
+        assert params["savings_monthly"] > 10
         # Unknown data_source -> engine's lowest base confidence (0.40), not arcadia's 0.90.
         assert params["confidence_score"] <= 0.40
 

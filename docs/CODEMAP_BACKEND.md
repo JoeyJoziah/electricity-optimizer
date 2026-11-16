@@ -570,7 +570,7 @@ All endpoints require `X-API-Key` header (same key as `/prices/refresh`).
 | DELETE | `/link-account/{account_id}` | Session | Unlink a utility account |
 
 **Security:** Account numbers and meter numbers encrypted at rest via AES-256-GCM
-(`utils/encryption.py`). Ciphertext format: nonce (12B) || ciphertext || tag (16B).
+(`lib/encryption.py`). Ciphertext format: nonce (12B) || ciphertext || tag (16B).
 Key from `FIELD_ENCRYPTION_KEY` env var (32-byte hex).
 
 ### Connections (`/api/v1/connections`)

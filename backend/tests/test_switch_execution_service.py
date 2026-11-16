@@ -36,6 +36,7 @@ def _make_db(
     existing_execution: dict | None = None,
     insert_conflicts: bool = False,
     audit_row: dict | None = None,
+    claim_succeeds: bool = True,
 ) -> AsyncMock:
     """Build a mock AsyncSession that routes on the SQL text.
 
@@ -55,6 +56,11 @@ def _make_db(
             return result
         if "FROM switch_audit_log" in sql and "SELECT" in sql:
             return _make_mapping_result(audit_row)
+        if "SET status = 'initiating'" in sql:
+            # Guarded claim of a failed row for a retry.
+            result = MagicMock()
+            result.first.return_value = ("exec-id",) if claim_succeeds else None
+            return result
         return MagicMock()
 
     db.execute = AsyncMock(side_effect=_execute)
@@ -871,6 +877,75 @@ class TestIdempotency:
         assert result["executed"] is False
         # Nothing written, executor never called.
         assert _sql_calls(db, "INSERT INTO") == []
+        mock_executor.execute_enrollment.assert_not_called()
+        db.commit.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_retry_after_failed_execution_reruns_on_the_same_row(self):
+        """Old code returned the failed row forever for the rest of the UTC day."""
+        existing = {"id": "exec-failed", "status": "failed", "enrollment_id": None}
+        db = _make_db(existing_execution=existing)
+        svc = _make_service(db)
+        mock_executor = _make_executor()
+
+        with patch(
+            "services.switch_execution_service.get_executor",
+            return_value=mock_executor,
+        ):
+            result = await svc.execute_switch("user_1", _make_decision())
+
+        # Same row, re-run to a non-failed status.
+        assert result["execution_id"] == "exec-failed"
+        assert result["status"] == "initiated"
+        assert result["idempotent_replay"] is False
+        mock_executor.execute_enrollment.assert_awaited_once()
+        # Row was claimed with a status guard, not re-inserted or re-snapshotted.
+        claim = _sql_calls(db, "SET status = 'initiating'")
+        assert len(claim) == 1
+        assert "AND status = 'failed'" in str(claim[0][0][0])
+        assert claim[0][0][1] == {"id": "exec-failed"}
+        assert _sql_calls(db, "INSERT INTO") == []
+        final = _sql_calls(db, "SET status = :status")
+        assert final[0][0][1]["id"] == "exec-failed"
+        assert final[0][0][1]["status"] == "initiated"
+
+    @pytest.mark.asyncio
+    async def test_retry_that_loses_the_claim_race_replays_instead(self):
+        existing = {"id": "exec-failed", "status": "failed", "enrollment_id": None}
+        db = _make_db(existing_execution=existing, claim_succeeds=False)
+        svc = _make_service(db)
+        mock_executor = _make_executor()
+
+        with patch(
+            "services.switch_execution_service.get_executor",
+            return_value=mock_executor,
+        ):
+            result = await svc.execute_switch("user_1", _make_decision())
+
+        assert result["idempotent_replay"] is True
+        mock_executor.execute_enrollment.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "status",
+        ["initiating", "initiated", "submitted", "accepted", "active", "rolled_back"],
+    )
+    async def test_in_flight_and_completed_rows_are_returned_untouched(self, status):
+        existing = {"id": "exec-existing", "status": status, "enrollment_id": "enr_1"}
+        db = _make_db(existing_execution=existing)
+        svc = _make_service(db)
+        mock_executor = _make_executor()
+
+        with patch(
+            "services.switch_execution_service.get_executor",
+            return_value=mock_executor,
+        ):
+            result = await svc.execute_switch("user_1", _make_decision())
+
+        assert result["execution_id"] == "exec-existing"
+        assert result["status"] == status
+        assert result["idempotent_replay"] is True
+        assert _sql_calls(db, "UPDATE") == []
         mock_executor.execute_enrollment.assert_not_called()
         db.commit.assert_not_called()
 

@@ -9,7 +9,8 @@ State machine:
 
 Tables:
     switch_executions  — one row per user/plan/UTC day (deterministic unique
-                         idempotency_key; a repeat attempt returns the same row)
+                         idempotency_key; a repeat attempt returns the same row,
+                         except that a 'failed' row is reset and re-run)
     switch_audit_log   — decision snapshot written before execution begins
 
 The service delegates all provider interactions to the SwitchExecutor protocol.
@@ -39,6 +40,11 @@ PENDING_STATUSES = ("initiating", "initiated", "submitted", "accepted")
 
 # Terminal status for an execution where only a recommendation was recorded.
 ADVISORY_STATUS = "advisory_only"
+
+# Statuses that mean the attempt failed before anything was enrolled. A
+# same-day retry reuses such a row instead of returning it forever.
+# ('rolled_back' is not one: that is a completed switch the user undid.)
+RETRYABLE_FAILURE_STATUSES = ("failed",)
 
 # Statuses that mean a real enrollment was started with a provider.
 REAL_SWITCH_STATUSES = ("initiated", "submitted", "accepted", "active")
@@ -94,7 +100,9 @@ class SwitchExecutionService:
 
         Steps:
         1. Derive the deterministic idempotency key (user, plan, UTC date).
-        2. If an execution with that key exists, return it unchanged (no-op).
+        2. If an execution with that key exists, return it unchanged (no-op)
+           — unless it failed: then the same row is reset to ``initiating``
+           and steps 5-6 run again (steps 3-4 are skipped).
         3. Write a decision snapshot to ``switch_audit_log`` unless the caller
            already has one (``audit_log_id``).
         4. Insert the ``switch_executions`` row (``ON CONFLICT DO NOTHING``).
@@ -137,94 +145,48 @@ class SwitchExecutionService:
             # Step 1-2 — deterministic key; a repeat attempt is a no-op.
             idempotency_key = build_idempotency_key(user_id, plan_id)
             existing = await self._get_execution_by_key(idempotency_key)
+            retrying = False
             if existing is not None:
+                if existing["status"] in RETRYABLE_FAILURE_STATUSES:
+                    retrying = await self._claim_failed_execution(existing["execution_id"])
+                    if not retrying:
+                        # A concurrent retry claimed the row first: report its state.
+                        existing = await self._get_execution_by_key(idempotency_key) or existing
+                if not retrying:
+                    logger.info(
+                        "switch_execution.idempotent_replay",
+                        user_id=user_id,
+                        execution_id=existing["execution_id"],
+                        status=existing["status"],
+                    )
+                    return existing
                 logger.info(
-                    "switch_execution.idempotent_replay",
+                    "switch_execution.retry_after_failure",
                     user_id=user_id,
                     execution_id=existing["execution_id"],
-                    status=existing["status"],
                 )
-                return existing
 
             region = f"us_{state_code.lower()}"
             executor = get_executor(region)
             advisory = isinstance(executor, AdvisoryOnlyFallback)
             executor_type = str(getattr(executor, "provider", "unknown"))
-            execution_id = str(uuid.uuid4())
+            execution_id = existing["execution_id"] if retrying else str(uuid.uuid4())
 
-            # Step 3 — audit log snapshot (only when the caller has none)
-            if audit_log_id is None:
-                audit_log_id = str(uuid.uuid4())
-                await self._db.execute(
-                    text("""
-                        INSERT INTO switch_audit_log
-                            (id, user_id, trigger_type, decision, reason,
-                             savings_monthly, savings_annual, etf_cost,
-                             net_savings_year1, confidence_score, data_source,
-                             tier, executed, created_at)
-                        VALUES
-                            (:id, :user_id, :trigger_type, :decision, :reason,
-                             :savings_monthly, :savings_annual, :etf_cost,
-                             :net_savings_year1, :confidence_score, :data_source,
-                             :tier, FALSE, NOW())
-                    """),
-                    {
-                        "id": audit_log_id,
-                        "user_id": user_id,
-                        "trigger_type": trigger_type,
-                        "decision": getattr(decision, "action", ""),
-                        "reason": getattr(decision, "reason", ""),
-                        "savings_monthly": float(
-                            getattr(decision, "projected_savings_monthly", Decimal("0"))
-                        ),
-                        "savings_annual": float(
-                            getattr(decision, "projected_savings_annual", Decimal("0"))
-                        ),
-                        "etf_cost": float(getattr(decision, "etf_cost", Decimal("0"))),
-                        "net_savings_year1": float(
-                            getattr(decision, "net_savings_year1", Decimal("0"))
-                        ),
-                        "confidence_score": float(getattr(decision, "confidence", Decimal("0"))),
-                        "data_source": getattr(decision, "data_source", "unknown"),
-                        "tier": tier,
-                    },
+            if not retrying:
+                # Step 3-4 — snapshot + execution row (a failed row being
+                # retried already has both).
+                raced = await self._insert_execution(
+                    execution_id=execution_id,
+                    user_id=user_id,
+                    decision=decision,
+                    audit_log_id=audit_log_id,
+                    tier=tier,
+                    trigger_type=trigger_type,
+                    idempotency_key=idempotency_key,
+                    executor_type=executor_type,
                 )
-
-            # Step 4 — execution row; the unique idempotency_key (migration 066)
-            # makes a concurrent duplicate a no-op.
-            insert_result = await self._db.execute(
-                text("""
-                    INSERT INTO switch_executions
-                        (id, user_id, audit_log_id, idempotency_key, executor_type,
-                         status, initiated_at, created_at, updated_at)
-                    VALUES
-                        (:id, :user_id, :audit_log_id, :idempotency_key, :executor_type,
-                         'initiating', NOW(), NOW(), NOW())
-                    ON CONFLICT (idempotency_key) DO NOTHING
-                    RETURNING id
-                """),
-                {
-                    "id": execution_id,
-                    "user_id": user_id,
-                    "audit_log_id": audit_log_id,
-                    "idempotency_key": idempotency_key,
-                    "executor_type": executor_type,
-                },
-            )
-            if insert_result.first() is None:
-                # Lost a race with a concurrent attempt: discard our snapshot
-                # and return the row that won.
-                await self._db.rollback()
-                existing = await self._get_execution_by_key(idempotency_key)
-                if existing is not None:
-                    return existing
-                raise RuntimeError("Switch execution insert conflicted but no existing row found.")
-
-            try:
-                await self._db.commit()
-            except Exception:
-                await self._db.rollback()
-                raise
+                if raced is not None:
+                    return raced
 
             # Step 5-6 — executor interaction
             enrollment_id = None
@@ -320,6 +282,126 @@ class SwitchExecutionService:
             if advisory:
                 response["message"] = ADVISORY_MESSAGE
             return response
+
+    async def _insert_execution(
+        self,
+        *,
+        execution_id: str,
+        user_id: str,
+        decision: object,
+        audit_log_id: str | None,
+        tier: str,
+        trigger_type: str,
+        idempotency_key: str,
+        executor_type: str,
+    ) -> dict | None:
+        """Steps 3-4 of ``execute_switch``: audit snapshot and execution row.
+
+        Returns None when the row was inserted and committed, or the existing
+        execution summary when a concurrent attempt won the insert race.
+        """
+        # Step 3 — audit log snapshot (only when the caller has none)
+        if audit_log_id is None:
+            audit_log_id = str(uuid.uuid4())
+            await self._db.execute(
+                text("""
+                    INSERT INTO switch_audit_log
+                        (id, user_id, trigger_type, decision, reason,
+                         savings_monthly, savings_annual, etf_cost,
+                         net_savings_year1, confidence_score, data_source,
+                         tier, executed, created_at)
+                    VALUES
+                        (:id, :user_id, :trigger_type, :decision, :reason,
+                         :savings_monthly, :savings_annual, :etf_cost,
+                         :net_savings_year1, :confidence_score, :data_source,
+                         :tier, FALSE, NOW())
+                """),
+                {
+                    "id": audit_log_id,
+                    "user_id": user_id,
+                    "trigger_type": trigger_type,
+                    "decision": getattr(decision, "action", ""),
+                    "reason": getattr(decision, "reason", ""),
+                    "savings_monthly": float(
+                        getattr(decision, "projected_savings_monthly", Decimal("0"))
+                    ),
+                    "savings_annual": float(
+                        getattr(decision, "projected_savings_annual", Decimal("0"))
+                    ),
+                    "etf_cost": float(getattr(decision, "etf_cost", Decimal("0"))),
+                    "net_savings_year1": float(
+                        getattr(decision, "net_savings_year1", Decimal("0"))
+                    ),
+                    "confidence_score": float(getattr(decision, "confidence", Decimal("0"))),
+                    "data_source": getattr(decision, "data_source", "unknown"),
+                    "tier": tier,
+                },
+            )
+
+        # Step 4 — execution row; the unique idempotency_key (migration 066)
+        # makes a concurrent duplicate a no-op.
+        insert_result = await self._db.execute(
+            text("""
+                INSERT INTO switch_executions
+                    (id, user_id, audit_log_id, idempotency_key, executor_type,
+                     status, initiated_at, created_at, updated_at)
+                VALUES
+                    (:id, :user_id, :audit_log_id, :idempotency_key, :executor_type,
+                     'initiating', NOW(), NOW(), NOW())
+                ON CONFLICT (idempotency_key) DO NOTHING
+                RETURNING id
+            """),
+            {
+                "id": execution_id,
+                "user_id": user_id,
+                "audit_log_id": audit_log_id,
+                "idempotency_key": idempotency_key,
+                "executor_type": executor_type,
+            },
+        )
+        if insert_result.first() is None:
+            # Lost a race with a concurrent attempt: discard our snapshot
+            # and return the row that won.
+            await self._db.rollback()
+            existing = await self._get_execution_by_key(idempotency_key)
+            if existing is not None:
+                return existing
+            raise RuntimeError("Switch execution insert conflicted but no existing row found.")
+
+        try:
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
+        return None
+
+    async def _claim_failed_execution(self, execution_id: str) -> bool:
+        """Atomically reset a failed execution to ``initiating`` for a retry.
+
+        The ``status`` guard makes concurrent retries safe: only one caller
+        gets the row back, the others see no row and replay instead.
+        """
+        result = await self._db.execute(
+            text("""
+                UPDATE switch_executions
+                SET status = 'initiating',
+                    failure_reason = NULL,
+                    enrollment_id = NULL,
+                    initiated_at = NOW(),
+                    updated_at = NOW()
+                WHERE id = :id
+                  AND status = 'failed'
+                RETURNING id
+            """),
+            {"id": execution_id},
+        )
+        claimed = result.first() is not None
+        try:
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
+        return claimed
 
     async def _get_execution_by_key(self, idempotency_key: str) -> dict | None:
         """Return the execution summary for an idempotency key, or None."""

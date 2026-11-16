@@ -179,8 +179,8 @@ async def utilityapi_callback(
     5. Trigger an initial data sync in the background.
     """
     from integrations.utilityapi import UtilityAPIClient, UtilityAPIError
+    from lib.encryption import encrypt_field
     from services.connection_sync_service import ConnectionSyncService
-    from utils.encryption import encrypt_field
 
     connection_id, state_user_id = verify_callback_state(state)
     log = logger.bind(connection_id=connection_id, authorization_uid=authorization_uid)

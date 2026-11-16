@@ -1,9 +1,9 @@
-name: Weekly Data Retention Cleanup
+name: Data Retention Cleanup
 
 on:
   schedule:
     # Run every Sunday at 4 AM UTC (avoids scrape-rates at 3am)
-    - cron: "0 4 * * 0"
+    - cron: "0 4 * * *"  # daily: also sweeps bill uploads stuck mid-parse
   workflow_dispatch:
 
 permissions: {}
@@ -16,7 +16,7 @@ jobs:
   cleanup:
     uses: ./.github/workflows/_internal-cron.yml
     with:
-      display-name: "Weekly Data Retention Cleanup"
+      display-name: "Data Retention Cleanup"
       endpoint-path: /api/v1/internal/maintenance/cleanup
       slack-severity: warning
     secrets: inherit

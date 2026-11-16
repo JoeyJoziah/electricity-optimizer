@@ -206,10 +206,10 @@ Catalog of every GitHub Actions workflow file in `.github/workflows/` and every 
 - **Trigger**: Sunday at 3am UTC (after `db-backup.yml`, before `data-retention.yml`); manual dispatch
 - **Purpose**: Calls the internal maintenance endpoints (vacuum/analyze/index maintenance and related cleanup).
 
-### `data-retention.yml` -- Weekly Data Retention Cleanup
+### `data-retention.yml` -- Data Retention Cleanup (daily 4am UTC)
 
-- **Schedule**: Weekly Sunday 4am UTC
-- **Purpose**: Purges old data per retention policies (prices > 365 days, observations > 90 days).
+- **Schedule**: Daily 4am UTC
+- **Purpose**: Purges old data per retention policies (prices > 365 days, observations > 90 days) and marks bill uploads stuck mid-parse as failed.
 - **Endpoint**: `POST /internal/maintenance/cleanup`
 
 ---
@@ -412,9 +412,9 @@ Polls a URL until it returns the expected HTTP status or times out.
 | `0 */6 * * *` | Every 6h | `sync-connections.yml` |
 | `0 14 * * 1` | Mon 2pm | `fetch-heating-oil.yml` |
 | `0 2 * * 0` | Sun 2am | `db-backup.yml` |
-| `0 4 * * 0` | Sun 4am | `data-retention.yml`, `owasp-zap.yml` |
+| `0 4 * * 0` | Sun 4am | `owasp-zap.yml` |
 | `0 5 * * 0` | Sun 5am | `scrape-portals.yml` |
-| `0 4 * * *` | Daily 4am | `agent-switcher-scan.yml` |
+| `0 4 * * *` | Daily 4am | `agent-switcher-scan.yml`, `data-retention.yml` |
 | `0 9 * * *` | Daily 9am | `cost-cap-alerts.yml`, `drip-processor.yml` |
 | `0 3 * * 0` | Sun 3am | `db-maintenance.yml` |
 

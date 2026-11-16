@@ -680,7 +680,7 @@ def test_model():
 
     # Train
     print("\nTraining model...")
-    history = forecaster.fit(
+    forecaster.fit(
         X_train,
         y_train,
         checkpoint_dir="/tmp/checkpoints",

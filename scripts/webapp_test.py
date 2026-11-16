@@ -286,7 +286,7 @@ def main():
     # Write JSON results
     with open("/tmp/eo-webapp-results.json", "w") as f:
         json.dump(RESULTS, f, indent=2)
-    print(f"\nFull results: /tmp/eo-webapp-results.json")
+    print("\nFull results: /tmp/eo-webapp-results.json")
 
     return 1 if fails > 0 else 0
 

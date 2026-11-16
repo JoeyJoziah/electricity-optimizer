@@ -481,7 +481,7 @@ async def predict_prices(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Prediction failed. See server logs for details.",
-        )
+        ) from e
 
 
 @router.post("/predict/optimal-times", response_model=OptimalTimesResponse, tags=["Predictions"])
@@ -570,7 +570,7 @@ async def find_optimal_times(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Prediction failed. See server logs for details.",
-        )
+        ) from e
 
 
 @router.post("/predict/savings", response_model=SavingsEstimateResponse, tags=["Predictions"])
@@ -666,7 +666,7 @@ async def estimate_savings(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Prediction failed. See server logs for details.",
-        )
+        ) from e
 
 
 @router.get("/predict/model-info", tags=["Predictions"])

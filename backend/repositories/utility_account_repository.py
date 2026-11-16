@@ -51,7 +51,7 @@ class UtilityAccountRepository(BaseRepository[UtilityAccount]):
             row = result.mappings().first()
             return _row_to_account(row) if row else None
         except Exception as e:
-            raise RepositoryError(f"Failed to get utility account: {e}", e)
+            raise RepositoryError(f"Failed to get utility account: {e}", e) from e
 
     async def create(self, entity: UtilityAccount) -> UtilityAccount:
         """Create a new utility account."""
@@ -81,7 +81,7 @@ class UtilityAccountRepository(BaseRepository[UtilityAccount]):
             return _row_to_account(row)
         except Exception as e:
             await self._db.rollback()
-            raise RepositoryError(f"Failed to create utility account: {e}", e)
+            raise RepositoryError(f"Failed to create utility account: {e}", e) from e
 
     async def update(self, id: str, entity: UtilityAccount) -> UtilityAccount | None:
         """Update an existing utility account."""
@@ -107,7 +107,7 @@ class UtilityAccountRepository(BaseRepository[UtilityAccount]):
             return _row_to_account(row) if row else None
         except Exception as e:
             await self._db.rollback()
-            raise RepositoryError(f"Failed to update utility account: {e}", e)
+            raise RepositoryError(f"Failed to update utility account: {e}", e) from e
 
     async def delete(self, id: str) -> bool:
         """Delete a utility account by ID."""
@@ -120,7 +120,7 @@ class UtilityAccountRepository(BaseRepository[UtilityAccount]):
             return result.rowcount > 0
         except Exception as e:
             await self._db.rollback()
-            raise RepositoryError(f"Failed to delete utility account: {e}", e)
+            raise RepositoryError(f"Failed to delete utility account: {e}", e) from e
 
     async def list(
         self,
@@ -156,7 +156,7 @@ class UtilityAccountRepository(BaseRepository[UtilityAccount]):
             )
             return [_row_to_account(row) for row in result.mappings().all()]
         except Exception as e:
-            raise RepositoryError(f"Failed to list utility accounts: {e}", e)
+            raise RepositoryError(f"Failed to list utility accounts: {e}", e) from e
 
     async def count(self, **filters: Any) -> int:
         """Count utility accounts matching filters."""
@@ -179,7 +179,7 @@ class UtilityAccountRepository(BaseRepository[UtilityAccount]):
             )
             return result.scalar() or 0
         except Exception as e:
-            raise RepositoryError(f"Failed to count utility accounts: {e}", e)
+            raise RepositoryError(f"Failed to count utility accounts: {e}", e) from e
 
     async def get_by_user(self, user_id: str) -> builtins.list[UtilityAccount]:
         """Get all utility accounts for a user."""

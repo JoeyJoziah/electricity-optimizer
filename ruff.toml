@@ -1,11 +1,11 @@
 # Ruff configuration for RateShift (root — applies to ml/, tests/load/)
 # backend/ has its own [tool.ruff] in backend/pyproject.toml
-# ruff 0.15+ enables B904, SIM, ARG, UP by default; these are pre-existing
-# across the codebase and should be addressed in a dedicated lint track.
+# No `select` here, so ruff's default rule set (E4, E7, E9, F) applies; the
+# B/SIM/ARG entries below only matter when those families are selected on the
+# command line. F401, F841 and B904 are no longer ignored (fixed 2026-11-16).
 
 [lint]
 ignore = [
-    "B904",    # raise-without-from-inside-except (widespread, needs dedicated fix)
     "E402",    # module-import-not-at-top
     "SIM102",  # collapsible-if
     "SIM103",  # needless-bool
@@ -14,8 +14,6 @@ ignore = [
     "SIM117",  # multiple-with-statements
     "ARG001",  # unused-function-argument
     "ARG002",  # unused-method-argument
-    "F841",    # local-variable-is-assigned-to-but-never-used (test side effects)
-    "F401",    # imported-but-unused (availability checks in test_forecaster.py)
 ]
 
 [lint.per-file-ignores]

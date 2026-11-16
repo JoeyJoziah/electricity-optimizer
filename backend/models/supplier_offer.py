@@ -1,10 +1,10 @@
 """
 SupplierOffer — normalized, source-agnostic supplier pricing.
 
-Every pricing source adapter (regional_estimate, ct_rate_board, arcadia,
-energybot, manual) produces SupplierOffer instances in this one shape. The read
-path (/suppliers, /suppliers/recommend) consumes them without knowing the
-source. ``is_estimate`` distinguishes a derived/uniform figure from an actually
+Every pricing source adapter (today only regional_estimate; ct_rate_board,
+arcadia or manual could follow) produces SupplierOffer instances in this one
+shape. The read path (/suppliers, /suppliers/recommend) consumes them without
+knowing the source. ``is_estimate`` distinguishes a derived/uniform figure from an actually
 obtainable offer so the UI can label it honestly.
 """
 
@@ -21,7 +21,7 @@ class SupplierOffer:
 
     supplier_name: str
     rate_per_kwh: float
-    source: str  # 'regional_estimate' | 'ct_rate_board' | 'arcadia' | 'energybot' | 'manual'
+    source: str  # e.g. 'regional_estimate' | 'ct_rate_board' | 'arcadia' | 'manual'
 
     # Defaults
     region: str | None = None

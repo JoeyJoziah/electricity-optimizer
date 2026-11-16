@@ -31,7 +31,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_db_session
-from utils.encryption import decrypt_field
+from lib.encryption import decrypt_field
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)

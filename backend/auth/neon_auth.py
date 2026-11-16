@@ -122,7 +122,7 @@ def _encrypt_session_cache(plaintext: str) -> bytes:
     raises RuntimeError to prevent storing plaintext session data in Redis.
     """
     try:
-        from utils.encryption import encrypt_field
+        from lib.encryption import encrypt_field
 
         return encrypt_field(plaintext)
     except RuntimeError:
@@ -152,7 +152,7 @@ def _decrypt_session_cache(data) -> str:
     # legacy plaintext entries.
     if raw and raw[0:1] != b"{":
         try:
-            from utils.encryption import decrypt_field
+            from lib.encryption import decrypt_field
 
             return decrypt_field(raw)
         except Exception:
@@ -371,7 +371,7 @@ async def get_current_user(
     # Validate session against neon_auth tables
     try:
         session_data = await _get_session_from_token(session_token, db, redis)
-    except Exception:
+    except Exception as exc:
         # DB connection error during session validation — surface as 503 so the
         # frontend doesn't misinterpret it as an invalid session (401) and
         # trigger a redirect loop while the backend is degraded.
@@ -379,7 +379,7 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database not available",
-        )
+        ) from exc
 
     if session_data is None:
         logger.warning("invalid_or_expired_session")

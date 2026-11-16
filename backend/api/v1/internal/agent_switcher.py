@@ -38,6 +38,7 @@ def _empty_scan_summary() -> dict[str, int]:
         "users_without_plan_data": 0,
         "users_without_market_data": 0,
         "users_without_usage_data": 0,
+        "users_with_estimates_only": 0,
     }
 
 
@@ -71,10 +72,18 @@ async def scan_agent_switcher(
         users_without_plan_data   — users with no usable current plan on file
         users_without_market_data — users with no market plans for their region
         users_without_usage_data  — users with no usable meter readings
+        users_with_estimates_only — users whose market plans are all regional
+                                    estimates; they always get a hold that
+                                    names no supplier (also counted in holds
+                                    unless the evaluation failed earlier)
 
     Requires a valid X-API-Key header (enforced by router-level dependency).
     """
-    from services.switch_context_builder import annotate_decision, build_user_context
+    from services.switch_context_builder import (
+        annotate_decision,
+        build_user_context,
+        market_data_is_estimate,
+    )
     from services.switch_decision_engine import SwitchDecisionEngine
     from services.switch_execution_service import SwitchExecutionService
 
@@ -111,7 +120,7 @@ async def scan_agent_switcher(
         raise HTTPException(
             status_code=500,
             detail="Agent-switcher scan failed: could not load enrolled users.",
-        )
+        ) from exc
 
     if not rows:
         return _empty_scan_summary()
@@ -145,6 +154,8 @@ async def scan_agent_switcher(
                 summary["users_without_market_data"] += 1
             if ctx.monthly_kwh <= 0:
                 summary["users_without_usage_data"] += 1
+            if market_data_is_estimate(ctx):
+                summary["users_with_estimates_only"] += 1
 
             decision = await engine.evaluate(ctx)
             annotate_decision(decision, ctx)
