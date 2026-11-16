@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'workers/api-gateway/**'
+      - '.github/workflows/deploy-worker.yml'
   workflow_dispatch:
 
 permissions: {}
@@ -72,6 +73,22 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Cron-failure alerts (scheduled.ts) post to Slack only when the Worker
+      # has this secret. Sync it from the repo secret on every deploy so the
+      # two cannot drift; skipped when the repo secret is not configured.
+      - name: Sync Slack incidents webhook to the Worker
+        working-directory: workers/api-gateway
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SLACK_INCIDENTS_WEBHOOK_URL: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+        run: |
+          if [ -z "$SLACK_INCIDENTS_WEBHOOK_URL" ]; then
+            echo "::warning::SLACK_INCIDENTS_WEBHOOK_URL repo secret is not set; Worker cron alerts stay off."
+            exit 0
+          fi
+          printf '%s' "$SLACK_INCIDENTS_WEBHOOK_URL" | npx wrangler secret put SLACK_INCIDENTS_WEBHOOK_URL
 
       - name: Smoke test
         uses: ./.github/actions/retry-curl
