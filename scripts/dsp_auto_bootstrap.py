@@ -126,7 +126,9 @@ def discover_files() -> list[tuple[str, str]]:
             dirnames[:] = [
                 d for d in dirnames
                 if d not in ("node_modules", "__pycache__", ".next", ".pytest_cache",
-                             "__tests__", "test", "tests", ".turbo", "dist", ".git")
+                             "__tests__", "test", "tests", ".turbo", "dist", ".git",
+                             ".venv", "venv", ".wrangler", "storybook-static",
+                             "coverage")
             ]
             for fname in filenames:
                 if Path(fname).suffix not in extensions:
