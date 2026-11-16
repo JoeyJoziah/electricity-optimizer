@@ -29,7 +29,7 @@ from services.drip_service import DripService
 pytestmark = [pytest.mark.asyncio]
 
 
-async def test_process_day2_batch_query_executes_against_real_schema(db):
+async def test_process_day2_batch_query_executes_against_real_schema(db, drip_schema_ready):
     """The day2 batch SELECT must plan and execute (regression for bu.status)."""
     svc = DripService(db)
     # Never dispatch real email, even if live rows match — only verify the query.
@@ -42,7 +42,7 @@ async def test_process_day2_batch_query_executes_against_real_schema(db):
     assert result["total"] >= 0
 
 
-async def test_process_day7_batch_query_executes_against_real_schema(db):
+async def test_process_day7_batch_query_executes_against_real_schema(db, drip_schema_ready):
     """The day7 batch SELECT must plan and execute."""
     svc = DripService(db)
     svc._send_day7_upgrade = AsyncMock(return_value=False)
@@ -53,7 +53,9 @@ async def test_process_day7_batch_query_executes_against_real_schema(db):
     assert result["total"] >= 0
 
 
-async def test_process_welcome_retry_batch_query_executes_against_real_schema(db):
+async def test_process_welcome_retry_batch_query_executes_against_real_schema(
+    db, drip_schema_ready
+):
     """The welcome-retry SELECT and claim UPDATE must plan and execute."""
     svc = DripService(db)
     svc._send_welcome = AsyncMock(return_value=False)

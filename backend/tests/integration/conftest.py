@@ -143,3 +143,23 @@ async def schema_ready(engine, auto_switcher_migrations_required):
             f"Run scripts/run_migrations.py first. "
             f"Required migrations: {auto_switcher_migrations_required}"
         )
+
+
+@pytest_asyncio.fixture
+async def drip_schema_ready(engine):
+    """Skip drip integration tests when the drip schema is not migrated.
+
+    CI's Postgres service starts empty and nothing applies the migrations to
+    it, so these tests only run against a migrated database (a Neon branch or
+    a local DB after running the files in ``backend/migrations``).
+    """
+    required_tables = {"user_drip_state", "users", "bill_uploads"}
+    async with engine.connect() as conn:
+        result = await conn.exec_driver_sql(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+        )
+        present = {row[0] for row in result.fetchall()}
+
+    missing = required_tables - present
+    if missing:
+        pytest.skip(f"Drip schema not migrated. Missing tables: {sorted(missing)}")
