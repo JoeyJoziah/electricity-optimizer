@@ -1,3 +1,0 @@
-source: backend/integrations/weather_service.py
-kind: object
-purpose: OpenWeatherMap Integration for Weather-Aware Price Forecasting

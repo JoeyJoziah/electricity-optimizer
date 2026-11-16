@@ -1,3 +1,0 @@
-source: frontend/lib/api/auto-switcher.ts
-kind: object
-purpose: Shared library utility for Auto Switcher

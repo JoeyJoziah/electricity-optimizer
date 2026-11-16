@@ -1,3 +1,0 @@
-source: backend/services/arcadia_service.py
-kind: object
-purpose: Arcadia Arc API Service
