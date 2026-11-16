@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # RateShift load test runner — PRD Scope #8
-# Usage: ./loadtest/run.sh [--quick]
+# Usage: ./tests/load/k6/run.sh [--quick]
 #
 # --quick  Runs a 30s smoke test at 30 VUs instead of the full 300 RPS / 5 min
 #          profile. Use to verify k6 is wired before the real run.
@@ -10,16 +10,16 @@
 #   STAGING_KEY   Value of RATE_LIMIT_BYPASS_KEY (bypass rate limiting in staging)
 #
 # Optional:
-#   K6_RESULTS_DIR  Directory to write result files (default: loadtest/results/)
+#   K6_RESULTS_DIR  Directory to write result files (default: tests/load/results/)
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+LOAD_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 BASE_URL="${BASE_URL:-https://api.rateshift.app}"
 STAGING_KEY="${STAGING_KEY:-}"
-RESULTS_DIR="${K6_RESULTS_DIR:-${PROJECT_ROOT}/loadtest/results}"
+RESULTS_DIR="${K6_RESULTS_DIR:-${LOAD_DIR}/results}"
 QUICK="${1:-}"
 
 if ! command -v k6 &>/dev/null; then

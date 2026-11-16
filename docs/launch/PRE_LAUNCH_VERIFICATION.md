@@ -117,7 +117,7 @@
 - [ ] Cold-start time < 2s verified (or Standard pre-committed if > 2s)
 
 ### 7.6 Load Test (Scope #8) — **Complete by 2026-05-22**
-- [ ] k6 test run: `k6 run --env BASE_URL=https://api.rateshift.app loadtest/rateshift-staging.js`
+- [ ] k6 test run: `k6 run --env BASE_URL=https://api.rateshift.app tests/load/k6/rateshift-staging.js`
 - [ ] 300 RPS for 5 minutes against staging
 - [ ] p95 latency recorded as baseline (column: p95_ms)
 - [ ] 0 5xx errors during sustained load

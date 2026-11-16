@@ -298,21 +298,16 @@ If wrangler is unavailable or broken, temporarily bypass the CF Worker:
    # Example: schema shows table "X" but code expects "Y"
    ```
 
-2. Create a reverse migration:
+2. Write a reverse migration. Migrations are raw SQL files in `backend/migrations/` (there is no Alembic):
    ```bash
-   # In backend repo:
-   cd backend
-   
-   # Create new migration file (backward):
-   .venv/bin/alembic revision -m "rollback_from_NNNN" --rev-id 999_reverse
-   
-   # Edit backend/migrations/versions/999_reverse.py
-   # Copy SQL from the breaking migration and reverse it (DROP vs CREATE, etc.)
+   # Create the next numbered file, e.g. backend/migrations/NNN_revert_<name>.sql
+   # Copy the SQL from the breaking migration and reverse it (DROP vs CREATE, etc.).
+   # Keep it idempotent (IF EXISTS / IF NOT EXISTS).
    ```
 
 3. Apply the reverse migration:
    ```bash
-   .venv/bin/alembic downgrade -1  # or -2 if multiple migrations broke
+   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/migrations/NNN_revert_<name>.sql
    ```
 
 4. Verify:

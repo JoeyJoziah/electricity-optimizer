@@ -99,16 +99,16 @@ models/saved/
 .claude/logs/
 .claude/state/
 .claude/hooks/memory/
-.claude/scripts/
+# Local helper scripts are ignored, except the two orchestration hooks that are tracked
+.claude/scripts/*
+!.claude/scripts/activate-orchestration.sh
+!.claude/scripts/session-end-orchestration.sh
 
 # Temporary files
 tmp/
 temp/
 *.tmp
 scratchpad/
-
-# Docker
-.dockerignore
 
 # Testing
 coverage/
@@ -183,4 +183,4 @@ paperclip/
 .claude/commands/update-branch-name
 
 # Load test results (large JSON — scripts committed, results local)
-loadtest/results/
+tests/load/results/

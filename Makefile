@@ -142,8 +142,8 @@ security-scan: ## Run security scans
 # Database
 # =============================================================================
 
-db-shell: ## Open PostgreSQL shell
-	docker compose exec postgres psql -U postgres -d electricity
+db-shell: ## Open a psql shell against $$DATABASE_URL (dev compose has no postgres service; the database is Neon)
+	psql "$$DATABASE_URL"
 
 redis-shell: ## Open Redis CLI
 	docker compose exec redis redis-cli -a $$REDIS_PASSWORD

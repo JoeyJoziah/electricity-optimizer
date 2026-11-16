@@ -31,7 +31,7 @@ API_KEY_PATH = os.path.expanduser("~/.config/notion/api_key")
 NOTION_BASE = "https://api.notion.com/v1"
 NOTION_VERSION = "2022-06-28"
 PROJECT_ROOT = Path(__file__).parent.parent
-OUTPUT_FILE = PROJECT_ROOT / ".notion_hub_ids.json"
+OUTPUT_FILE = Path(__file__).parent / "notion" / "notion_hub_ids.json"
 
 def get_api_key() -> str:
     with open(API_KEY_PATH) as f:

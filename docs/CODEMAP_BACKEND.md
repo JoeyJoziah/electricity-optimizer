@@ -137,7 +137,6 @@ backend/
 │   ├── dunning_service.py           # Stripe dunning: record failure, 24h cooldown, soft/final email, escalate to free after 3 failures
 │   ├── kpi_report_service.py        # KPI metrics aggregation: active users, MRR, subscription breakdown, data freshness
 │   ├── notification_dispatcher.py    # Multi-channel notification dispatch (in-app, push, email) with delivery tracking and dedup cooldowns
-│   ├── ab_test_service.py           # A/B testing framework with SHA-256 consistent hashing, assignment persistence, metric aggregation
 │   ├── model_version_service.py     # Model versioning and promotion, A/B test lifecycle management
 │   ├── agent_service.py             # RateShift AI agent: Gemini 3 Flash primary + Groq fallback + Composio tools (SSE streaming, async jobs, rate limiting)
 │   ├── alert_renderer.py            # Alert message templating and formatting
@@ -166,8 +165,11 @@ backend/
 │   ├── weather_service.py           # OpenWeatherMap integration (circuit breaker, regional caching)
 │   ├── switch_decision_engine.py    # 7-rule autonomous plan switching decision engine (Pro tier only)
 │   ├── switch_execution_service.py  # Enrollment lifecycle state machine (initiating → submitted → accepted → enacted)
-│   ├── switch_executor.py           # Adapter for plan enrollment via external providers (EnergyBot primary)
+│   ├── switch_executor.py           # SwitchExecutor protocol + AdvisoryOnlyFallback adapter (advisory-only: never enrols anyone)
 │   ├── switch_notification_service.py # User notifications for switch lifecycle events
+│   ├── switch_context_builder.py    # Builds the decision engine's UserContext from user_plans, supplier offers, meter_readings, switch_executions (no fabricated defaults)
+│   ├── contract_lifecycle_service.py # Contract state per user: cooldown, state-specific rescission periods, free-switch window before contract end
+│   ├── drip_service.py              # 3-email onboarding drip (welcome, day 2, day 7); state in user_drip_state (migrations 067, 068)
 │   ├── switch_safeguards.py         # Safety checks before plan switch (LOA, tier, rate limits)
 │   ├── plan_scorer.py               # Scores and ranks available plans against user's current plan
 │   ├── utilityapi_billing_service.py # UtilityAPI meter monitoring add-on billing ($2.25/meter/mo)
@@ -182,7 +184,6 @@ backend/
 │   └── repositories.py              # ConsentRecordORM, DeletionLogORM, SQLAlchemy mappers
 │
 ├── integrations/
-│   ├── weather_service.py           # OpenWeatherMap integration, WeatherCircuitBreaker (failure threshold 5, timeout 60s, recovery 2 successes)
 │   └── pricing_apis/
 │       ├── base.py                  # PricingRegion (alias->Region), PriceData, APIError, RateLimitError; PriceUnit imported from models/utility.py
 │       ├── service.py               # PricingService (unified multi-API interface)
@@ -303,7 +304,6 @@ backend/
     ├── test_stripe_service.py       # Stripe service tests
     ├── test_vector_store.py         # Vector store tests (VectorStore)
     ├── test_hnsw_vector_store.py    # HNSW vector store tests (HNSWVectorStore)
-    ├── test_weather_service.py      # Weather service tests (12 circuit breaker tests: 7 breaker, 5 integration)
     ├── test_gdpr_compliance.py      # GDPR compliance tests
     ├── test_multi_utility.py        # Multi-utility expansion tests (39 tests)
     ├── test_observation_service.py  # ObservationService tests (31 tests)
@@ -348,7 +348,6 @@ backend/
     ├── test_internal_scrape_portals.py # Internal scrape-portals endpoint tests (9 tests)
     ├── test_scraper_persistence.py   # Diffbot scraper rate persistence tests (25 tests)
     ├── test_unified_analytics.py     # Unified analytics across all connection sources (24 tests)
-    ├── test_ab_test_service.py       # ABTestService tests (consistent hashing, assignment persistence, metric aggregation)
     ├── test_model_version_service.py # ModelVersionService tests (versioning, promotion, A/B test lifecycle)
     ├── test_agent_service.py         # AgentService tests (Gemini/Groq fallback, tool execution, streaming, rate limits)
     ├── test_api_agent.py            # Agent API endpoint tests (query streaming, async jobs, usage tracking)
@@ -464,7 +463,6 @@ Multi-region currency: UK/EU -> GBP/EUR, default -> USD.
 | GET | `/registry` | None | Supplier registry with API availability (for DirectLoginForm dropdown) — returns suppliers where `api_available=true` |
 | GET | `/` | None | List suppliers (paginated, filterable by region/utility_type/green) |
 | GET | `/{supplier_id}` | None | Supplier details (UUID validated) |
-| GET | `/{supplier_id}/tariffs` | None | Supplier tariff list (UUID validated) |
 | GET | `/region/{region}` | None | Suppliers by region (region code validated) |
 | GET | `/compare/{region}` | None | Compare suppliers in region |
 
@@ -952,21 +950,6 @@ for both `get_recommendation_service` and `get_learning_service`.
 - `batch_send()`: Dispatch to multiple users
 - `get_delivery_status()`: Query tracking by notification_id
 
-### services/ab_test_service.py
-
-`ABTestService` -- consistent-hash-based A/B test assignment without hot-path DB writes.
-
-| Method | Purpose |
-|--------|---------|
-| `assign_user(user_id, version_a, version_b, split_ratio)` | Deterministic SHA-256 assignment (persisted lazily) |
-| `get_assignment(user_id)` | Query persisted assignment or compute via hash |
-| `record_prediction(user_id, model_version, region, predicted, actual)` | Store prediction event |
-| `update_actual(prediction_id, actual_value)` | Backfill actual + compute error % |
-| `get_split_metrics()` | MAPE/MAE/count aggregated by version |
-| `auto_promote(version_a, version_b, threshold, min_predictions)` | Automatic winner selection if challenger beats champion |
-
-**Tables:** `model_predictions` (per-user, per-version events), `model_ab_assignments` (persistent user→version mapping).
-
 ### services/model_version_service.py
 
 `ModelVersionService` -- ML model versioning and lifecycle management.
@@ -1331,10 +1314,10 @@ Two auth mechanisms:
 | `015_notifications.sql` | User notification storage and preference tracking |
 | `016_feature_flags.sql` | Feature flag storage and user feature toggles |
 | `017_additional_indexes.sql` | Performance indexes for alerts, notifications, savings queries |
-| `018_connection_supplier_name.sql` | Supplier name column on user_connections (denormalization for rates display) |
-| `019_nationwide_suppliers_seed.sql` | 34+ nationwide suppliers seeded across deregulated states (TX, OH, PA, IL, NY, NJ, MA, MD, MI, CA, FL, GA, VA) |
-| `020_composite_indexes.sql` | 3 composite indexes: prices(region+supplier+created DESC), prices(region+utility_type+created DESC), users(region) |
-| `021_supplier_api_available.sql` | Set `api_available=true` for 37 suppliers with direct login APIs |
+| `018_nationwide_defaults.sql` | Supplier name column on user_connections (denormalization for rates display) |
+| `019_nationwide_suppliers.sql` | 34+ nationwide suppliers seeded across deregulated states (TX, OH, PA, IL, NY, NJ, MA, MD, MI, CA, FL, GA, VA) |
+| `020_price_query_indexes.sql` | 3 composite indexes: prices(region+supplier+created DESC), prices(region+utility_type+created DESC), users(region) |
+| `021_fix_supplier_api_available.sql` | Set `api_available=true` for 37 suppliers with direct login APIs |
 | `022_user_supplier_composite_index.sql` | Composite index on `user_supplier_accounts` for faster lookups |
 | `023_db_audit_indexes.sql` | **DEPLOYED** — 2 partial indexes (sync_due + alert_configs), meter_number columns, consent FK CASCADE->SET NULL, 2 PL/pgSQL data retention functions |
 
@@ -1547,7 +1530,7 @@ with `credentials: 'include'` for cookie-based session auth.
 | `deploy.sh` | One-command deployment (validates `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `INTERNAL_API_KEY`) |
 | `health-check.sh` | Service health verification: Backend API, Frontend, Redis (configurable via `REDIS_HOST`/`REDIS_PORT`) |
 | `db_maintenance.py` | Scheduled database maintenance cron job. Runs `cleanup_old_prices(365)` and `cleanup_old_observations(90)` via asyncpg. Designed for Render cron jobs |
-| `notion_hub_setup.py` | Creates Notion Hub page + 3 databases (Project Tracker, Automation Workflows, Architecture Decisions). Rerunnable — detects existing hub page. Outputs `.notion_hub_ids.json` |
+| `notion_hub_setup.py` | Creates Notion Hub page + 3 databases (Project Tracker, Automation Workflows, Architecture Decisions). Rerunnable — detects existing hub page. Outputs `scripts/notion/notion_hub_ids.json` |
 | `install-hooks.sh` | Installs git hooks from `.claude/hooks/board-sync/` templates |
 | `loki-feature.sh` | Automated feature pipeline: PRD → branch → RARV → verify → draft PR |
 | `loki-decompose.py` | Parse PRD markdown into JSON task list for RARV orchestrator |

@@ -107,7 +107,6 @@ frontend/
       Header.tsx                # Top header (logo, user menu, mobile toggle)
       NotificationBell.tsx      # In-app notification bell (sidebar, unread count badge, dropdown panel, mark read)
       Sidebar.tsx               # Main navigation sidebar (16 nav items: Dashboard, Prices, Suppliers, Connections, Optimize, Alerts, Settings, Gas Rates, Community Solar, Heating Oil, Propane, Water, Analytics, Community, Assistant, Auto Switcher)
-      StatusBadge.tsx           # Connection/service status indicator badge
     dev/
       DevBanner.tsx             # Development-only banner (top of page)
       DiagramEditor.tsx         # Excalidraw diagram editor
@@ -116,7 +115,6 @@ frontend/
     dashboard/
       AllUtilitiesTab.tsx       # Cross-utility overview tab (combined savings, discovery)
       CombinedSavingsCard.tsx   # Aggregate savings across all utility types
-      CompletionProgress.tsx    # Utility setup completion progress bar
       DashboardCharts.tsx       # Price charts section (line chart + donut)
       DashboardContent.tsx      # Main dashboard orchestrator (tabs, stats, charts)
       DashboardForecast.tsx     # Forecast widget section
@@ -170,7 +168,6 @@ frontend/
     feedback/
       FeedbackWidget.tsx        # In-app feedback collection widget (survey, rating, comment submission)
     affiliate/                  # Affiliate feature components (Wave 3)
-      FTCDisclosure.tsx         # FTC disclosure banner for affiliate links
     analytics/                  # Cross-utility analytics components (Wave 4)
       AnalyticsDashboard.tsx    # Cross-utility analytics overview
       DataExport.tsx            # Rate data export UI (CSV/JSON)
@@ -221,8 +218,6 @@ frontend/
       OnboardingWizard.tsx      # Region-only 1-step onboarding (simplified from 4-step)
       RegionSelector.tsx        # Region selection dropdown (50 states + DC)
       SupplierPicker.tsx        # Supplier selection during onboarding
-      UtilityTypeSelector.tsx   # Utility type selection
-      AccountLinkStep.tsx       # Account linking step
     providers/                  # React context providers
       QueryProvider.tsx         # TanStack React Query provider wrapper
     pwa/                        # Progressive Web App components
@@ -231,7 +226,6 @@ frontend/
     rate-changes/               # Rate change components (Wave 3)
       AlertPreferences.tsx      # Rate change alert preferences form
       RateChangeCard.tsx        # Rate change notification card
-      RateChangeFeed.tsx        # Rate change history feed/timeline
     seo/                        # SEO components (Wave 3)
       RatePageContent.tsx       # ISR state rate page content template
     error-boundary.tsx          # Error boundary component with fallback UI
@@ -250,10 +244,8 @@ frontend/
       useExport.ts              # Rate data export hooks (Wave 4)
       useForecast.ts            # Multi-utility forecast hooks (Wave 4)
       useGasRates.ts            # Natural gas rate hooks (Wave 2)
-      useGeocoding.ts           # Geocoding hooks (OWM + Nominatim)
       useHeatingOil.ts          # Heating oil hooks (Wave 3)
       useNeighborhood.ts        # Neighborhood comparison hooks (Wave 5)
-      useNotifications.ts       # TanStack Query hooks: useNotifications (staleTime 30s), useNotificationCount (refetch 30s), useMarkRead, useMarkAllRead
       useOptimization.ts        # Optimization hooks
       usePrices.ts              # Price data hooks
       useProfile.ts             # User profile hooks
@@ -266,7 +258,6 @@ frontend/
       useUtilityDiscovery.ts    # Utility discovery hooks (Wave 2)
       useWater.ts               # Water rate hooks (Wave 4)
     utils/
-      calculations.ts           # Energy calculations and unit conversions
       cn.ts                     # clsx + tailwind-merge for className composition
       devGate.ts                # Development mode gating utility
       format.ts                 # Currency formatting (Intl.NumberFormat, en-US)
@@ -805,22 +796,6 @@ Without token (default):
 
 ### Dashboard Components
 
-#### StatsCard (`components/dashboard/StatsCard.tsx`)
-
-**Metric display card with change indicator.**
-
-```
-┌─────────────────────┐
-│ Label: "Monthly Bill"│
-│ Value: "$125.34"    │
-│ Change: +5.2% ▲     │ (green or red)
-└─────────────────────┘
-```
-
-#### RecommendationCard (`components/dashboard/RecommendationCard.tsx`)
-
-**Optimization suggestion with action button.**
-
 **Memoization strategy:** Prop-driven components (`UtilityTabShell`, `DashboardStatsRow`, `DashboardCharts`, `DashboardForecast`) are wrapped in `React.memo` to avoid re-renders from parent state changes. `DashboardContent` and `DashboardTabs` are intentionally NOT memoized because they are store-driven via `useSettingsStore` (memoizing would be ineffective since store subscriptions trigger re-renders directly).
 
 ---
@@ -843,37 +818,37 @@ Without token (default):
 
 ---
 
-### Connection Components (10 files)
+### Connection Components
 
-#### Overview (`components/connections/Overview.tsx`)
+#### ConnectionsOverview (`components/connections/ConnectionsOverview.tsx`)
 
 **Dashboard of user connections (bills, utilities, sync status).** Supports `adding-portal` view state for PortalConnectionFlow.
 
-#### MethodPicker (`components/connections/MethodPicker.tsx`)
+#### ConnectionMethodPicker (`components/connections/ConnectionMethodPicker.tsx`)
 
 **Select connection type: Direct, Bill Upload, Email OAuth, UtilityAPI, or Utility Portal.** 5 options in 2x2+1 grid (`sm:grid-cols-2 lg:grid-cols-4`). Includes `onSelectPortal` callback prop and Globe icon for portal option.
 
-#### DirectLogin (`components/connections/DirectLogin.tsx`)
+#### DirectLoginForm (`components/connections/DirectLoginForm.tsx`)
 
 **UtilityAPI login form, styled with `bg-white text-gray-900`.**
 
-#### EmailFlow (`components/connections/EmailFlow.tsx`)
+#### EmailConnectionFlow (`components/connections/EmailConnectionFlow.tsx`)
 
 **Gmail/Outlook OAuth flow with HMAC-SHA256 state validation.**
 
-#### BillUpload (`components/connections/BillUpload.tsx`)
+#### BillUploadForm (`components/connections/BillUploadForm.tsx`)
 
 **Bill PDF/image upload with OCR parsing.**
 
-#### UploadFlow (`components/connections/UploadFlow.tsx`)
+#### ConnectionUploadFlow (`components/connections/ConnectionUploadFlow.tsx`)
 
 **Multi-step upload wizard.**
 
-#### Rates (`components/connections/Rates.tsx`)
+#### ConnectionRates (`components/connections/ConnectionRates.tsx`)
 
 **Imported rates table (sortable, filterable).**
 
-#### Analytics (`components/connections/Analytics.tsx`)
+#### ConnectionAnalytics (`components/connections/ConnectionAnalytics.tsx`)
 
 **Rate comparison + savings calculator (kWh input styled with `bg-white text-gray-900`).**
 
@@ -1167,7 +1142,7 @@ if (response.status === 401) {
 
 ## State Management
 
-### Auth Hook (`lib/hooks/useAuth.ts`)
+### Auth Hook (`lib/hooks/useAuth.tsx`)
 
 ```typescript
 const {

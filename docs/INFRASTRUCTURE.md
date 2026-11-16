@@ -359,7 +359,7 @@ Next.js Server → BACKEND_URL=https://api.rateshift.app (server-to-server)
 
 | Property | Value |
 |----------|-------|
-| Dockerfile | `./Dockerfile` (root, not backend/) |
+| Dockerfile | `./backend/Dockerfile` with `dockerContext: ./backend` (see `render.yaml`) |
 | Python | 3.12-slim (multi-stage build) |
 | User | `appuser` (non-root, UID 1000) |
 | Health Check | `curl -f http://localhost:${PORT:-8000}/health` |

@@ -22,7 +22,7 @@
  *   brew install k6                          # macOS
  *   export BASE_URL=https://api.rateshift.app
  *   export STAGING_KEY=<RATE_LIMIT_BYPASS_KEY>
- *   k6 run --out json=results.json loadtest/rateshift-staging.js
+ *   k6 run --out json=results.json tests/load/k6/rateshift-staging.js
  *
  * Interpreting results
  * --------------------
@@ -263,6 +263,6 @@ export function handleSummary(data) {
 
   return {
     stdout: summary,
-    "loadtest/results-latest.json": JSON.stringify(data, null, 2),
+    "tests/load/results/results-latest.json": JSON.stringify(data, null, 2),
   };
 }

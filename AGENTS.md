@@ -24,7 +24,7 @@ RateShift is a nationwide energy price comparison and optimization platform. Use
 | Cache | Redis (Upstash) | -- |
 | Edge Layer | Cloudflare Worker | 2-tier cache + rate limiting |
 | Hosting | Render (backend), Vercel (frontend), Cloudflare (edge) | -- |
-| CI | GitHub Actions | 35 workflows |
+| CI | GitHub Actions | see `.github/workflows/` |
 
 ## Build, Test, and Run Commands
 
@@ -129,7 +129,7 @@ electricity-optimizer/
       vector_store.py          # SQLite-backed base vector store
     tests/
       conftest.py        # CRITICAL: mock_sqlalchemy_select fixture (see below)
-      test_*.py          # 24 test files, 687+ tests
+      test_*.py          # pytest suite
   frontend/
     app/
       layout.tsx         # Root layout (marketing pages, no sidebar)
@@ -172,10 +172,10 @@ electricity-optimizer/
     training/            # Training pipelines
     inference/           # Prediction logic
     evaluation/          # Model evaluation
-    tests/               # 105+ tests
+    tests/               # pytest suite
   docs/                  # DEPLOYMENT, TESTING, CODEMAP_BACKEND, etc.
   scripts/               # Utility scripts (Notion sync, setup)
-  .github/workflows/     # 33 CI/CD workflows
+  .github/workflows/     # CI/CD workflows (catalog: docs/WORKFLOWS.md)
 ```
 
 ### Request Flow
@@ -366,19 +366,18 @@ Key variables (see `.env.example` and `backend/.env.example` for full list):
 | `observe-forecasts.yml` | After price-sync | Backfill actuals for forecast observations |
 | `nightly-learning.yml` | 4AM UTC daily | ML weight tuning + bias correction |
 | `deploy-production.yml` | On release | Deploy to Render (migration-gate + smoke tests) |
-| `deploy-staging.yml` | Push to develop | Deploy staging |
 | `model-retrain.yml` | Weekly Sun 5AM | Full model retraining |
 | `check-alerts.yml` | Every 2 hours | Price alert pipeline |
 | `fetch-weather.yml` | Every 6 hours | Weather data for all 51 US regions |
 | `dunning-cycle.yml` | Daily 7AM UTC | Stripe overdue payment escalation |
 | `kpi-report.yml` | Daily 6AM UTC | Nightly business metrics aggregation |
-| `self-healing-monitor.yml` | Daily 9AM UTC | Monitor 13 workflows, auto-create/close issues |
+| `self-healing-monitor.yml` | Daily 9AM UTC | Monitor scheduled workflows, auto-create/close issues |
 | `scan-emails.yml` | Daily 4AM UTC | Extract rates from user email connections |
 | `scrape-portals.yml` | Weekly Sun 5AM | Scrape utility portal connections |
 | `gateway-health.yml` | Every 6 hours | CF Worker health check |
 | `owasp-zap.yml` | Weekly Sun 4AM | OWASP ZAP baseline security scan |
 | `deploy-worker.yml` | Manual/On push | Deploy CF Worker to Cloudflare |
-| (+ 8 more) | Various | See docs/INFRASTRUCTURE.md for full list |
+| (others) | Various | See docs/WORKFLOWS.md for the full list |
 
 ## Common Tasks
 

@@ -312,7 +312,7 @@ These are the signals that indicate an upgrade is needed. Monitor via structured
 - [ ] Confirm auto-sleep is disabled (check service status after 20min idle)
 - [ ] Configure custom domain `api.rateshift.app` if not already set
 - [ ] Update UptimeRobot monitors to remove cold-start tolerance
-- [ ] Run smoke load test: `k6 run --env SCENARIO=smoke scripts/load_test.js`
+- [ ] Run smoke load test: `k6 run --env SCENARIO=smoke tests/load/k6/load_test.js`
 
 ### Checklist: Add Redis (Upstash)
 
@@ -331,7 +331,7 @@ These are the signals that indicate an upgrade is needed. Monitor via structured
 - [ ] Update Dockerfile CMD to `--workers 2`
 - [ ] Set env vars: `DB_POOL_SIZE=5`, `DB_MAX_OVERFLOW=10`
 - [ ] Verify both workers are healthy in Render logs
-- [ ] Run standard load test: `k6 run --env SCENARIO=standard scripts/load_test.js`
+- [ ] Run standard load test: `k6 run --env SCENARIO=standard tests/load/k6/load_test.js`
 - [ ] Monitor DB connection count via Neon dashboard for 24h
 
 ### Checklist: Neon Free to Launch
@@ -350,13 +350,13 @@ These are the signals that indicate an upgrade is needed. Monitor via structured
 - [ ] Consider creating a read replica branch for analytics
 - [ ] Set `DATABASE_READ_URL` if using read replicas
 - [ ] Update `DB_POOL_SIZE=10`, `DB_MAX_OVERFLOW=20` for main connection
-- [ ] Run soak load test: `k6 run --env SCENARIO=soak scripts/load_test.js`
+- [ ] Run soak load test: `k6 run --env SCENARIO=soak tests/load/k6/load_test.js`
 
 ---
 
 ## Load Test Baseline
 
-The existing `scripts/load_test.js` defines 5 scenarios with clear SLA thresholds:
+The existing `tests/load/k6/load_test.js` defines 5 scenarios with clear SLA thresholds:
 
 | Metric | Target | Current Infra (est.) |
 |--------|--------|---------------------|
@@ -369,16 +369,16 @@ The existing `scripts/load_test.js` defines 5 scenarios with clear SLA threshold
 
 ```bash
 # After Render Starter upgrade (eliminates cold start)
-k6 run --env SCENARIO=smoke scripts/load_test.js
+k6 run --env SCENARIO=smoke tests/load/k6/load_test.js
 
 # After Standard upgrade (2 workers)
-k6 run --env SCENARIO=standard scripts/load_test.js
+k6 run --env SCENARIO=standard tests/load/k6/load_test.js
 
 # After full scaling (Redis + Standard + Neon Scale)
-k6 run --env SCENARIO=full scripts/load_test.js
+k6 run --env SCENARIO=full tests/load/k6/load_test.js
 
 # Monthly regression check
-k6 run --env SCENARIO=soak scripts/load_test.js
+k6 run --env SCENARIO=soak tests/load/k6/load_test.js
 ```
 
 ---

@@ -42,19 +42,19 @@
  * Run
  * ---
  * Full 2000-VU run (requires k6 cloud for distributed load):
- *   k6 cloud scripts/load_test.js
+ *   k6 cloud tests/load/k6/load_test.js
  *
  * Local smoke test (50 VUs, reads only):
- *   k6 run --env SCENARIO=smoke scripts/load_test.js
+ *   k6 run --env SCENARIO=smoke tests/load/k6/load_test.js
  *
  * Local standard test (500 VUs):
- *   k6 run --env SCENARIO=standard scripts/load_test.js
+ *   k6 run --env SCENARIO=standard tests/load/k6/load_test.js
  *
  * Full local run (single-IP — 429s expected from rate limiter):
- *   k6 run scripts/load_test.js
+ *   k6 run tests/load/k6/load_test.js
  *
  * Override backend URL:
- *   k6 run --env BASE_URL=https://api.rateshift.app scripts/load_test.js
+ *   k6 run --env BASE_URL=https://api.rateshift.app tests/load/k6/load_test.js
  */
 
 import http from "k6/http";

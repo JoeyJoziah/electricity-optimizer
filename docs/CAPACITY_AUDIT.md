@@ -453,7 +453,7 @@ curl -s https://rateshift.app/api/v1/health | jq .
 | Priority | Action | Cost | Time |
 |----------|--------|------|------|
 | **P2** | Upgrade Neon to Launch plan | $19/mo | 2 min |
-| **P2** | Run load test: `k6 run --env SCENARIO=smoke scripts/load_test.js` | $0 | 15 min |
+| **P2** | Run load test: `k6 run --env SCENARIO=smoke tests/load/k6/load_test.js` | $0 | 15 min |
 | **P2** | Set up a Slack alert for Sentry error spikes | $0 | 10 min |
 | **P2** | Enable Gemini pay-as-you-go billing (removes 250 RPD cap) | Usage-based | 10 min |
 | **P3** | Upgrade Composio to Starter plan | $29/mo | 2 min |

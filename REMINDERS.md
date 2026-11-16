@@ -13,7 +13,7 @@
 7. **Agentic-flow symlinks**: Machine-specific (`.gitignore`d). Re-run integration if cloned fresh. MCP tools: `mcp__agentic-flow__*`, no conflict with `mcp__claude-flow__*`
 8. **Multi-repo skill symlinks**: Machine-specific (`.gitignore`d). Re-run `~/.claude/scripts/multi-repo-integrate.sh` if cloned fresh. Verify with `~/.claude/scripts/verify-skills.sh`
 9. **Internal endpoints**: All `/api/v1/internal/*` routes require `X-API-Key` header and are excluded from RequestTimeoutMiddleware (30s). GHA workflows use `INTERNAL_API_KEY` repo secret
-10. **Self-healing CI/CD**: 36 GHA workflows total (35 cron/CI + 1 manual-only). retry-curl retries on 5xx/429/408/000 with exponential backoff; 4xx (except 429/408) fails immediately. notify-slack uses `SLACK_INCIDENTS_WEBHOOK_URL` secret. self-healing-monitor auto-creates issues after 3+ failures with `self-healing` label
+10. **Self-healing CI/CD**: GHA workflows live in `.github/workflows/` (catalog: `docs/WORKFLOWS.md`). retry-curl retries on 5xx/429/408/000 with exponential backoff; 4xx (except 429/408) fails immediately. notify-slack uses `SLACK_INCIDENTS_WEBHOOK_URL` secret. self-healing-monitor auto-creates issues after 3+ failures with `self-healing` label
 11. **Community**: `/community` page with posts, voting, reporting. AI moderation: Groq `classify_content()` primary, Gemini fallback, fail-closed 30s. nh3 XSS sanitization. Report threshold: 5 unique reporters auto-hides. Rate limit: 10 posts/hour. Community backend: `community_service.py`, `savings_aggregator.py`, `neighborhood_service.py`. Migration 049: 3 tables (community_posts, community_votes, community_reports). Migration 050: optimized partial indexes. Migration 051: GDPR CASCADE fixes for community + notifications FKs
 12. **Tier cache**: 30s TTL (in-memory + Redis). Stripe webhook events update DB directly; cache self-heals within 30s. `require_tier()` gates 7+ endpoints
 13. **Rate limiter Lua script**: Redis `:seq` counter keys now have TTL matching the main key (previously leaked without expiry)
@@ -32,7 +32,7 @@
 > Full detail: `docs/AUTOMATION_PLAN.md` (9 workflows, ALL phases complete) and `docs/COST_ANALYSIS.md`
 
 - **CF Worker Cron Triggers** (4, zero GHA cost): keep-alive `*/10min`, check-alerts `/3h`, price-sync `/6h`, observe-forecasts `/6h+30min`
-- **GHA Cron Workflows**: daily-data-pipeline (3am, consolidated), fetch-weather (12h), market-research (2am), sync-connections (6h), dunning-cycle (7am), kpi-report (6am), scrape-portals (weekly Sun 5am), db-maintenance (weekly Sun 3am), self-healing-monitor (daily 9am), agent-switcher-scan (daily 4am), sync-available-plans (daily 2am), owasp-zap (weekly Sun 4am)
+- **GHA Cron Workflows**: daily-data-pipeline (3am, consolidated), fetch-weather (12h), market-research (2am), sync-connections (6h), dunning-cycle (7am), kpi-report (6am), scrape-portals (weekly Sun 5am), db-maintenance (weekly Sun 3am), self-healing-monitor (daily 9am), agent-switcher-scan (daily 4am), owasp-zap (weekly Sun 4am)
 - **Rube Recipes**: Sentry→Slack (15min), Deploy→Slack (hourly), GitHub→Notion (6h). Session: `drew`
 - **Self-Healing**: `retry-curl` (exponential backoff), `notify-slack` (color-coded), `validate-migrations`, auto-format, E2E resilience. Monitor creates issues after 3+ failures
 - **All cron workflows** use `INTERNAL_API_KEY` secret + `retry-curl` + `notify-slack` patterns

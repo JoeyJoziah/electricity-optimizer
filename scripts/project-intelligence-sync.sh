@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-REPO_ROOT="/Users/devinmcgrath/projects/electricity-optimizer"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PI_DIR="$REPO_ROOT/.project-intelligence"
 LOKI_DIR="$REPO_ROOT/.loki"
 
