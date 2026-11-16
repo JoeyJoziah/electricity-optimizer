@@ -172,7 +172,7 @@ class ComprehensiveMigrationRunner:
                         await temp_conn.execute(stmt)
                         await temp_conn.close()
                     except asyncpg.exceptions.DuplicateObjectError:
-                        print(f"    (index already exists, continuing)")
+                        print("    (index already exists, continuing)")
                         if temp_conn and not temp_conn.is_closed():
                             await temp_conn.close()
                     except Exception as e:
@@ -210,9 +210,9 @@ class ComprehensiveMigrationRunner:
                 # But block on critical migrations
                 critical = filename.startswith(("007_", "008_", "013_", "014_"))
                 if critical:
-                    print(f"  CRITICAL migration failed. Stopping.")
+                    print("  CRITICAL migration failed. Stopping.")
                     return False
-                print(f"  Non-critical failure, continuing...")
+                print("  Non-critical failure, continuing...")
         return True
 
     async def validate(self):
