@@ -29,6 +29,14 @@ runs:
       run: |
         cd ${{ inputs.working-directory }}
         pip install --upgrade pip
+        # hnswlib compiles with -march=native by default. A wheel built on one
+        # runner CPU and restored from the pip cache on an older CPU dies with
+        # "Illegal instruction". Build it portable and never reuse a cached build.
+        export HNSWLIB_NO_NATIVE=1
+        HNSW_REQ=$(grep -iE '^hnswlib' requirements.txt || true)
+        if [ -n "$HNSW_REQ" ]; then
+          pip install --no-cache-dir --no-binary hnswlib "$HNSW_REQ"
+        fi
         pip install -r requirements.txt
         if [ "${{ inputs.install-dev }}" = "true" ] && [ -f requirements-dev.txt ]; then
           pip install -r requirements-dev.txt
