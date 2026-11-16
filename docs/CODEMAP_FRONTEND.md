@@ -189,7 +189,6 @@ frontend/
       SavingsCalculator.tsx     # Community solar savings calculator
     cca/                        # CCA detection components (Wave 3)
       CCAAlert.tsx              # CCA availability alert banner
-      CCAComparison.tsx         # CCA vs standard rate comparison
       CCAInfo.tsx               # CCA program information display
     heating-oil/                # Heating oil components (Wave 3)
       DealerList.tsx            # Heating oil dealer list/comparison
@@ -1017,11 +1016,10 @@ Floating button (bottom-right, primary-600)
 - `notifications`: List of Notification objects
 - `unreadCount`: Badge count
 
-**Hooks:**
-- `useNotificationCount()`: Polling unread count
-- `useNotifications()`: Full notification list (staleTime: 30s)
-- `useMarkRead()`: Mark single notification as read
-- `useMarkAllRead()`: Batch mark all as read
+**Data fetching** (inline TanStack Query calls in the component; there is no `useNotifications` hook module):
+- `useQuery(['notifications', 'count'])`: polls `GET /notifications/count` every 120s (staleTime 60s, paused when the tab is hidden)
+- `useQuery(['notifications'])`: `GET /notifications`, enabled only while the panel is open
+- `useMutation`: `PUT /notifications/{id}/read` and `PUT /notifications/read-all`; both invalidate the list and count queries
 
 **UI Structure:**
 ```
@@ -1221,36 +1219,6 @@ const { data: usage, isLoading } = useAgentStatus()
 - Tool tracking: Composio tools used listed as badges
 - Token usage: tracked and displayed with response
 - Message types: 'user' (blue), 'assistant' (gray), 'error' (red), 'tool' (info)
-
-### Notifications Hooks (`lib/hooks/useNotifications.ts`)
-
-**TanStack Query hooks for notification CRUD and polling. All use staleTime: 30s.**
-
-```typescript
-// Poll unread count every 30 seconds (for badge)
-const { data: countData } = useNotificationCount()
-// Returns: { unread: number }
-// refetchInterval: 30_000 (badge stays current)
-
-// Fetch full notification list (only when panel open)
-const { data: notifData } = useNotifications()
-// Returns: { notifications: Notification[], total: number }
-// enabled: open (only fetch when dropdown open)
-
-// Mark single notification as read
-const markRead = useMarkRead()
-// mutationFn: markNotificationRead(id), invalidates ['notifications', 'count']
-
-// Mark all notifications as read (batch)
-const markAllRead = useMarkAllRead()
-// mutationFn: markAllRead(), invalidates ['notifications', 'count']
-```
-
-**Performance Optimization:**
-- Count polling: Every 30s for badge (cheap)
-- Full list: Only fetch when panel open (expensive, stale after 30s)
-- Batch invalidation: Both queries refetch on mutation success
-- Example notification types: price_alert, optimal_window, payment_failed, system
 
 ### React Query Integration
 
@@ -1462,7 +1430,7 @@ triggerPortalScrape(connectionId: string) // POST /connections/portal/{id}/scrap
 **Key test files:**
 - `__tests__/components/auth/LoginForm.test.tsx` (magic link failure, conditional OAuth)
 - `__tests__/components/auth/SignupForm.test.tsx` (conditional OAuth)
-- `__tests__/hooks/useAuth.test.tsx` (email verification redirect, real magic link, clearError)
+- `__tests__/lib/hooks/useAuth.test.tsx` (email verification redirect, real magic link, clearError)
 - `__tests__/lib/email/send.test.ts` (Resend SDK: send, error handling, missing API key)
 - `lib/api/__tests__/client-401-redirect.test.ts` (9 tests for 401 edge cases)
 - `__tests__/a11y/` (51 jest-axe tests)
@@ -1943,7 +1911,7 @@ BETTER_AUTH_URL=...                      # (Server-only)
 **2. Notification Bell (`NotificationBell.tsx` in sidebar)**
    - In-app notification center: Bell icon with unread badge (top-right sidebar)
    - Dropdown panel: Notification list, mark-as-read actions, batch clear
-   - Hooks: `useNotificationCount()` (poll 30s), `useNotifications()` (staleTime 30s), `useMarkRead()`, `useMarkAllRead()`
+   - Data: inline `useQuery`/`useMutation` in `NotificationBell.tsx` (count polled every 120s; list fetched while open); the `useNotifications.ts` hook module was removed 2026-11-16
    - API: `lib/api/notifications.ts` — CRUD operations + polling endpoints
    - Notification types: price_alert, optimal_window, payment, system
    - Performance: Count polls every 30s (cheap), full list only fetches when dropdown open
@@ -1998,7 +1966,7 @@ BETTER_AUTH_URL=...                      # (Server-only)
 
 **Files Created/Modified (26 files):**
    - New: AgentChat.tsx, NotificationBell.tsx, FeedbackWidget.tsx, assistant/page.tsx, beta-signup/page.tsx
-   - New: useAgent.ts, useNotifications.ts, agent.ts, notifications.ts
+   - New: useAgent.ts, agent.ts, notifications.ts (the notifications hook module added here was removed 2026-11-16)
    - Modified: Sidebar.tsx (added Assistant route + NotificationBell), layout.tsx (Bot icon nav)
    - Tests: +60 new tests across agent, notifications, beta-signup
 

@@ -871,7 +871,7 @@ updated_at              TIMESTAMPTZ DEFAULT now()
 Indexes: `idx_user_plans_user` (user_id, status, created_at DESC)
 
 #### `available_plans` (migration 066)
-Cached marketplace plans per zip/utility (fetched from EnergyBot).
+Cached marketplace plans per zip/utility. Nothing populates this table as of 2026-11-16: the plan sync and its upstream integration were removed, so the `*_id` provider column below is legacy.
 
 ```
 id                      UUID PRIMARY KEY

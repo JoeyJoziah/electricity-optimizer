@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+_2026-11-16: audit remediation._
+
+### Fixed
+- **Billing**: Payment failures are now marked resolved (migration 070), so customers whose payment recovered are no longer dunned. The Stripe webhook returns 500 when processing fails, so Stripe retries the event.
+- **Email**: Drip sends are claim-first, and welcome emails are retried.
+- **Bill uploads**: Stale uploads are swept by the data-retention cleanup, which now runs daily.
+- **CF Worker**: Cron failures post to Slack when the Worker secret `SLACK_INCIDENTS_WEBHOOK_URL` is set.
+
+### Changed
+- **Auto Rate Switcher is advisory-only**: It records recommendations and never enrolls a user. When only estimated regional rates exist it holds and does not name a supplier.
+- **Backend layout**: `routers/predictions.py` moved to `api/v1/predictions.py`; `utils/encryption.py` moved to `lib/encryption.py`; `api/v1/user.py` merged into `api/v1/users.py`.
+- **Frontend layout**: `lib/api/auto-switcher.ts` merged into `lib/api/agent-switcher.ts`. Tests now live under `frontend/__tests__/<source path>` (for example `__tests__/lib/hooks/`); `frontend/__tests__/hooks/` no longer exists.
+- **Tooling**: Prettier is configured for the frontend (`frontend/.prettierrc.json`, `npm run format`); CI runs `format:check` and `npm run type-check`. `workers/api-gateway` has ESLint (`npm run lint`).
+
+### Removed
+- **Backend**: `services/energybot_service.py`, `EnergyBotExecutor`, `POST /internal/agent-switcher/sync-plans`, `GET /suppliers/{id}/tariffs`, `integrations/weather_service.py`, `services/arcadia_service.py`, `services/ab_test_service.py`.
+- **Workflow**: `sync-available-plans.yml`.
+- **Frontend components**: `FTCDisclosure`, `CCAComparison`, `CompletionProgress`, `StatusBadge`, `AccountLinkStep`, `UtilityTypeSelector`, `RateChangeFeed`.
+- **Frontend hooks and modules**: `useGA4Event`, `useGeocoding`, `useNotifications`, `lib/api/affiliate`, `lib/utils/calculations`.
+
 ## [1.5.0] - 2026-04-07
 
 ### Added

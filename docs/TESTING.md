@@ -211,7 +211,7 @@ pytest tests/ -v --cov=. --cov-report=html
 - `components/ui/*.test.tsx` - UI primitives (Badge, Button, Card, Input, Skeleton)
 - `components/dashboard/DashboardContent.test.tsx` - Dashboard content rendering
 - `components/dashboard/SetupChecklist.test.tsx` - Setup checklist widget
-- `components/onboarding/*.test.tsx` - Onboarding components (RegionSelector, UtilityTypeSelector, SupplierPicker, OnboardingWizard)
+- `components/onboarding/*.test.tsx` - Onboarding components (RegionSelector, SupplierPicker, OnboardingWizard)
 - `components/prices/PricesContent.test.tsx` - Prices page content
 - `components/suppliers/*.test.tsx` - Supplier components (SupplierSelector, SetSupplierDialog, SupplierAccountForm, SuppliersContent)
 - `components/connections/*.test.tsx` - Connection components (Overview, MethodPicker, Card, DirectLogin, EmailFlow, BillUpload, UploadFlow, Rates, Analytics, 9 files total)
@@ -514,7 +514,7 @@ Fixed a P0 bug where stale session cookies caused exponential URL growth (HTTP 4
 
 **New tests added**:
 - `lib/api/__tests__/client-401-redirect.test.ts` (9 tests): redirect behavior, auth page guard, callbackUrl extraction, safety valve, counter reset, open redirect rejection
-- `__tests__/hooks/useAuth.test.tsx` (+2 tests): auth page API call skipping, non-auth page API calls
+- `__tests__/lib/hooks/useAuth.test.tsx` (+2 tests; path as of 2026-11-16, originally `__tests__/hooks/`): auth page API call skipping, non-auth page API calls
 - `e2e/authentication.spec.ts` (+2 E2E tests): stale cookie redirect loop prevention, callbackUrl preservation through 401 cycle
 
 **Additional changes**:

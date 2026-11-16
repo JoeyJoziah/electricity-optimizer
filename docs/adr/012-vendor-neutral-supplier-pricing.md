@@ -1,5 +1,7 @@
 # ADR-012: Adopt a Vendor-Neutral `supplier_offers` Read Model for Supplier Pricing
 
+> **Status 2026-11-16: superseded in part.** The deprecated supplier tariffs endpoint named below has been removed, and the dormant EnergyBot client was deleted. See `CLAUDE.md`. The body is kept as written for history.
+
 > **Status**: Accepted
 > **Date**: 2026-05-26
 > **Decision-makers**: Devin McGrath

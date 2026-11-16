@@ -843,7 +843,7 @@ Complete schema for `.excalidraw` JSON files (stored in `docs/architecture/`).
 - API routes: `frontend/__tests__/api/dev/diagrams/`
 - Components: `frontend/__tests__/components/dev/`
 - Layout: `frontend/__tests__/app/dev/`
-- Hooks: `frontend/__tests__/hooks/`
+- Hooks: `frontend/__tests__/lib/hooks/`
 - Utils: `frontend/__tests__/utils/`
 
 **Key test patterns:**

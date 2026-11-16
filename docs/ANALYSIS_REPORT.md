@@ -1,5 +1,7 @@
 # RateShift Codebase Analysis Report
 
+> **Status 2026-11-16: superseded in part.** Some modules this report names were since removed, moved or merged (see the 2026-11-16 entry in `CHANGELOG.md`). The body is kept as written for history.
+
 > Generated: 2026-03-25 | Pipeline: stream-chain analysis (3-step)
 > Updated: 2026-03-25 | All 22 items resolved — 100% documentation coverage
 

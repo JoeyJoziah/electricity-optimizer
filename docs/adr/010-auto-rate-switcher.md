@@ -1,5 +1,7 @@
 # ADR-010: Auto Rate Switcher Architecture
 
+> **Status 2026-11-16: superseded in part.** The switcher is advisory-only (it records recommendations and never enrols), and the EnergyBot integration described below was removed along with its plan-sync endpoint and workflow. See `CLAUDE.md`. The body is kept as written for history.
+
 **Status**: Accepted
 **Date**: 2026-04-03
 **Decision Makers**: Devin McGrath

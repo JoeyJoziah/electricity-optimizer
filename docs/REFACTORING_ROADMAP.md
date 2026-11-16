@@ -1,5 +1,7 @@
 # Full Codebase Refactoring Roadmap
 
+> **Status 2026-11-16: superseded in part.** `backend/integrations/weather_service.py`, cited below, was removed; weather access lives in `backend/services/weather_service.py`. The body is kept as written for history.
+
 > Last Updated: 2026-03-16 (test counts recorded at that date; current counts are Backend 2,480, Frontend 1,835, ~5,674+ total — see docs/TESTING.md)
 > Current State: 2,480 backend tests (pass), 1,835 frontend tests (pass), 611 ML tests (pass), 55 ML tests (skipped), 16 E2E spec files, 5,674+ total tests
 > Status: 100% Complete — All refactoring items resolved, codebase optimized for production, PRD gap remediation 100%

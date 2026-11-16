@@ -14,7 +14,7 @@ RateShift runs on an all-free-tier infrastructure stack. This document tracks ac
 | **Render** | Free | $0 | 750 hours, cold-sleeps after 15min | Always-on via cron wakeups | Medium |
 | **Vercel** | Hobby | $0 | 100 GB bandwidth, 1000 serverless invocations | Well within limits | Low |
 | **Cloudflare** | Free | $0 | 100K Worker requests/day, unlimited DNS | Well within limits | Low |
-| **GitHub Actions** | Free | $0 | 2,000 min/mo (Linux) | ~1,963 min/mo (see below) | Medium |
+| **GitHub Actions** | Free | $0 | 2,000 min/mo (Linux) | ~1,903 min/mo (see below) | Medium |
 | **Cloudflare Registrar** | — | ~$10/yr | N/A (domain registration) | Fixed cost | None |
 | **Resend** | Free | $0 | 100 emails/day, 3K/mo | Low volume | Low |
 | **OneSignal** | Free | $0 | 10K subscribers | Low volume | Low |
@@ -51,8 +51,7 @@ RateShift runs on an all-free-tier infrastructure stack. This document tracks ac
 | `db-maintenance.yml` | Weekly Sun | 4 | 2 | 8 |
 | `db-backup.yml` | Weekly Sun | 4 | 20 | 80 |
 | `agent-switcher-scan.yml` | Daily 4am | 30 | 2 | 60 |
-| `sync-available-plans.yml` | Daily 2am | 30 | 2 | 60 |
-| **Cron Subtotal** | | **470** | | **~1,058** |
+| **Cron Subtotal** | | **440** | | **~998** |
 
 #### Event-Triggered Workflows (variable)
 
@@ -65,9 +64,9 @@ RateShift runs on an all-free-tier infrastructure stack. This document tracks ac
 | Other CI/CD | various | 10 | 2 | 20 |
 | **Event Subtotal** | | **~165** | | **~905** |
 
-#### **Total Estimated: ~1,963 min/mo**
+#### **Total Estimated: ~1,903 min/mo**
 
-> +80 min/mo added by `db-backup.yml` (weekly, ~20 min/run: dump + upload + verify with Neon branch). +120 min/mo added by Auto Rate Switcher workflows (agent-switcher-scan + sync-available-plans, daily). Reduced by ~480 min/mo after Sprint 0-2 CF Worker cron migrations (price-sync + observe-forecasts moved from GHA to CF Worker). Near free tier limit. Previous estimate: ~1,843 min/mo (2026-03-17). Full history in [Optimization History](#optimization-history) below.
+> +80 min/mo added by `db-backup.yml` (weekly, ~20 min/run: dump + upload + verify with Neon branch). +120 min/mo added by Auto Rate Switcher workflows (agent-switcher-scan + a daily plan-cache sync); the plan-cache sync was removed 2026-11-16 (-60 min/mo, table above already reflects it). Reduced by ~480 min/mo after Sprint 0-2 CF Worker cron migrations (price-sync + observe-forecasts moved from GHA to CF Worker). Near free tier limit. Previous estimate: ~1,843 min/mo (2026-03-17). Full history in [Optimization History](#optimization-history) below.
 
 ### Optimization History
 

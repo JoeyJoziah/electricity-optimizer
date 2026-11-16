@@ -100,7 +100,6 @@ electricity-optimizer/
         cache.py         # InMemoryCache with TTL
         rate_limiter.py  # Token bucket + sliding window
         service.py       # Unified pricing service
-      weather_service.py # OpenWeatherMap
     middleware/
       rate_limiter.py    # Per-IP rate limiting (in-memory or Redis)
       security_headers.py

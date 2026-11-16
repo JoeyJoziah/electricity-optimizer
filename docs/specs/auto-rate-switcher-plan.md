@@ -1,5 +1,7 @@
 # Auto Rate Switcher — Implementation Plan
 
+> **Status 2026-11-16: superseded in part.** The switcher is advisory-only (it records recommendations and never enrols), and the EnergyBot integration described below was removed along with its plan-sync endpoint and workflow. See `CLAUDE.md`. The body is kept as written for history.
+
 **Design doc:** `auto-rate-switcher-design.md`
 **Research:** `auto-rate-switcher-research.md`
 
