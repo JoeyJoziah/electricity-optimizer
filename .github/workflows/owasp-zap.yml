@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: ZAP Baseline Scan
-        uses: zaproxy/action-baseline@906a3c93ffde4864839d31a93daadcbd2737b4da # v0.12.0
+        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0 (v0.12 used the retired artifact API)
         with:
           target: ${{ secrets.RENDER_BACKEND_URL || 'https://api.rateshift.app' }}
           rules_file_name: '.zap/rules.tsv'
