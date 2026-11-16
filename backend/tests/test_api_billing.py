@@ -766,14 +766,14 @@ class TestWebhook:
         assert mock_user.stripe_customer_id == "cus_new_biz"
         repo_instance.update.assert_awaited_once_with("user-billing-1", mock_user)
 
-    def test_webhook_processing_exception_still_returns_200(self, auth_client):
+    def test_webhook_processing_exception_returns_500(self, auth_client):
         """
-        S1-07: If handle_webhook_event raises an unexpected exception AFTER
-        signature verification, the endpoint must return 200 (not 500).
+        If handle_webhook_event raises an unexpected exception AFTER signature
+        verification, the endpoint must return 500 (not 200).
 
-        Stripe retries any non-2xx response indefinitely.  Returning 200 here
-        lets Stripe mark the delivery as succeeded so it stops retrying, while
-        our logger.exception() call ensures the error is visible in monitoring.
+        Stripe only redelivers on a non-2xx response.  The handler removes the
+        idempotency guard "so Stripe retries", so acknowledging with 200 would
+        silently drop the event.
         """
         mock_event = {
             "id": "evt_processing_error",
@@ -796,17 +796,15 @@ class TestWebhook:
                 headers={"stripe-signature": "t=123,v1=sig_valid"},
             )
 
-        # Must be 200 — NOT 500 — so Stripe stops retrying
-        assert response.status_code == 200
-        data = response.json()
-        assert data["received"] is True
-        assert data["event_id"] == "evt_processing_error"
+        # Must be 500 — NOT 200 — so Stripe redelivers the event
+        assert response.status_code == 500
+        assert "received" not in response.json()
 
-    def test_webhook_stripe_api_error_during_processing_still_returns_200(self, auth_client):
+    def test_webhook_stripe_api_error_during_processing_returns_500(self, auth_client):
         """
-        S1-07: stripe.StripeError raised during event processing (e.g. an
-        API call inside handle_webhook_event) must also return 200 so Stripe
-        stops retrying.
+        stripe.StripeError raised during event processing (e.g. an API call
+        inside handle_webhook_event) must return 500 so Stripe redelivers once
+        the transient error clears.
         """
         import stripe as _stripe
 
@@ -830,13 +828,13 @@ class TestWebhook:
                 headers={"stripe-signature": "t=123,v1=sig_valid"},
             )
 
-        assert response.status_code == 200
-        assert response.json()["received"] is True
+        assert response.status_code == 500
+        assert "received" not in response.json()
 
-    def test_webhook_apply_action_exception_still_returns_200(self, auth_client):
+    def test_webhook_apply_action_exception_returns_500(self, auth_client):
         """
-        S1-07: If apply_webhook_action raises (e.g. DB write fails), the
-        endpoint must return 200 so Stripe stops retrying.
+        If apply_webhook_action raises (e.g. DB write fails), the endpoint
+        must return 500 so Stripe redelivers the event.
         """
         mock_event = {
             "id": "evt_apply_error",
@@ -876,8 +874,8 @@ class TestWebhook:
                 headers={"stripe-signature": "t=123,v1=sig_valid"},
             )
 
-        assert response.status_code == 200
-        assert response.json()["received"] is True
+        assert response.status_code == 500
+        assert "received" not in response.json()
 
     def test_webhook_deactivate_subscription_resets_to_free(self, auth_client):
         """Subscription deleted webhook should reset user to free tier."""

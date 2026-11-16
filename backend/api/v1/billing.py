@@ -394,10 +394,13 @@ async def handle_stripe_webhook(
             detail="Invalid webhook signature.",
         )
 
-    # From here we always return 200 to Stripe.  If we returned 5xx, Stripe
-    # would retry the webhook indefinitely.  Instead we log any processing
-    # error with a full traceback so it shows up in alerting, then acknowledge
-    # receipt so the delivery is marked as succeeded on Stripe's side.
+    # Response contract from here on:
+    #   200 — event processed, or a duplicate delivery that was skipped.
+    #   500 — processing failed.  Stripe only redelivers on a non-2xx
+    #         response (with backoff, for a bounded period), so a failure must
+    #         NOT be acknowledged: we remove the idempotency guard row, log
+    #         with a full traceback for alerting, and answer 500 so the retry
+    #         can reprocess the event.
     event_id: str = event["id"]
     event_type: str = event.get("type", "unknown")
 
@@ -421,6 +424,7 @@ async def handle_stripe_webhook(
     #   in-flight INSERT via Postgres row-lock semantics.
     # ------------------------------------------------------------------
     idempotency_row_inserted = False
+    processing_failed = False
 
     try:
         insert_result = await db.execute(
@@ -488,6 +492,7 @@ async def handle_stripe_webhook(
             event_id=event_id,
             error=str(e),
         )
+        processing_failed = True
         if idempotency_row_inserted:
             try:
                 await db.rollback()
@@ -518,6 +523,7 @@ async def handle_stripe_webhook(
             error=str(e),
             error_type=type(e).__name__,
         )
+        processing_failed = True
         if idempotency_row_inserted:
             try:
                 await db.rollback()
@@ -536,6 +542,16 @@ async def handle_stripe_webhook(
                     event_id=event_id,
                     error=str(cleanup_err),
                 )
+
+    if processing_failed:
+        # Non-2xx so Stripe redelivers.  Returned even when the guard-row
+        # cleanup above failed: acknowledging would drop the event for good,
+        # whereas a retry that still finds the guard row is merely skipped as
+        # a duplicate (and the cleanup failure is already logged at ERROR).
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Webhook processing failed.",
+        )
 
     return WebhookEventResponse(
         received=True,

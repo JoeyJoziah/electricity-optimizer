@@ -337,12 +337,13 @@ class DunningService:
             "escalation_action": None,
         }
 
-        # Commit the payment failure record before any early returns
-        try:
-            await self._db.commit()
-        except Exception:
-            await self._db.rollback()
-            raise
+        # NOTE: no commit here. The session is shared with the Stripe webhook
+        # handler, whose idempotency guard row (stripe_processed_events) lives
+        # in this same transaction. Committing before the email + escalation
+        # steps would mark the event as processed even if they then crash, and
+        # a Stripe retry would insert a second failure row (inflating
+        # retry_count). The flow commits exactly once, at whichever exit it
+        # takes.
 
         # 2. Cooldown check
         should_send = await self.should_send_dunning(user_id, stripe_invoice_id)
@@ -352,6 +353,7 @@ class DunningService:
                 user_id=user_id,
                 invoice_id=stripe_invoice_id,
             )
+            await self._commit_or_rollback()
             return result
 
         # 3. Send dunning email (pass user_id so the dispatcher can route push/in-app too)
@@ -391,21 +393,53 @@ class DunningService:
             )
 
         # Single commit for the entire payment failure flow
+        await self._commit_or_rollback()
+
+        return result
+
+    async def _commit_or_rollback(self) -> None:
+        """Commit the shared session, rolling back (and re-raising) on failure."""
         try:
             await self._db.commit()
         except Exception:
             await self._db.rollback()
             raise
 
-        return result
+    async def resolve_payment_failures(self, user_id: str) -> int:
+        """
+        Mark every outstanding payment failure for a user as resolved.
+
+        Called when a payment succeeds so the daily dunning cycle
+        (get_overdue_accounts) stops treating the user as overdue. Does not
+        commit: the caller owns the transaction.
+
+        Returns the number of rows resolved.
+        """
+        result = await self._db.execute(
+            text("""
+                UPDATE payment_retry_history
+                SET resolved_at = NOW(), updated_at = NOW()
+                WHERE user_id = :user_id
+                  AND resolved_at IS NULL
+            """),
+            {"user_id": user_id},
+        )
+        resolved = result.rowcount or 0
+        if resolved:
+            logger.info("payment_failures_resolved", user_id=user_id, rows=resolved)
+        return resolved
 
     async def get_overdue_accounts(
         self,
         grace_period_days: int = 7,
     ) -> list:
         """
-        Return users whose most recent payment failure is older than
-        grace_period_days and who are still on a paid tier.
+        Return users with an unresolved payment failure older than
+        grace_period_days who are still on a paid tier.
+
+        Only outstanding failures count: rows are stamped with resolved_at
+        when a later payment succeeds (resolve_payment_failures), and a user
+        whose latest row is resolved is never overdue.
         """
         cutoff = datetime.now(UTC) - timedelta(days=grace_period_days)
         result = await self._db.execute(
@@ -423,6 +457,14 @@ class DunningService:
                 FROM payment_retry_history prh
                 JOIN public.users u ON u.id = prh.user_id
                 WHERE prh.created_at <= :cutoff
+                  AND prh.resolved_at IS NULL
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM payment_retry_history newer
+                      WHERE newer.user_id = prh.user_id
+                        AND newer.created_at > prh.created_at
+                        AND newer.resolved_at IS NOT NULL
+                  )
                   AND u.subscription_tier != 'free'
                   AND u.is_active = TRUE
                 ORDER BY prh.user_id, prh.created_at DESC

@@ -1,3 +1,0 @@
-# DEPRECATED: This file has been consolidated into requirements.txt (2026-03-19)
-# For the canonical ML requirements, see ml/requirements.txt
-# This file is kept for backward compatibility but should not be used.

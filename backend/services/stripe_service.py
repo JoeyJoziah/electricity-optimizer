@@ -838,6 +838,16 @@ async def _handle_payment_succeeded(
         )
         return True
 
+    # The customer has paid: mark their outstanding payment failures resolved
+    # so the daily dunning cycle does not send a final notice to, or
+    # downgrade, an account that is no longer overdue. Done before (and
+    # independently of) tier restoration, which can legitimately come up
+    # empty. Not committed here — it rides on the tier update's commit or the
+    # webhook handler's final commit; a failure propagates so Stripe retries.
+    from services.dunning_service import DunningService
+
+    await DunningService(db).resolve_payment_failures(user_id)
+
     subscription_id = result.get("subscription_id")
     restored_tier: str | None = None
 
