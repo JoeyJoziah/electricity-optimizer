@@ -1,29 +1,29 @@
-'use client'
+"use client";
 
-import React, { useState } from 'react'
-import { useCommunitySolarSavings } from '@/lib/hooks/useCommunitySolar'
-import { Calculator, DollarSign } from 'lucide-react'
+import React, { useState } from "react";
+import { useCommunitySolarSavings } from "@/lib/hooks/useCommunitySolar";
+import { Calculator, DollarSign } from "lucide-react";
 
 /**
  * CommunitySolarService — Savings calculator component.
  * Named this way to match the export in CommunitySolarContent.
  */
 export function CommunitySolarService() {
-  const [bill, setBill] = useState('')
-  const [percent, setPercent] = useState('')
-  const [submitted, setSubmitted] = useState(false)
+  const [bill, setBill] = useState("");
+  const [percent, setPercent] = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
   const { data: savings, isLoading } = useCommunitySolarSavings(
     submitted && bill ? bill : null,
-    submitted && percent ? percent : null
-  )
+    submitted && percent ? percent : null,
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (bill && percent) {
-      setSubmitted(true)
+      setSubmitted(true);
     }
-  }
+  };
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-5">
@@ -49,8 +49,8 @@ export function CommunitySolarService() {
             step="0.01"
             value={bill}
             onChange={(e) => {
-              setBill(e.target.value)
-              setSubmitted(false)
+              setBill(e.target.value);
+              setSubmitted(false);
             }}
             placeholder="150"
             className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
@@ -71,8 +71,8 @@ export function CommunitySolarService() {
             step="0.1"
             value={percent}
             onChange={(e) => {
-              setPercent(e.target.value)
-              setSubmitted(false)
+              setPercent(e.target.value);
+              setSubmitted(false);
             }}
             placeholder="10"
             className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
@@ -117,5 +117,5 @@ export function CommunitySolarService() {
         </div>
       )}
     </div>
-  )
+  );
 }

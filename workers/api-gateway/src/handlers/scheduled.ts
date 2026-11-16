@@ -54,7 +54,7 @@ async function notifyCronFailure(
 export async function handleScheduled(
   controller: ScheduledController,
   env: Env,
-  ctx: ExecutionContext
+  _ctx: ExecutionContext
 ): Promise<void> {
   const cron = controller.cron;
 

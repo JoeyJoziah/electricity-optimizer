@@ -1,4 +1,4 @@
-import { Skeleton, ChartSkeleton } from '@/components/ui/skeleton'
+import { Skeleton, ChartSkeleton } from "@/components/ui/skeleton";
 
 export default function AnalyticsLoading() {
   return (
@@ -18,5 +18,5 @@ export default function AnalyticsLoading() {
         <Skeleton variant="rectangular" height={200} />
       </div>
     </div>
-  )
+  );
 }

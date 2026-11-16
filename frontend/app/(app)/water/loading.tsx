@@ -1,4 +1,4 @@
-import { Skeleton } from '@/components/ui/skeleton'
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function WaterLoading() {
   return (
@@ -22,5 +22,5 @@ export default function WaterLoading() {
         <Skeleton variant="rectangular" height={200} />
       </div>
     </div>
-  )
+  );
 }

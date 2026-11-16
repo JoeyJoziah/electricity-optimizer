@@ -10,62 +10,62 @@
 // rules must also be TS-scoped (flat config requires the plugin to be
 // available in the same config object where its rules are referenced).
 
-import nextCoreWebVitals from 'eslint-config-next/core-web-vitals'
-import tsParser from '@typescript-eslint/parser'
-import tsPlugin from '@typescript-eslint/eslint-plugin'
+import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
+import tsParser from "@typescript-eslint/parser";
+import tsPlugin from "@typescript-eslint/eslint-plugin";
 
 const config = [
   {
     ignores: [
-      '.next/**',
-      'out/**',
-      'node_modules/**',
-      'public/**',
-      'storybook-static/**',
-      'coverage/**',
-      'playwright-report/**',
-      'test-results/**',
-      'next-env.d.ts',
+      ".next/**",
+      "out/**",
+      "node_modules/**",
+      "public/**",
+      "storybook-static/**",
+      "coverage/**",
+      "playwright-report/**",
+      "test-results/**",
+      "next-env.d.ts",
     ],
   },
   ...nextCoreWebVitals,
   // Project-wide custom rules (apply to JS + TS).
   {
     rules: {
-      'no-console': ['warn', { allow: ['error', 'warn'] }],
-      'react/jsx-no-target-blank': 'error',
-      'prefer-const': 'error',
+      "no-console": ["warn", { allow: ["error", "warn"] }],
+      "react/jsx-no-target-blank": "error",
+      "prefer-const": "error",
     },
   },
   // TypeScript-only custom rules. @typescript-eslint plugin must be
   // registered in the same config object where its rules are referenced.
   {
-    files: ['**/*.{ts,tsx,mts,cts}'],
+    files: ["**/*.{ts,tsx,mts,cts}"],
     languageOptions: {
       parser: tsParser,
     },
     plugins: {
-      '@typescript-eslint': tsPlugin,
+      "@typescript-eslint": tsPlugin,
     },
     rules: {
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': [
-        'error',
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
         {
-          argsIgnorePattern: '^_',
-          varsIgnorePattern: '^_',
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
         },
       ],
     },
   },
   // Test files: relax some rules.
   {
-    files: ['**/__tests__/**', '**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}'],
+    files: ["**/__tests__/**", "**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
-      'no-console': 'off',
+      "@typescript-eslint/no-explicit-any": "off",
+      "no-console": "off",
     },
   },
-]
+];
 
-export default config
+export default config;

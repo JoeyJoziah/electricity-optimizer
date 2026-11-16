@@ -1,55 +1,61 @@
-'use client'
+"use client";
 
-import React from 'react'
-import Link from 'next/link'
-import { Zap, Flame, Droplets, Sun, ChevronRight, X } from 'lucide-react'
-import { cn } from '@/lib/utils/cn'
-import { useUtilityDiscovery } from '@/lib/hooks/useUtilityDiscovery'
-import { useSettingsStore } from '@/lib/store/settings'
-import type { UtilityInfo } from '@/lib/api/utility-discovery'
+import React from "react";
+import Link from "next/link";
+import { Zap, Flame, Droplets, Sun, ChevronRight, X } from "lucide-react";
+import { cn } from "@/lib/utils/cn";
+import { useUtilityDiscovery } from "@/lib/hooks/useUtilityDiscovery";
+import { useSettingsStore } from "@/lib/store/settings";
+import type { UtilityInfo } from "@/lib/api/utility-discovery";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   electricity: Zap,
   natural_gas: Flame,
   heating_oil: Droplets,
   community_solar: Sun,
-}
+};
 
 const ROUTE_MAP: Record<string, string> = {
-  electricity: '/prices',
-  natural_gas: '/gas-rates',
-  heating_oil: '/prices',
-  community_solar: '/community-solar',
-}
+  electricity: "/prices",
+  natural_gas: "/gas-rates",
+  heating_oil: "/prices",
+  community_solar: "/community-solar",
+};
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
-  deregulated: { label: 'Supplier choice', className: 'bg-green-100 text-green-700' },
-  regulated: { label: 'Regulated', className: 'bg-gray-100 text-gray-600' },
-  available: { label: 'Available', className: 'bg-blue-100 text-blue-700' },
-}
+  deregulated: {
+    label: "Supplier choice",
+    className: "bg-green-100 text-green-700",
+  },
+  regulated: { label: "Regulated", className: "bg-gray-100 text-gray-600" },
+  available: { label: "Available", className: "bg-blue-100 text-blue-700" },
+};
 
 interface UtilityDiscoveryCardProps {
-  onDismiss?: () => void
+  onDismiss?: () => void;
 }
 
 export function UtilityDiscoveryCard({ onDismiss }: UtilityDiscoveryCardProps) {
-  const region = useSettingsStore((s) => s.region)
-  const trackedTypes = useSettingsStore((s) => s.utilityTypes)
+  const region = useSettingsStore((s) => s.region);
+  const trackedTypes = useSettingsStore((s) => s.utilityTypes);
 
   // Derive state code from region (e.g. "us_ny" -> "NY")
-  const stateCode = region?.startsWith('us_') ? region.slice(3).toUpperCase() : null
+  const stateCode = region?.startsWith("us_")
+    ? region.slice(3).toUpperCase()
+    : null;
 
-  const { data, isLoading } = useUtilityDiscovery(stateCode)
+  const { data, isLoading } = useUtilityDiscovery(stateCode);
 
-  if (isLoading || !data) return null
+  if (isLoading || !data) return null;
 
   // Filter to utilities the user isn't tracking yet
-  const trackedSet = new Set(trackedTypes)
+  const trackedSet = new Set(trackedTypes);
   const untracked = data.utilities.filter(
-    (u: UtilityInfo) => !trackedSet.has(u.utility_type as typeof trackedTypes[number])
-  )
+    (u: UtilityInfo) =>
+      !trackedSet.has(u.utility_type as (typeof trackedTypes)[number]),
+  );
 
-  if (untracked.length === 0) return null
+  if (untracked.length === 0) return null;
 
   return (
     <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
@@ -72,9 +78,9 @@ export function UtilityDiscoveryCard({ onDismiss }: UtilityDiscoveryCardProps) {
       </p>
       <div className="space-y-2">
         {untracked.map((utility: UtilityInfo) => {
-          const Icon = ICON_MAP[utility.utility_type] || Zap
-          const route = ROUTE_MAP[utility.utility_type] || '/settings'
-          const badge = STATUS_BADGE[utility.status]
+          const Icon = ICON_MAP[utility.utility_type] || Zap;
+          const route = ROUTE_MAP[utility.utility_type] || "/settings";
+          const badge = STATUS_BADGE[utility.status];
 
           return (
             <Link
@@ -87,20 +93,29 @@ export function UtilityDiscoveryCard({ onDismiss }: UtilityDiscoveryCardProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-900">{utility.label}</span>
+                  <span className="font-medium text-gray-900">
+                    {utility.label}
+                  </span>
                   {badge && (
-                    <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', badge.className)}>
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-xs font-medium",
+                        badge.className,
+                      )}
+                    >
                       {badge.label}
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 truncate">{utility.description}</p>
+                <p className="text-xs text-gray-500 truncate">
+                  {utility.description}
+                </p>
               </div>
               <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400" />
             </Link>
-          )
+          );
         })}
       </div>
     </div>
-  )
+  );
 }

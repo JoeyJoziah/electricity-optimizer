@@ -5,10 +5,10 @@ import {
   approveSwitch,
   checkNow,
   getActivity,
+  getAutoSwitcherActivity,
   getSettings,
   rollback,
 } from "@/lib/api/agent-switcher";
-import { getAutoSwitcherActivity } from "@/lib/api/auto-switcher";
 
 // ---------------------------------------------------------------------------
 // Query keys

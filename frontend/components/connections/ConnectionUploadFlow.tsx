@@ -1,87 +1,87 @@
-'use client'
+"use client";
 
-import React, { useState, useCallback } from 'react'
-import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { BillUploadForm } from './BillUploadForm'
-import { ConnectionRates } from './ConnectionRates'
-import { API_ORIGIN } from '@/lib/config/env'
-import {
-  Upload,
-  Loader2,
-  AlertCircle,
-  CheckCircle2,
-} from 'lucide-react'
+import React, { useState, useCallback } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { BillUploadForm } from "./BillUploadForm";
+import { ConnectionRates } from "./ConnectionRates";
+import { API_ORIGIN } from "@/lib/config/env";
+import { Upload, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 
 interface ConnectionUploadFlowProps {
-  onComplete: () => void
+  onComplete: () => void;
 }
 
-type FlowStep = 'creating' | 'uploading' | 'results'
+type FlowStep = "creating" | "uploading" | "results";
 
 interface CreatedConnection {
-  id: string
-  supplier_name: string | null
+  id: string;
+  supplier_name: string | null;
 }
 
-export function ConnectionUploadFlow({ onComplete }: ConnectionUploadFlowProps) {
-  const [step, setStep] = useState<FlowStep>('creating')
-  const [connection, setConnection] = useState<CreatedConnection | null>(null)
-  const [creating, setCreating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+export function ConnectionUploadFlow({
+  onComplete,
+}: ConnectionUploadFlowProps) {
+  const [step, setStep] = useState<FlowStep>("creating");
+  const [connection, setConnection] = useState<CreatedConnection | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const createUploadConnection = useCallback(async () => {
     try {
-      setCreating(true)
-      setError(null)
+      setCreating(true);
+      setError(null);
 
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 15000)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
       const res = await fetch(`${API_ORIGIN}/api/v1/connections/upload`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           consent_given: true,
         }),
         signal: controller.signal,
-      })
+      });
 
-      clearTimeout(timeoutId)
+      clearTimeout(timeoutId);
 
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json();
         setConnection({
           id: data.id || data.connection_id,
           supplier_name: data.supplier_name || null,
-        })
-        setStep('uploading')
+        });
+        setStep("uploading");
       } else if (res.status === 403) {
-        setError('upgrade')
+        setError("upgrade");
       } else if (res.status === 504) {
-        setError('Request timed out. Please try again.')
+        setError("Request timed out. Please try again.");
       } else {
-        const data = await res.json().catch(() => null)
-        setError(data?.detail || 'Failed to create upload connection. Please try again.')
+        const data = await res.json().catch(() => null);
+        setError(
+          data?.detail ||
+            "Failed to create upload connection. Please try again.",
+        );
       }
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        setError('Request timed out. Please try again.')
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError("Request timed out. Please try again.");
       } else {
-        setError('Network error. Please check your connection and try again.')
+        setError("Network error. Please check your connection and try again.");
       }
     } finally {
-      setCreating(false)
+      setCreating(false);
     }
-  }, [])
+  }, []);
 
   // Auto-create connection on mount
   React.useEffect(() => {
-    createUploadConnection()
-  }, [createUploadConnection])
+    createUploadConnection();
+  }, [createUploadConnection]);
 
-  if (error === 'upgrade') {
+  if (error === "upgrade") {
     return (
       <Card padding="lg" className="text-center">
         <Upload className="mx-auto h-12 w-12 text-gray-300" />
@@ -98,11 +98,11 @@ export function ConnectionUploadFlow({ onComplete }: ConnectionUploadFlowProps) 
           View Plans
         </a>
       </Card>
-    )
+    );
   }
 
   // Step 1: Creating the connection
-  if (step === 'creating') {
+  if (step === "creating") {
     return (
       <Card padding="lg">
         {creating ? (
@@ -127,11 +127,11 @@ export function ConnectionUploadFlow({ onComplete }: ConnectionUploadFlowProps) 
           </div>
         ) : null}
       </Card>
-    )
+    );
   }
 
   // Step 2: Upload the bill
-  if (step === 'uploading' && connection) {
+  if (step === "uploading" && connection) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3">
@@ -140,15 +140,15 @@ export function ConnectionUploadFlow({ onComplete }: ConnectionUploadFlowProps) 
         </div>
         <BillUploadForm
           connectionId={connection.id}
-          onUploadComplete={() => setStep('results')}
+          onUploadComplete={() => setStep("results")}
           onComplete={onComplete}
         />
       </div>
-    )
+    );
   }
 
   // Step 3: Show extracted rates
-  if (step === 'results' && connection) {
+  if (step === "results" && connection) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3">
@@ -163,42 +163,38 @@ export function ConnectionUploadFlow({ onComplete }: ConnectionUploadFlowProps) 
           connectionMethod="bill_upload"
           supplierName={connection.supplier_name}
           onBack={onComplete}
-          onUploadAnother={() => setStep('uploading')}
+          onUploadAnother={() => setStep("uploading")}
         />
       </div>
-    )
+    );
   }
 
-  return null
+  return null;
 }
 
 function StepIndicator({ current, total }: { current: number; total: number }) {
   return (
     <div className="flex items-center gap-1.5">
       {Array.from({ length: total }, (_, i) => {
-        const stepNum = i + 1
-        const isActive = stepNum === current
-        const isComplete = stepNum < current
+        const stepNum = i + 1;
+        const isActive = stepNum === current;
+        const isComplete = stepNum < current;
 
         return (
           <div
             key={stepNum}
             className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
               isActive
-                ? 'bg-primary-600 text-white'
+                ? "bg-primary-600 text-white"
                 : isComplete
-                  ? 'bg-success-100 text-success-700'
-                  : 'bg-gray-100 text-gray-400'
+                  ? "bg-success-100 text-success-700"
+                  : "bg-gray-100 text-gray-400"
             }`}
           >
-            {isComplete ? (
-              <CheckCircle2 className="h-3.5 w-3.5" />
-            ) : (
-              stepNum
-            )}
+            {isComplete ? <CheckCircle2 className="h-3.5 w-3.5" /> : stepNum}
           </div>
-        )
+        );
       })}
     </div>
-  )
+  );
 }

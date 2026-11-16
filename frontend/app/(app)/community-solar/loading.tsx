@@ -1,4 +1,4 @@
-import { Skeleton } from '@/components/ui/skeleton'
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CommunitySolarLoading() {
   return (
@@ -37,5 +37,5 @@ export default function CommunitySolarLoading() {
         <Skeleton key={i} variant="rectangular" height={140} />
       ))}
     </div>
-  )
+  );
 }

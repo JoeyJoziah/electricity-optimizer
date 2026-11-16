@@ -1,163 +1,177 @@
-import fs from 'fs'
+import fs from "fs";
 
-jest.mock('fs')
+jest.mock("fs");
 
 /**
  * Minimal Response-like object for testing Next.js API route handlers
  * in the jsdom environment where the Web API Response is not available.
  */
 class MockResponse {
-  public status: number
-  private body: unknown
+  public status: number;
+  private body: unknown;
 
   constructor(body: unknown, init?: { status?: number }) {
-    this.body = body
-    this.status = init?.status ?? 200
+    this.body = body;
+    this.status = init?.status ?? 200;
   }
 
   async json() {
-    return typeof this.body === 'string' ? JSON.parse(this.body) : this.body
+    return typeof this.body === "string" ? JSON.parse(this.body) : this.body;
   }
 }
 
-jest.mock('next/server', () => ({
+jest.mock("next/server", () => ({
   NextResponse: {
     json: (body: unknown, init?: { status?: number }) =>
       new MockResponse(body, init),
   },
-}))
+}));
 
-import { GET, PUT } from '@/app/api/dev/diagrams/[name]/route'
+import { GET, PUT } from "@/app/api/dev/diagrams/[name]/route";
 
-const env = process.env as { NODE_ENV: string }
-const mockedFs = jest.mocked(fs)
+const env = process.env as { NODE_ENV: string };
+const mockedFs = jest.mocked(fs);
 
-describe('GET /api/dev/diagrams/[name]', () => {
-  const originalNodeEnv = env.NODE_ENV
+describe("GET /api/dev/diagrams/[name]", () => {
+  const originalNodeEnv = env.NODE_ENV;
 
   beforeEach(() => {
-    jest.clearAllMocks()
-    env.NODE_ENV = 'development'
-  })
+    jest.clearAllMocks();
+    env.NODE_ENV = "development";
+  });
 
   afterEach(() => {
-    env.NODE_ENV = originalNodeEnv
-  })
+    env.NODE_ENV = originalNodeEnv;
+  });
 
   function createRequest() {
     // Partial mock — only the fields the route handler reads
-    return { method: 'GET' } as unknown as import('next/server').NextRequest
+    return { method: "GET" } as unknown as import("next/server").NextRequest;
   }
 
-  it('returns 404 when NODE_ENV is not development', async () => {
-    env.NODE_ENV = 'production'
+  it("returns 404 when NODE_ENV is not development", async () => {
+    env.NODE_ENV = "production";
 
-    const response = await GET(createRequest(), { params: Promise.resolve({ name: 'test' }) })
+    const response = await GET(createRequest(), {
+      params: Promise.resolve({ name: "test" }),
+    });
 
-    expect(response.status).toBe(404)
-    const body = await response.json()
-    expect(body.error).toBe('Not found')
-  })
+    expect(response.status).toBe(404);
+    const body = await response.json();
+    expect(body.error).toBe("Not found");
+  });
 
-  it('returns diagram data for valid name', async () => {
+  it("returns diagram data for valid name", async () => {
     const diagramData = {
-      type: 'excalidraw',
+      type: "excalidraw",
       version: 2,
-      elements: [{ id: '1', type: 'rectangle' }],
-    }
+      elements: [{ id: "1", type: "rectangle" }],
+    };
 
-    mockedFs.existsSync.mockReturnValue(true)
-    mockedFs.readFileSync.mockReturnValue(JSON.stringify(diagramData))
+    mockedFs.existsSync.mockReturnValue(true);
+    mockedFs.readFileSync.mockReturnValue(JSON.stringify(diagramData));
 
-    const response = await GET(createRequest(), { params: Promise.resolve({ name: 'my-diagram' }) })
+    const response = await GET(createRequest(), {
+      params: Promise.resolve({ name: "my-diagram" }),
+    });
 
-    expect(response.status).toBe(200)
-    const body = await response.json()
-    expect(body.name).toBe('my-diagram')
-    expect(body.data).toEqual(diagramData)
-  })
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.name).toBe("my-diagram");
+    expect(body.data).toEqual(diagramData);
+  });
 
-  it('returns 400 for path traversal attempt', async () => {
-    const response = await GET(createRequest(), { params: Promise.resolve({ name: '../etc/passwd' }) })
+  it("returns 400 for path traversal attempt", async () => {
+    const response = await GET(createRequest(), {
+      params: Promise.resolve({ name: "../etc/passwd" }),
+    });
 
-    expect(response.status).toBe(400)
-    const body = await response.json()
-    expect(body.error).toBe('Invalid diagram name')
-  })
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBe("Invalid diagram name");
+  });
 
-  it('returns 404 for non-existent diagram', async () => {
-    mockedFs.existsSync.mockReturnValue(false)
+  it("returns 404 for non-existent diagram", async () => {
+    mockedFs.existsSync.mockReturnValue(false);
 
-    const response = await GET(createRequest(), { params: Promise.resolve({ name: 'missing-diagram' }) })
+    const response = await GET(createRequest(), {
+      params: Promise.resolve({ name: "missing-diagram" }),
+    });
 
-    expect(response.status).toBe(404)
-    const body = await response.json()
-    expect(body.error).toBe('Diagram not found')
-  })
-})
+    expect(response.status).toBe(404);
+    const body = await response.json();
+    expect(body.error).toBe("Diagram not found");
+  });
+});
 
-describe('PUT /api/dev/diagrams/[name]', () => {
-  const originalNodeEnv = env.NODE_ENV
+describe("PUT /api/dev/diagrams/[name]", () => {
+  const originalNodeEnv = env.NODE_ENV;
 
   beforeEach(() => {
-    jest.clearAllMocks()
-    env.NODE_ENV = 'development'
-  })
+    jest.clearAllMocks();
+    env.NODE_ENV = "development";
+  });
 
   afterEach(() => {
-    env.NODE_ENV = originalNodeEnv
-  })
+    env.NODE_ENV = originalNodeEnv;
+  });
 
   function createPutRequest(body: Record<string, unknown>) {
     // Partial mock — only the fields the route handler reads
     return {
       json: async () => body,
-    } as unknown as import('next/server').NextRequest
+    } as unknown as import("next/server").NextRequest;
   }
 
-  it('returns 404 when NODE_ENV is not development', async () => {
-    env.NODE_ENV = 'production'
+  it("returns 404 when NODE_ENV is not development", async () => {
+    env.NODE_ENV = "production";
 
-    const request = createPutRequest({ data: { elements: [] } })
-    const response = await PUT(request, { params: Promise.resolve({ name: 'test' }) })
+    const request = createPutRequest({ data: { elements: [] } });
+    const response = await PUT(request, {
+      params: Promise.resolve({ name: "test" }),
+    });
 
-    expect(response.status).toBe(404)
-    const body = await response.json()
-    expect(body.error).toBe('Not found')
-  })
+    expect(response.status).toBe(404);
+    const body = await response.json();
+    expect(body.error).toBe("Not found");
+  });
 
-  it('saves diagram data successfully', async () => {
+  it("saves diagram data successfully", async () => {
     const updatedData = {
-      type: 'excalidraw',
+      type: "excalidraw",
       version: 2,
-      elements: [{ id: '1', type: 'rectangle' }],
-    }
+      elements: [{ id: "1", type: "rectangle" }],
+    };
 
-    mockedFs.existsSync.mockReturnValue(true)
-    mockedFs.writeFileSync.mockReturnValue(undefined)
+    mockedFs.existsSync.mockReturnValue(true);
+    mockedFs.writeFileSync.mockReturnValue(undefined);
 
-    const request = createPutRequest({ data: updatedData })
-    const response = await PUT(request, { params: Promise.resolve({ name: 'my-diagram' }) })
+    const request = createPutRequest({ data: updatedData });
+    const response = await PUT(request, {
+      params: Promise.resolve({ name: "my-diagram" }),
+    });
 
-    expect(response.status).toBe(200)
-    const body = await response.json()
-    expect(body.name).toBe('my-diagram')
-    expect(body.saved).toBe(true)
-    expect(mockedFs.writeFileSync).toHaveBeenCalledTimes(1)
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.name).toBe("my-diagram");
+    expect(body.saved).toBe(true);
+    expect(mockedFs.writeFileSync).toHaveBeenCalledTimes(1);
     expect(mockedFs.writeFileSync).toHaveBeenCalledWith(
-      expect.stringContaining('my-diagram.excalidraw'),
-      JSON.stringify(updatedData, null, 2)
-    )
-  })
+      expect.stringContaining("my-diagram.excalidraw"),
+      JSON.stringify(updatedData, null, 2),
+    );
+  });
 
-  it('returns 400 for invalid data when data field is missing', async () => {
-    mockedFs.existsSync.mockReturnValue(true)
+  it("returns 400 for invalid data when data field is missing", async () => {
+    mockedFs.existsSync.mockReturnValue(true);
 
-    const request = createPutRequest({ notData: 'something' })
-    const response = await PUT(request, { params: Promise.resolve({ name: 'my-diagram' }) })
+    const request = createPutRequest({ notData: "something" });
+    const response = await PUT(request, {
+      params: Promise.resolve({ name: "my-diagram" }),
+    });
 
-    expect(response.status).toBe(400)
-    const body = await response.json()
-    expect(body.error).toBe('Invalid diagram data')
-  })
-})
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBe("Invalid diagram data");
+  });
+});

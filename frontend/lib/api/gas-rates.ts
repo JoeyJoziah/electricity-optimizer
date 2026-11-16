@@ -4,79 +4,79 @@
  * Calls the backend gas rate endpoints under /rates/natural-gas.
  */
 
-import { apiClient } from './client'
+import { apiClient } from "./client";
 
 // ---------------------------------------------------------------------------
 // Response types (match backend response shapes)
 // ---------------------------------------------------------------------------
 
 export interface GasPrice {
-  id: string
-  supplier: string
-  price: string // Decimal string ($/therm)
-  unit: string
-  timestamp: string
-  source: string
+  id: string;
+  supplier: string;
+  price: string; // Decimal string ($/therm)
+  unit: string;
+  timestamp: string;
+  source: string;
 }
 
 export interface GasRatesResponse {
-  region: string
-  utility_type: 'natural_gas'
-  unit: string
-  is_deregulated: boolean
-  count: number
-  prices: GasPrice[]
+  region: string;
+  utility_type: "natural_gas";
+  unit: string;
+  is_deregulated: boolean;
+  count: number;
+  prices: GasPrice[];
 }
 
 export interface GasHistoryResponse {
-  region: string
-  utility_type: 'natural_gas'
-  period_days: number
-  count: number
+  region: string;
+  utility_type: "natural_gas";
+  period_days: number;
+  count: number;
   prices: Array<{
-    price: string
-    timestamp: string
-    supplier: string
-  }>
+    price: string;
+    timestamp: string;
+    supplier: string;
+  }>;
 }
 
 export interface GasStatsResponse {
-  region: string
-  utility_type: 'natural_gas'
-  unit: string
-  avg_price: string | null
-  min_price: string | null
-  max_price: string | null
-  count: number
+  region: string;
+  utility_type: "natural_gas";
+  unit: string;
+  avg_price: string | null;
+  min_price: string | null;
+  max_price: string | null;
+  count: number;
 }
 
 export interface GasDeregulatedState {
-  state_code: string
-  state_name: string
-  puc_name: string | null
-  puc_website: string | null
-  comparison_tool_url: string | null
+  state_code: string;
+  state_name: string;
+  puc_name: string | null;
+  puc_website: string | null;
+  comparison_tool_url: string | null;
 }
 
 export interface GasDeregulatedStatesResponse {
-  count: number
-  states: GasDeregulatedState[]
+  count: number;
+  states: GasDeregulatedState[];
 }
 
 export interface GasSupplier {
-  supplier: string
-  price: string
-  timestamp: string
-  source: string
+  supplier: string;
+  price: string;
+  timestamp: string;
+  source: string;
 }
 
 export interface GasCompareResponse {
-  region: string
-  is_deregulated: boolean
-  unit?: string
-  suppliers: GasSupplier[]
-  cheapest: string | null
-  message?: string
+  region: string;
+  is_deregulated: boolean;
+  unit?: string;
+  suppliers: GasSupplier[];
+  cheapest: string | null;
+  message?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -84,18 +84,18 @@ export interface GasCompareResponse {
 // ---------------------------------------------------------------------------
 
 export interface GetGasRatesParams {
-  region: string
-  limit?: number
+  region: string;
+  limit?: number;
 }
 
 export interface GetGasHistoryParams {
-  region: string
-  days?: number
+  region: string;
+  days?: number;
 }
 
 export interface GetGasStatsParams {
-  region: string
-  days?: number
+  region: string;
+  days?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -106,42 +106,56 @@ export async function getGasRates(
   params: GetGasRatesParams,
   signal?: AbortSignal,
 ): Promise<GasRatesResponse> {
-  const query: Record<string, string> = { region: params.region }
-  if (params.limit !== undefined) query.limit = String(params.limit)
-  return apiClient.get<GasRatesResponse>('/rates/natural-gas/', query, { signal })
+  const query: Record<string, string> = { region: params.region };
+  if (params.limit !== undefined) query.limit = String(params.limit);
+  return apiClient.get<GasRatesResponse>("/rates/natural-gas/", query, {
+    signal,
+  });
 }
 
 export async function getGasHistory(
   params: GetGasHistoryParams,
   signal?: AbortSignal,
 ): Promise<GasHistoryResponse> {
-  const query: Record<string, string> = { region: params.region }
-  if (params.days !== undefined) query.days = String(params.days)
-  return apiClient.get<GasHistoryResponse>('/rates/natural-gas/history', query, { signal })
+  const query: Record<string, string> = { region: params.region };
+  if (params.days !== undefined) query.days = String(params.days);
+  return apiClient.get<GasHistoryResponse>(
+    "/rates/natural-gas/history",
+    query,
+    { signal },
+  );
 }
 
 export async function getGasStats(
   params: GetGasStatsParams,
   signal?: AbortSignal,
 ): Promise<GasStatsResponse> {
-  const query: Record<string, string> = { region: params.region }
-  if (params.days !== undefined) query.days = String(params.days)
-  return apiClient.get<GasStatsResponse>('/rates/natural-gas/stats', query, { signal })
+  const query: Record<string, string> = { region: params.region };
+  if (params.days !== undefined) query.days = String(params.days);
+  return apiClient.get<GasStatsResponse>("/rates/natural-gas/stats", query, {
+    signal,
+  });
 }
 
-export async function getDeregulatedGasStates(signal?: AbortSignal): Promise<GasDeregulatedStatesResponse> {
+export async function getDeregulatedGasStates(
+  signal?: AbortSignal,
+): Promise<GasDeregulatedStatesResponse> {
   return apiClient.get<GasDeregulatedStatesResponse>(
-    '/rates/natural-gas/deregulated-states',
+    "/rates/natural-gas/deregulated-states",
     undefined,
     { signal },
-  )
+  );
 }
 
 export async function compareGasSuppliers(
   region: string,
   signal?: AbortSignal,
 ): Promise<GasCompareResponse> {
-  return apiClient.get<GasCompareResponse>('/rates/natural-gas/compare', {
-    region,
-  }, { signal })
+  return apiClient.get<GasCompareResponse>(
+    "/rates/natural-gas/compare",
+    {
+      region,
+    },
+    { signal },
+  );
 }

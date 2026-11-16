@@ -1,54 +1,64 @@
-'use client'
+"use client";
 
-import React, { createContext, useCallback, useContext, useMemo, useState, useRef, useEffect } from 'react'
-import { Toast, ToastVariant } from '@/components/ui/toast'
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  useRef,
+  useEffect,
+} from "react";
+import { Toast, ToastVariant } from "@/components/ui/toast";
 
 interface ToastItem {
-  id: string
-  variant: ToastVariant
-  title: string
-  description?: string
+  id: string;
+  variant: ToastVariant;
+  title: string;
+  description?: string;
 }
 
 interface ToastContextValue {
   toast: (opts: {
-    variant: ToastVariant
-    title: string
-    description?: string
-    duration?: number
-  }) => void
-  success: (title: string, description?: string) => void
-  error: (title: string, description?: string) => void
-  warning: (title: string, description?: string) => void
-  info: (title: string, description?: string) => void
+    variant: ToastVariant;
+    title: string;
+    description?: string;
+    duration?: number;
+  }) => void;
+  success: (title: string, description?: string) => void;
+  error: (title: string, description?: string) => void;
+  warning: (title: string, description?: string) => void;
+  info: (title: string, description?: string) => void;
 }
 
-const ToastContext = createContext<ToastContextValue | null>(null)
+const ToastContext = createContext<ToastContextValue | null>(null);
 
-const DEFAULT_TOAST_DURATION_MS = 5000
+const DEFAULT_TOAST_DURATION_MS = 5000;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [toasts, setToasts] = useState<ToastItem[]>([])
-  const counterRef = useRef(0)
-  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const counterRef = useRef(0);
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  );
 
   // Clean up all timers on unmount
   useEffect(() => {
-    const timers = timersRef.current
+    const timers = timersRef.current;
     return () => {
-      timers.forEach((timer) => clearTimeout(timer))
-      timers.clear()
-    }
-  }, [])
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
+    };
+  }, []);
 
   const dismiss = useCallback((id: string) => {
-    const timer = timersRef.current.get(id)
+    const timer = timersRef.current.get(id);
     if (timer) {
-      clearTimeout(timer)
-      timersRef.current.delete(id)
+      clearTimeout(timer);
+      timersRef.current.delete(id);
     }
-    setToasts((prev) => prev.filter((t) => t.id !== id))
-  }, [])
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const toast = useCallback(
     ({
@@ -57,46 +67,46 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       description,
       duration = DEFAULT_TOAST_DURATION_MS,
     }: {
-      variant: ToastVariant
-      title: string
-      description?: string
-      duration?: number
+      variant: ToastVariant;
+      title: string;
+      description?: string;
+      duration?: number;
     }) => {
-      const id = `toast-${++counterRef.current}`
-      setToasts((prev) => [...prev, { id, variant, title, description }])
+      const id = `toast-${++counterRef.current}`;
+      setToasts((prev) => [...prev, { id, variant, title, description }]);
       if (duration > 0) {
-        const timer = setTimeout(() => dismiss(id), duration)
-        timersRef.current.set(id, timer)
+        const timer = setTimeout(() => dismiss(id), duration);
+        timersRef.current.set(id, timer);
       }
     },
-    [dismiss]
-  )
+    [dismiss],
+  );
 
   const success = useCallback(
     (title: string, description?: string) =>
-      toast({ variant: 'success', title, description }),
-    [toast]
-  )
+      toast({ variant: "success", title, description }),
+    [toast],
+  );
   const error = useCallback(
     (title: string, description?: string) =>
-      toast({ variant: 'error', title, description }),
-    [toast]
-  )
+      toast({ variant: "error", title, description }),
+    [toast],
+  );
   const warning = useCallback(
     (title: string, description?: string) =>
-      toast({ variant: 'warning', title, description }),
-    [toast]
-  )
+      toast({ variant: "warning", title, description }),
+    [toast],
+  );
   const info = useCallback(
     (title: string, description?: string) =>
-      toast({ variant: 'info', title, description }),
-    [toast]
-  )
+      toast({ variant: "info", title, description }),
+    [toast],
+  );
 
   const contextValue = useMemo(
     () => ({ toast, success, error, warning, info }),
-    [toast, success, error, warning, info]
-  )
+    [toast, success, error, warning, info],
+  );
 
   return (
     <ToastContext.Provider value={contextValue}>
@@ -110,11 +120,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         ))}
       </div>
     </ToastContext.Provider>
-  )
+  );
 }
 
 export function useToast() {
-  const ctx = useContext(ToastContext)
-  if (!ctx) throw new Error('useToast must be used within ToastProvider')
-  return ctx
+  const ctx = useContext(ToastContext);
+  if (!ctx) throw new Error("useToast must be used within ToastProvider");
+  return ctx;
 }

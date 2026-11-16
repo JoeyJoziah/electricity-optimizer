@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getOptimalSchedule,
   getOptimizationResult,
@@ -8,8 +8,8 @@ import {
   getAppliances,
   calculatePotentialSavings,
   GetOptimalScheduleRequest,
-} from '@/lib/api/optimization'
-import type { Appliance } from '@/types'
+} from "@/lib/api/optimization";
+import type { Appliance } from "@/types";
 
 /**
  * Hook for getting optimal schedule.
@@ -25,27 +25,36 @@ export function useOptimalSchedule(request: GetOptimalScheduleRequest) {
   const applianceIds = request.appliances
     .map((a) => a.id)
     .sort()
-    .join(',')
-  const { region, date } = request
+    .join(",");
+  const { region, date } = request;
 
   return useQuery({
-    queryKey: ['optimization', 'schedule', applianceIds, region ?? null, date ?? null],
+    queryKey: [
+      "optimization",
+      "schedule",
+      applianceIds,
+      region ?? null,
+      date ?? null,
+    ],
     queryFn: ({ signal }) => getOptimalSchedule(request, signal),
     enabled: request.appliances.length > 0,
     staleTime: 180000, // Consider stale after 3 minutes
-  })
+  });
 }
 
 /**
  * Hook for getting optimization result for a date
  */
-export function useOptimizationResult(date: string, region: string | null | undefined) {
+export function useOptimizationResult(
+  date: string,
+  region: string | null | undefined,
+) {
   return useQuery({
-    queryKey: ['optimization', 'result', date, region],
+    queryKey: ["optimization", "result", date, region],
     queryFn: ({ signal }) => getOptimizationResult(date, region!, signal),
     enabled: !!date && !!region,
     staleTime: 60000,
-  })
+  });
 }
 
 /**
@@ -58,31 +67,31 @@ export function useOptimizationResult(date: string, region: string | null | unde
  */
 export function useSavedAppliances() {
   return useQuery({
-    queryKey: ['appliances'],
+    queryKey: ["appliances"],
     queryFn: ({ signal }) => getAppliances(signal),
     staleTime: 300000,
-  })
+  });
 }
 
 /**
  * @deprecated Use `useSavedAppliances` instead. This alias exists only
  * for backward compatibility and will be removed in a future release.
  */
-export const useAppliances = useSavedAppliances
+export const useAppliances = useSavedAppliances;
 
 /**
  * Hook for saving appliances
  */
 export function useSaveAppliances() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (appliances: Appliance[]) => saveAppliances(appliances),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appliances'] })
-      queryClient.invalidateQueries({ queryKey: ['optimization'] })
+      queryClient.invalidateQueries({ queryKey: ["appliances"] });
+      queryClient.invalidateQueries({ queryKey: ["optimization"] });
     },
-  })
+  });
 }
 
 /**
@@ -93,13 +102,17 @@ export function useSaveAppliances() {
  * unnecessary refetches when the caller creates a new array with the
  * same contents on each render.
  */
-export function usePotentialSavings(appliances: Appliance[], region: string | null | undefined) {
-  const stableAppliancesKey = JSON.stringify(appliances)
+export function usePotentialSavings(
+  appliances: Appliance[],
+  region: string | null | undefined,
+) {
+  const stableAppliancesKey = JSON.stringify(appliances);
 
   return useQuery({
-    queryKey: ['potential-savings', stableAppliancesKey, region],
-    queryFn: ({ signal }) => calculatePotentialSavings(appliances, region!, signal),
+    queryKey: ["potential-savings", stableAppliancesKey, region],
+    queryFn: ({ signal }) =>
+      calculatePotentialSavings(appliances, region!, signal),
     enabled: appliances.length > 0 && !!region,
     staleTime: 300000,
-  })
+  });
 }

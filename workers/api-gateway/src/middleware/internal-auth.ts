@@ -61,7 +61,9 @@ export async function timingSafeEqual(a: string, b: string): Promise<boolean> {
   const bBytes = encoder.encode(b);
 
   // Use crypto.subtle.timingSafeEqual if available (Cloudflare Workers runtime)
-  const subtle = crypto?.subtle as any;
+  const subtle = crypto?.subtle as SubtleCrypto & {
+    timingSafeEqual?: (a: ArrayBufferView, b: ArrayBufferView) => boolean;
+  };
   if (subtle && typeof subtle.timingSafeEqual === "function") {
     if (aBytes.byteLength !== bBytes.byteLength) {
       const dummy = new Uint8Array(bBytes.byteLength);

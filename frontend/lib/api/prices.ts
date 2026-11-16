@@ -7,13 +7,13 @@
  * snake_case API shapes to camelCase before passing to UI components.
  */
 
-import { apiClient } from './client'
+import { apiClient } from "./client";
 import type {
   ApiCurrentPriceResponse,
   ApiPriceHistoryResponse,
   ApiPriceForecastResponse,
   ApiPriceComparisonResponse,
-} from '@/types/generated/api'
+} from "@/types/generated/api";
 
 // ---------------------------------------------------------------------------
 // Re-export generated response types so call-sites can import from one place
@@ -24,39 +24,39 @@ export type {
   ApiPriceHistoryResponse,
   ApiPriceForecastResponse,
   ApiPriceComparisonResponse,
-}
+};
 
 // ---------------------------------------------------------------------------
 // Request parameter types
 // ---------------------------------------------------------------------------
 
 export interface GetCurrentPricesParams {
-  region: string
-  supplier?: string
+  region: string;
+  supplier?: string;
   /** Maximum number of prices to return (1–100, default 10) */
-  limit?: number
+  limit?: number;
 }
 
 export interface GetPriceHistoryParams {
-  region: string
+  region: string;
   /** Number of days of history (1–365, default 7). Ignored when start_date/end_date provided. */
-  days?: number
-  supplier?: string
+  days?: number;
+  supplier?: string;
   /** ISO-8601 start date (inclusive) */
-  startDate?: string
+  startDate?: string;
   /** ISO-8601 end date (inclusive) */
-  endDate?: string
+  endDate?: string;
   /** 1-based page number (default 1) */
-  page?: number
+  page?: number;
   /** Records per page (1–100, default 24) */
-  pageSize?: number
+  pageSize?: number;
 }
 
 export interface GetPriceForecastParams {
-  region: string
+  region: string;
   /** Forecast horizon in hours (1–168, default 24) */
-  hours?: number
-  supplier?: string
+  hours?: number;
+  supplier?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -74,11 +74,13 @@ export async function getCurrentPrices(
   params: GetCurrentPricesParams,
   signal?: AbortSignal,
 ): Promise<ApiCurrentPriceResponse> {
-  const query: Record<string, string> = { region: params.region }
-  if (params.supplier) query.supplier = params.supplier
-  if (params.limit !== undefined) query.limit = String(params.limit)
+  const query: Record<string, string> = { region: params.region };
+  if (params.supplier) query.supplier = params.supplier;
+  if (params.limit !== undefined) query.limit = String(params.limit);
 
-  return apiClient.get<ApiCurrentPriceResponse>('/prices/current', query, { signal })
+  return apiClient.get<ApiCurrentPriceResponse>("/prices/current", query, {
+    signal,
+  });
 }
 
 /**
@@ -92,15 +94,17 @@ export async function getPriceHistory(
   params: GetPriceHistoryParams,
   signal?: AbortSignal,
 ): Promise<ApiPriceHistoryResponse> {
-  const query: Record<string, string> = { region: params.region }
-  if (params.days !== undefined) query.days = String(params.days)
-  if (params.supplier) query.supplier = params.supplier
-  if (params.startDate) query.start_date = params.startDate
-  if (params.endDate) query.end_date = params.endDate
-  if (params.page !== undefined) query.page = String(params.page)
-  if (params.pageSize !== undefined) query.page_size = String(params.pageSize)
+  const query: Record<string, string> = { region: params.region };
+  if (params.days !== undefined) query.days = String(params.days);
+  if (params.supplier) query.supplier = params.supplier;
+  if (params.startDate) query.start_date = params.startDate;
+  if (params.endDate) query.end_date = params.endDate;
+  if (params.page !== undefined) query.page = String(params.page);
+  if (params.pageSize !== undefined) query.page_size = String(params.pageSize);
 
-  return apiClient.get<ApiPriceHistoryResponse>('/prices/history', query, { signal })
+  return apiClient.get<ApiPriceHistoryResponse>("/prices/history", query, {
+    signal,
+  });
 }
 
 /**
@@ -113,11 +117,13 @@ export async function getPriceForecast(
   params: GetPriceForecastParams,
   signal?: AbortSignal,
 ): Promise<ApiPriceForecastResponse> {
-  const query: Record<string, string> = { region: params.region }
-  if (params.hours !== undefined) query.hours = String(params.hours)
-  if (params.supplier) query.supplier = params.supplier
+  const query: Record<string, string> = { region: params.region };
+  if (params.hours !== undefined) query.hours = String(params.hours);
+  if (params.supplier) query.supplier = params.supplier;
 
-  return apiClient.get<ApiPriceForecastResponse>('/prices/forecast', query, { signal })
+  return apiClient.get<ApiPriceForecastResponse>("/prices/forecast", query, {
+    signal,
+  });
 }
 
 /**
@@ -130,7 +136,11 @@ export async function comparePrices(
   region: string,
   signal?: AbortSignal,
 ): Promise<ApiPriceComparisonResponse> {
-  return apiClient.get<ApiPriceComparisonResponse>('/prices/compare', { region }, { signal })
+  return apiClient.get<ApiPriceComparisonResponse>(
+    "/prices/compare",
+    { region },
+    { signal },
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -144,9 +154,9 @@ export async function comparePrices(
  * @deprecated Use getCurrentPrices({ region }) instead.
  */
 export async function getCurrentPricesLegacy(
-  region: string
+  region: string,
 ): Promise<ApiCurrentPriceResponse> {
-  return getCurrentPrices({ region })
+  return getCurrentPrices({ region });
 }
 
 /**
@@ -154,9 +164,9 @@ export async function getCurrentPricesLegacy(
  */
 export async function getPriceHistoryLegacy(
   region: string,
-  days = 7
+  days = 7,
 ): Promise<ApiPriceHistoryResponse> {
-  return getPriceHistory({ region, days })
+  return getPriceHistory({ region, days });
 }
 
 /**
@@ -164,9 +174,9 @@ export async function getPriceHistoryLegacy(
  */
 export async function getPriceForecastLegacy(
   region: string,
-  hours = 24
+  hours = 24,
 ): Promise<ApiPriceForecastResponse> {
-  return getPriceForecast({ region, hours })
+  return getPriceForecast({ region, hours });
 }
 
 /**
@@ -181,9 +191,15 @@ export async function getOptimalPeriods(
   region: string,
   hours = 24,
   signal?: AbortSignal,
-): Promise<{ periods: Array<{ start: string; end: string; avgPrice: number }> }> {
-  return apiClient.get('/prices/optimal-periods', {
-    region,
-    hours: String(hours),
-  }, { signal })
+): Promise<{
+  periods: Array<{ start: string; end: string; avgPrice: number }>;
+}> {
+  return apiClient.get(
+    "/prices/optimal-periods",
+    {
+      region,
+      hours: String(hours),
+    },
+    { signal },
+  );
 }

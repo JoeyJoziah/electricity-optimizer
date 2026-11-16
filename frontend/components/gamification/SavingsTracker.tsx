@@ -1,17 +1,17 @@
-'use client'
+"use client";
 
-import React from 'react'
-import { formatCurrency } from '@/lib/utils/format'
-import { cn } from '@/lib/utils/cn'
-import { Flame, Target } from 'lucide-react'
+import React from "react";
+import { formatCurrency } from "@/lib/utils/format";
+import { cn } from "@/lib/utils/cn";
+import { Flame, Target } from "lucide-react";
 
 interface SavingsTrackerProps {
-  dailySavings: number
-  weeklySavings: number
-  monthlySavings: number
-  streakDays: number
-  bestStreak: number
-  optimizationScore: number // 0-100
+  dailySavings: number;
+  weeklySavings: number;
+  monthlySavings: number;
+  streakDays: number;
+  bestStreak: number;
+  optimizationScore: number; // 0-100
 }
 
 export function SavingsTracker({
@@ -24,19 +24,19 @@ export function SavingsTracker({
 }: SavingsTrackerProps) {
   const streakLevel =
     streakDays >= 30
-      ? 'legendary'
+      ? "legendary"
       : streakDays >= 14
-        ? 'gold'
+        ? "gold"
         : streakDays >= 7
-          ? 'silver'
-          : 'bronze'
+          ? "silver"
+          : "bronze";
 
   const streakColors = {
-    bronze: 'text-amber-600 bg-amber-50 border-amber-200',
-    silver: 'text-gray-500 bg-gray-50 border-gray-200',
-    gold: 'text-yellow-600 bg-yellow-50 border-yellow-200',
-    legendary: 'text-purple-600 bg-purple-50 border-purple-200',
-  }
+    bronze: "text-amber-600 bg-amber-50 border-amber-200",
+    silver: "text-gray-500 bg-gray-50 border-gray-200",
+    gold: "text-yellow-600 bg-yellow-50 border-yellow-200",
+    legendary: "text-purple-600 bg-purple-50 border-purple-200",
+  };
 
   return (
     <div className="space-y-4" data-testid="savings-tracker">
@@ -67,8 +67,8 @@ export function SavingsTracker({
         {/* Streak */}
         <div
           className={cn(
-            'flex flex-1 items-center gap-2 rounded-lg border p-3',
-            streakColors[streakLevel]
+            "flex flex-1 items-center gap-2 rounded-lg border p-3",
+            streakColors[streakLevel],
           )}
         >
           <Flame className="h-5 w-5" />
@@ -106,5 +106,5 @@ export function SavingsTracker({
         </div>
       </div>
     </div>
-  )
+  );
 }

@@ -61,7 +61,7 @@ describe("checkRateLimit", () => {
         RATE_LIMITER_STRICT: makeBinding(true),
       });
       const req = makeRequest({ "X-RateLimit-Bypass": "bypass-key-abc" });
-      const result = await checkRateLimit("1.2.3.4", "strict", req, env);
+      await checkRateLimit("1.2.3.4", "strict", req, env);
       // bypass key is only honored on internal tier — strict binding must be called
       expect((env.RATE_LIMITER_STRICT.limit as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
     });

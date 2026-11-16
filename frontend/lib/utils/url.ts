@@ -16,10 +16,10 @@
  */
 export function isSafeRedirect(url: string): boolean {
   try {
-    const parsed = new URL(url, window.location.origin)
-    return parsed.origin === window.location.origin
+    const parsed = new URL(url, window.location.origin);
+    return parsed.origin === window.location.origin;
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -33,11 +33,11 @@ export function isSafeRedirect(url: string): boolean {
  */
 export function isSafeHref(href: string): boolean {
   try {
-    const parsed = new URL(href)
-    return parsed.protocol === 'https:' || parsed.protocol === 'http:'
+    const parsed = new URL(href);
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
   } catch {
     // Relative URLs or malformed strings — reject
-    return false
+    return false;
   }
 }
 
@@ -50,15 +50,18 @@ export function isSafeHref(href: string): boolean {
  */
 export function isSafeOAuthRedirect(
   url: string,
-  allowedExternalOrigins: string[]
+  allowedExternalOrigins: string[],
 ): boolean {
   try {
-    const parsed = new URL(url)
+    const parsed = new URL(url);
     // Same-origin is always safe (handles dev http too)
-    if (parsed.origin === window.location.origin) return true
+    if (parsed.origin === window.location.origin) return true;
     // External origins: must be https and explicitly whitelisted
-    return parsed.protocol === 'https:' && allowedExternalOrigins.includes(parsed.origin)
+    return (
+      parsed.protocol === "https:" &&
+      allowedExternalOrigins.includes(parsed.origin)
+    );
   } catch {
-    return false
+    return false;
   }
 }

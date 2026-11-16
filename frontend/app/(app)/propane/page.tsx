@@ -1,6 +1,6 @@
-import { PropaneDashboard } from '@/components/propane/PropaneDashboard'
+import { PropaneDashboard } from "@/components/propane/PropaneDashboard";
 
-export const metadata = { title: 'Propane Prices | RateShift' }
+export const metadata = { title: "Propane Prices | RateShift" };
 
 export default function PropanePage() {
   return (
@@ -15,5 +15,5 @@ export default function PropanePage() {
         <PropaneDashboard />
       </div>
     </div>
-  )
+  );
 }

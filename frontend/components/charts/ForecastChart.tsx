@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import React, { useMemo } from 'react'
+import React, { useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -10,15 +10,15 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
-} from 'recharts'
-import { format, addHours } from 'date-fns'
-import { cn } from '@/lib/utils/cn'
-import { formatCurrency } from '@/lib/utils/format'
-import type { PriceForecast } from '@/types'
-import type { ApiPriceForecastModel } from '@/types/generated/api'
-import { chartColor, chartTooltipStyle } from '@/lib/constants/chartTokens'
+} from "recharts";
+import { format, addHours } from "date-fns";
+import { cn } from "@/lib/utils/cn";
+import { formatCurrency } from "@/lib/utils/format";
+import type { PriceForecast } from "@/types";
+import type { ApiPriceForecastModel } from "@/types/generated/api";
+import { chartColor, chartTooltipStyle } from "@/lib/constants/chartTokens";
 
-const CHART_MARGIN = { top: 10, right: 30, left: 0, bottom: 0 }
+const CHART_MARGIN = { top: 10, right: 30, left: 0, bottom: 0 };
 
 export interface ForecastChartProps {
   /**
@@ -27,204 +27,204 @@ export interface ForecastChartProps {
    *  - ApiPriceForecastModel — backend response object (prices[] with price_per_kwh DecimalStr)
    *  - Record<string, unknown> — fallback for any other object shape
    */
-  forecast: PriceForecast[] | ApiPriceForecastModel | Record<string, unknown>
-  showConfidence?: boolean
-  currentPrice?: number
-  height?: number
-  className?: string
+  forecast: PriceForecast[] | ApiPriceForecastModel | Record<string, unknown>;
+  showConfidence?: boolean;
+  currentPrice?: number;
+  height?: number;
+  className?: string;
 }
 
-export const ForecastChart: React.FC<ForecastChartProps> = React.memo(({
-  forecast: rawForecast,
-  showConfidence = true,
-  currentPrice,
-  height = 250,
-  className,
-}) => {
-  // Normalize forecast data: handle both frontend array and backend ApiPriceForecastModel shapes
-  const forecast: PriceForecast[] = useMemo(() => {
-    if (Array.isArray(rawForecast)) return rawForecast as PriceForecast[]
-    // Backend ApiPriceForecastModel: { prices: ApiPrice[], confidence: number, ... }
-    // price_per_kwh on ApiPrice is a Decimal string — parseFloat before arithmetic
-    const obj = rawForecast as Record<string, unknown>
-    const prices = (obj.prices || []) as Array<Record<string, unknown>>
-    return prices.map((p, i) => {
-      const rawVal = p.price_per_kwh ?? p.price ?? '0'
-      const priceVal = typeof rawVal === 'string' ? parseFloat(rawVal) : Number(rawVal)
-      return {
-        hour: i + 1,
-        price: priceVal,
-        confidence: [priceVal * 0.85, priceVal * 1.15] as [number, number],
-        timestamp: (p.timestamp as string) || new Date().toISOString(),
-      }
-    })
-  }, [rawForecast])
+export const ForecastChart: React.FC<ForecastChartProps> = React.memo(
+  ({
+    forecast: rawForecast,
+    showConfidence = true,
+    currentPrice,
+    height = 250,
+    className,
+  }) => {
+    // Normalize forecast data: handle both frontend array and backend ApiPriceForecastModel shapes
+    const forecast: PriceForecast[] = useMemo(() => {
+      if (Array.isArray(rawForecast)) return rawForecast as PriceForecast[];
+      // Backend ApiPriceForecastModel: { prices: ApiPrice[], confidence: number, ... }
+      // price_per_kwh on ApiPrice is a Decimal string — parseFloat before arithmetic
+      const obj = rawForecast as Record<string, unknown>;
+      const prices = (obj.prices || []) as Array<Record<string, unknown>>;
+      return prices.map((p, i) => {
+        const rawVal = p.price_per_kwh ?? p.price ?? "0";
+        const priceVal =
+          typeof rawVal === "string" ? parseFloat(rawVal) : Number(rawVal);
+        return {
+          hour: i + 1,
+          price: priceVal,
+          confidence: [priceVal * 0.85, priceVal * 1.15] as [number, number],
+          timestamp: (p.timestamp as string) || new Date().toISOString(),
+        };
+      });
+    }, [rawForecast]);
 
-  const chartData = useMemo(() => {
-    const now = new Date()
-    return forecast.map((point) => ({
-      ...point,
-      time: addHours(now, point.hour).toISOString(),
-      formattedTime: format(addHours(now, point.hour), 'HH:mm'),
-      confidenceLow: point.confidence[0],
-      confidenceHigh: point.confidence[1],
-    }))
-  }, [forecast])
+    const chartData = useMemo(() => {
+      const now = new Date();
+      return forecast.map((point) => ({
+        ...point,
+        time: addHours(now, point.hour).toISOString(),
+        formattedTime: format(addHours(now, point.hour), "HH:mm"),
+        confidenceLow: point.confidence[0],
+        confidenceHigh: point.confidence[1],
+      }));
+    }, [forecast]);
 
-  // Calculate average forecast price
-  const avgForecast = useMemo(() => {
-    if (forecast.length === 0) return 0
-    return forecast.reduce((sum, f) => sum + f.price, 0) / forecast.length
-  }, [forecast])
+    // Calculate average forecast price
+    const avgForecast = useMemo(() => {
+      if (forecast.length === 0) return 0;
+      return forecast.reduce((sum, f) => sum + f.price, 0) / forecast.length;
+    }, [forecast]);
 
-  // Find lowest price period
-  const lowestPricePeriod = useMemo(() => {
-    if (forecast.length === 0) return null
-    const lowest = forecast.reduce((min, f) => (f.price < min.price ? f : min))
-    return lowest
-  }, [forecast])
+    // Find lowest price period
+    const lowestPricePeriod = useMemo(() => {
+      if (forecast.length === 0) return null;
+      const lowest = forecast.reduce((min, f) =>
+        f.price < min.price ? f : min,
+      );
+      return lowest;
+    }, [forecast]);
 
-  if (forecast.length === 0) {
+    if (forecast.length === 0) {
+      return (
+        <div
+          className={cn(
+            "flex h-48 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50",
+            className,
+          )}
+        >
+          <p className="text-gray-500">No forecast data available</p>
+        </div>
+      );
+    }
+
     return (
-      <div
-        className={cn(
-          'flex h-48 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50',
-          className
-        )}
-      >
-        <p className="text-gray-500">No forecast data available</p>
-      </div>
-    )
-  }
+      <div className={cn("", className)}>
+        {/* Header */}
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-semibold text-gray-900">24-Hour Forecast</h3>
+          {lowestPricePeriod && (
+            <div className="text-sm">
+              Lowest at{" "}
+              <span className="font-medium text-success-600">
+                {format(addHours(new Date(), lowestPricePeriod.hour), "HH:mm")}
+              </span>
+              {" - "}
+              {formatCurrency(lowestPricePeriod.price)}
+            </div>
+          )}
+        </div>
 
-  return (
-    <div className={cn('', className)}>
-      {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900">24-Hour Forecast</h3>
-        {lowestPricePeriod && (
-          <div className="text-sm">
-            Lowest at{' '}
-            <span className="font-medium text-success-600">
-              {format(
-                addHours(new Date(), lowestPricePeriod.hour),
-                'HH:mm'
-              )}
-            </span>
-            {' - '}
-            {formatCurrency(lowestPricePeriod.price)}
-          </div>
-        )}
-      </div>
-
-      {/* Chart */}
-      <div style={{ height }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={chartData}
-            margin={CHART_MARGIN}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke={chartColor.grid} />
-            <XAxis
-              dataKey="formattedTime"
-              stroke={chartColor.axis}
-              fontSize={12}
-              tickLine={false}
-            />
-            <YAxis
-              stroke={chartColor.axis}
-              fontSize={12}
-              tickLine={false}
-              tickFormatter={(value) => formatCurrency(value)}
-            />
-            <Tooltip
-              contentStyle={chartTooltipStyle}
-              formatter={(value, name) => {
-                const v = Number(value)
-                if (name === 'price') return [formatCurrency(v), 'Forecast']
-                if (name === 'confidenceHigh') return [formatCurrency(v), 'Upper bound']
-                return [formatCurrency(v), 'Lower bound']
-              }}
-            />
-
-            {/* Confidence interval */}
-            {showConfidence && (
-              <>
-                <Area
-                  type="monotone"
-                  dataKey="confidenceHigh"
-                  stackId="confidence"
-                  stroke="none"
-                  fill={chartColor.confidence}
-                  fillOpacity={0.2}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="confidenceLow"
-                  stackId="confidence"
-                  stroke="none"
-                  fill={chartColor.tooltipBg}
-                  fillOpacity={1}
-                />
-              </>
-            )}
-
-            {/* Forecast line */}
-            <Area
-              type="monotone"
-              dataKey="price"
-              stroke={chartColor.warning}
-              strokeWidth={2}
-              fill={chartColor.confidence}
-              fillOpacity={0.3}
-            />
-
-            {/* Current price reference */}
-            {currentPrice && (
-              <ReferenceLine
-                y={currentPrice}
-                stroke={chartColor.primary}
-                strokeDasharray="5 5"
-                label={{
-                  value: `Current: ${formatCurrency(currentPrice)}`,
-                  position: 'left',
-                  fill: chartColor.primary,
-                  fontSize: 12,
+        {/* Chart */}
+        <div style={{ height }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData} margin={CHART_MARGIN}>
+              <CartesianGrid strokeDasharray="3 3" stroke={chartColor.grid} />
+              <XAxis
+                dataKey="formattedTime"
+                stroke={chartColor.axis}
+                fontSize={12}
+                tickLine={false}
+              />
+              <YAxis
+                stroke={chartColor.axis}
+                fontSize={12}
+                tickLine={false}
+                tickFormatter={(value) => formatCurrency(value)}
+              />
+              <Tooltip
+                contentStyle={chartTooltipStyle}
+                formatter={(value, name) => {
+                  const v = Number(value);
+                  if (name === "price") return [formatCurrency(v), "Forecast"];
+                  if (name === "confidenceHigh")
+                    return [formatCurrency(v), "Upper bound"];
+                  return [formatCurrency(v), "Lower bound"];
                 }}
               />
-            )}
 
-            {/* Average line */}
-            <ReferenceLine
-              y={avgForecast}
-              stroke={chartColor.axis}
-              strokeDasharray="3 3"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+              {/* Confidence interval */}
+              {showConfidence && (
+                <>
+                  <Area
+                    type="monotone"
+                    dataKey="confidenceHigh"
+                    stackId="confidence"
+                    stroke="none"
+                    fill={chartColor.confidence}
+                    fillOpacity={0.2}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="confidenceLow"
+                    stackId="confidence"
+                    stroke="none"
+                    fill={chartColor.tooltipBg}
+                    fillOpacity={1}
+                  />
+                </>
+              )}
 
-      {/* Legend */}
-      <div className="mt-2 flex items-center justify-center gap-6 text-sm text-gray-600">
-        <div className="flex items-center gap-2">
-          <div className="h-0.5 w-4 bg-warning-500" />
-          <span>Forecast</span>
+              {/* Forecast line */}
+              <Area
+                type="monotone"
+                dataKey="price"
+                stroke={chartColor.warning}
+                strokeWidth={2}
+                fill={chartColor.confidence}
+                fillOpacity={0.3}
+              />
+
+              {/* Current price reference */}
+              {currentPrice && (
+                <ReferenceLine
+                  y={currentPrice}
+                  stroke={chartColor.primary}
+                  strokeDasharray="5 5"
+                  label={{
+                    value: `Current: ${formatCurrency(currentPrice)}`,
+                    position: "left",
+                    fill: chartColor.primary,
+                    fontSize: 12,
+                  }}
+                />
+              )}
+
+              {/* Average line */}
+              <ReferenceLine
+                y={avgForecast}
+                stroke={chartColor.axis}
+                strokeDasharray="3 3"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
-        {showConfidence && (
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-4 bg-warning-200 opacity-50" />
-            <span>Confidence interval</span>
-          </div>
-        )}
-        {currentPrice && (
-          <div className="flex items-center gap-2">
-            <div className="h-0.5 w-4 border-t-2 border-dashed border-primary-500" />
-            <span>Current price</span>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-})
 
-ForecastChart.displayName = 'ForecastChart'
+        {/* Legend */}
+        <div className="mt-2 flex items-center justify-center gap-6 text-sm text-gray-600">
+          <div className="flex items-center gap-2">
+            <div className="h-0.5 w-4 bg-warning-500" />
+            <span>Forecast</span>
+          </div>
+          {showConfidence && (
+            <div className="flex items-center gap-2">
+              <div className="h-3 w-4 bg-warning-200 opacity-50" />
+              <span>Confidence interval</span>
+            </div>
+          )}
+          {currentPrice && (
+            <div className="flex items-center gap-2">
+              <div className="h-0.5 w-4 border-t-2 border-dashed border-primary-500" />
+              <span>Current price</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  },
+);
+
+ForecastChart.displayName = "ForecastChart";

@@ -1,16 +1,16 @@
-'use client'
+"use client";
 
-import React from 'react'
+import React from "react";
 
 export interface ErrorBoundaryProps {
-  children: React.ReactNode
-  fallback?: React.ReactNode
-  onError?: (error: Error, errorInfo: React.ErrorInfo) => void
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
 }
 
 interface ErrorBoundaryState {
-  hasError: boolean
-  error: Error | null
+  hasError: boolean;
+  error: Error | null;
 }
 
 export class ErrorBoundary extends React.Component<
@@ -18,29 +18,29 @@ export class ErrorBoundary extends React.Component<
   ErrorBoundaryState
 > {
   constructor(props: ErrorBoundaryProps) {
-    super(props)
-    this.state = { hasError: false, error: null }
+    super(props);
+    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error }
+    return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('[ErrorBoundary] Caught error:', error, errorInfo)
+    if (process.env.NODE_ENV === "development") {
+      console.error("[ErrorBoundary] Caught error:", error, errorInfo);
     }
-    this.props.onError?.(error, errorInfo)
+    this.props.onError?.(error, errorInfo);
   }
 
   handleReset = (): void => {
-    this.setState({ hasError: false, error: null })
-  }
+    this.setState({ hasError: false, error: null });
+  };
 
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
-        return this.props.fallback
+        return this.props.fallback;
       }
 
       return (
@@ -68,7 +68,7 @@ export class ErrorBoundary extends React.Component<
               Something went wrong
             </h3>
             <p className="mt-1 text-xs text-danger-600">
-              {this.state.error?.message || 'An unexpected error occurred'}
+              {this.state.error?.message || "An unexpected error occurred"}
             </p>
             <button
               onClick={this.handleReset}
@@ -78,9 +78,9 @@ export class ErrorBoundary extends React.Component<
             </button>
           </div>
         </div>
-      )
+      );
     }
 
-    return this.props.children
+    return this.props.children;
   }
 }

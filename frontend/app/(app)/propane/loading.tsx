@@ -1,4 +1,4 @@
-import { Skeleton, ChartSkeleton } from '@/components/ui/skeleton'
+import { Skeleton, ChartSkeleton } from "@/components/ui/skeleton";
 
 export default function PropaneLoading() {
   return (
@@ -20,5 +20,5 @@ export default function PropaneLoading() {
         <Skeleton variant="rectangular" height={160} />
       </div>
     </div>
-  )
+  );
 }

@@ -1,5 +1,5 @@
-import React from 'react'
-import { Button } from '@/components/ui/button'
+import React from "react";
+import { Button } from "@/components/ui/button";
 import {
   CheckCircle2,
   AlertCircle,
@@ -9,15 +9,15 @@ import {
   DollarSign,
   Gauge,
   File,
-} from 'lucide-react'
-import { ExtractedField } from './ExtractedField'
-import { formatDate, formatCurrency } from './BillUploadTypes'
-import type { ExtractedData } from './BillUploadTypes'
+} from "lucide-react";
+import { ExtractedField } from "./ExtractedField";
+import { formatDate, formatCurrency } from "./BillUploadTypes";
+import type { ExtractedData } from "./BillUploadTypes";
 
 interface BillUploadSuccessProps {
-  extractedData: ExtractedData
-  onComplete: () => void
-  onClearFile: () => void
+  extractedData: ExtractedData;
+  onComplete: () => void;
+  onClearFile: () => void;
 }
 
 export function BillUploadSuccess({
@@ -50,14 +50,13 @@ export function BillUploadSuccess({
             value={extractedData.supplier_name}
           />
         )}
-        {extractedData.period_start &&
-          extractedData.period_end && (
-            <ExtractedField
-              icon={Calendar}
-              label="Period"
-              value={`${formatDate(extractedData.period_start)} - ${formatDate(extractedData.period_end)}`}
-            />
-          )}
+        {extractedData.period_start && extractedData.period_end && (
+          <ExtractedField
+            icon={Calendar}
+            label="Period"
+            value={`${formatDate(extractedData.period_start)} - ${formatDate(extractedData.period_end)}`}
+          />
+        )}
         {extractedData.usage_kwh !== null && (
           <ExtractedField
             icon={Gauge}
@@ -69,38 +68,28 @@ export function BillUploadSuccess({
           <ExtractedField
             icon={DollarSign}
             label="Amount"
-            value={formatCurrency(
-              extractedData.amount,
-              extractedData.currency
-            )}
+            value={formatCurrency(extractedData.amount, extractedData.currency)}
           />
         )}
       </div>
 
       <div className="flex items-center gap-3 pt-2">
-        <Button
-          variant="primary"
-          className="flex-1"
-          onClick={onComplete}
-        >
+        <Button variant="primary" className="flex-1" onClick={onComplete}>
           <CheckCircle2 className="h-4 w-4" />
           Done
         </Button>
-        <Button
-          variant="outline"
-          onClick={onClearFile}
-        >
+        <Button variant="outline" onClick={onClearFile}>
           Upload Another
         </Button>
       </div>
     </div>
-  )
+  );
 }
 
 interface BillUploadFailureProps {
-  errorMessage: string | null
-  onRetry: () => void
-  onClearFile: () => void
+  errorMessage: string | null;
+  onRetry: () => void;
+  onClearFile: () => void;
 }
 
 export function BillUploadFailure({
@@ -118,7 +107,7 @@ export function BillUploadFailure({
           </p>
           <p className="mt-1 text-sm text-danger-600">
             {errorMessage ||
-              'We could not extract data from this file. Please ensure it is a clear utility bill.'}
+              "We could not extract data from this file. Please ensure it is a clear utility bill."}
           </p>
         </div>
       </div>
@@ -127,13 +116,10 @@ export function BillUploadFailure({
           <RotateCcw className="h-4 w-4" />
           Retry Upload
         </Button>
-        <Button
-          variant="outline"
-          onClick={onClearFile}
-        >
+        <Button variant="outline" onClick={onClearFile}>
           Choose Different File
         </Button>
       </div>
     </div>
-  )
+  );
 }

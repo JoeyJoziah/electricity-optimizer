@@ -1,79 +1,87 @@
-import { render, screen, fireEvent, act } from '@testing-library/react'
-import { InstallPrompt } from '@/components/pwa/InstallPrompt'
+import { render, screen, fireEvent, act } from "@testing-library/react";
+import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 
 // Storage mock helpers
 const localStorageMock = (() => {
-  let store: Record<string, string> = {}
+  let store: Record<string, string> = {};
   return {
     getItem: (key: string) => store[key] ?? null,
-    setItem: (key: string, value: string) => { store[key] = value },
-    removeItem: (key: string) => { delete store[key] },
-    clear: () => { store = {} },
-  }
-})()
+    setItem: (key: string, value: string) => {
+      store[key] = value;
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
+  };
+})();
 
-Object.defineProperty(window, 'localStorage', { value: localStorageMock })
+Object.defineProperty(window, "localStorage", { value: localStorageMock });
 
-describe('InstallPrompt', () => {
+describe("InstallPrompt", () => {
   beforeEach(() => {
-    localStorageMock.clear()
-  })
+    localStorageMock.clear();
+  });
 
-  it('does not render on first visit', () => {
-    render(<InstallPrompt />)
-    expect(screen.queryByTestId('install-prompt')).toBeNull()
-  })
+  it("does not render on first visit", () => {
+    render(<InstallPrompt />);
+    expect(screen.queryByTestId("install-prompt")).toBeNull();
+  });
 
-  it('does not render on second visit without beforeinstallprompt', () => {
-    localStorageMock.setItem('rateshift_visit_count', '1')
-    render(<InstallPrompt />)
-    expect(screen.queryByTestId('install-prompt')).toBeNull()
-  })
+  it("does not render on second visit without beforeinstallprompt", () => {
+    localStorageMock.setItem("rateshift_visit_count", "1");
+    render(<InstallPrompt />);
+    expect(screen.queryByTestId("install-prompt")).toBeNull();
+  });
 
-  it('renders after 2nd visit when beforeinstallprompt fires', async () => {
-    localStorageMock.setItem('rateshift_visit_count', '1')
+  it("renders after 2nd visit when beforeinstallprompt fires", async () => {
+    localStorageMock.setItem("rateshift_visit_count", "1");
 
-    render(<InstallPrompt />)
+    render(<InstallPrompt />);
 
     // Simulate the browser event
     await act(async () => {
-      const event = new Event('beforeinstallprompt', { cancelable: true })
-      window.dispatchEvent(event)
-    })
+      const event = new Event("beforeinstallprompt", { cancelable: true });
+      window.dispatchEvent(event);
+    });
 
-    expect(screen.getByTestId('install-prompt')).toBeTruthy()
-    expect(screen.getByText('Install RateShift')).toBeTruthy()
-  })
+    expect(screen.getByTestId("install-prompt")).toBeTruthy();
+    expect(screen.getByText("Install RateShift")).toBeTruthy();
+  });
 
-  it('dismisses and persists dismissal', async () => {
-    localStorageMock.setItem('rateshift_visit_count', '1')
+  it("dismisses and persists dismissal", async () => {
+    localStorageMock.setItem("rateshift_visit_count", "1");
 
-    render(<InstallPrompt />)
+    render(<InstallPrompt />);
 
     await act(async () => {
-      const event = new Event('beforeinstallprompt', { cancelable: true })
-      window.dispatchEvent(event)
-    })
+      const event = new Event("beforeinstallprompt", { cancelable: true });
+      window.dispatchEvent(event);
+    });
 
-    expect(screen.getByTestId('install-prompt')).toBeTruthy()
+    expect(screen.getByTestId("install-prompt")).toBeTruthy();
 
-    fireEvent.click(screen.getByLabelText('Dismiss install prompt'))
+    fireEvent.click(screen.getByLabelText("Dismiss install prompt"));
 
-    expect(screen.queryByTestId('install-prompt')).toBeNull()
-    expect(localStorageMock.getItem('rateshift_install_dismissed')).toBe('true')
-  })
+    expect(screen.queryByTestId("install-prompt")).toBeNull();
+    expect(localStorageMock.getItem("rateshift_install_dismissed")).toBe(
+      "true",
+    );
+  });
 
-  it('does not render when previously dismissed', () => {
-    localStorageMock.setItem('rateshift_visit_count', '5')
-    localStorageMock.setItem('rateshift_install_dismissed', 'true')
+  it("does not render when previously dismissed", () => {
+    localStorageMock.setItem("rateshift_visit_count", "5");
+    localStorageMock.setItem("rateshift_install_dismissed", "true");
 
-    render(<InstallPrompt />)
-    expect(screen.queryByTestId('install-prompt')).toBeNull()
-  })
+    render(<InstallPrompt />);
+    expect(screen.queryByTestId("install-prompt")).toBeNull();
+  });
 
-  it('increments visit counter', () => {
-    localStorageMock.setItem('rateshift_visit_count', '3')
-    render(<InstallPrompt />)
-    expect(localStorageMock.getItem('rateshift_visit_count')).toBe('4')
-  })
-})
+  it("increments visit counter", () => {
+    localStorageMock.setItem("rateshift_visit_count", "3");
+    render(<InstallPrompt />);
+    expect(localStorageMock.getItem("rateshift_visit_count")).toBe("4");
+  });
+});

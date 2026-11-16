@@ -1,59 +1,64 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   fetchPosts,
   createPost,
   toggleVote,
   reportPost,
   fetchCommunityStats,
-} from '../api/community'
-import type { CreatePostPayload } from '../api/community'
+} from "@/lib/api/community";
+import type { CreatePostPayload } from "@/lib/api/community";
 
-export function useCommunityPosts(region?: string, utilityType?: string, page = 1) {
+export function useCommunityPosts(
+  region?: string,
+  utilityType?: string,
+  page = 1,
+) {
   return useQuery({
-    queryKey: ['community', 'posts', region, utilityType, page],
-    queryFn: ({ signal }) => fetchPosts(region!, utilityType!, page, 20, signal),
+    queryKey: ["community", "posts", region, utilityType, page],
+    queryFn: ({ signal }) =>
+      fetchPosts(region!, utilityType!, page, 20, signal),
     enabled: !!region && !!utilityType,
     staleTime: 1000 * 60 * 2, // 2 min
-  })
+  });
 }
 
 export function useCreatePost() {
-  const qc = useQueryClient()
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: CreatePostPayload) => createPost(data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['community', 'posts'] })
-      qc.invalidateQueries({ queryKey: ['community', 'stats'] })
+      qc.invalidateQueries({ queryKey: ["community", "posts"] });
+      qc.invalidateQueries({ queryKey: ["community", "stats"] });
     },
-  })
+  });
 }
 
 export function useToggleVote() {
-  const qc = useQueryClient()
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (postId: string) => toggleVote(postId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['community', 'posts'] })
+      qc.invalidateQueries({ queryKey: ["community", "posts"] });
     },
-  })
+  });
 }
 
 export function useReportPost() {
-  const qc = useQueryClient()
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ postId, reason }: { postId: string; reason?: string }) =>
       reportPost(postId, reason),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['community', 'posts'] })
+      qc.invalidateQueries({ queryKey: ["community", "posts"] });
     },
-  })
+  });
 }
 
 export function useCommunityStats(region?: string) {
   return useQuery({
-    queryKey: ['community', 'stats', region],
+    queryKey: ["community", "stats", region],
     queryFn: ({ signal }) => fetchCommunityStats(region!, signal),
     enabled: !!region,
     staleTime: 1000 * 60 * 5,
-  })
+  });
 }

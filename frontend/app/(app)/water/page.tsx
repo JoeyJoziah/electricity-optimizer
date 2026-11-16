@@ -1,6 +1,6 @@
-import { WaterDashboard } from '@/components/water/WaterDashboard'
+import { WaterDashboard } from "@/components/water/WaterDashboard";
 
-export const metadata = { title: 'Water Rates | RateShift' }
+export const metadata = { title: "Water Rates | RateShift" };
 
 export default function WaterPage() {
   return (
@@ -15,5 +15,5 @@ export default function WaterPage() {
         <WaterDashboard />
       </div>
     </div>
-  )
+  );
 }

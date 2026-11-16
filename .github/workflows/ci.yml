@@ -228,6 +228,9 @@ jobs:
       - name: Type check
         run: cd frontend && npm run type-check
 
+      - name: Format check
+        run: cd frontend && npm run format:check
+
   frontend-test:
     name: Frontend Test
     needs: changes

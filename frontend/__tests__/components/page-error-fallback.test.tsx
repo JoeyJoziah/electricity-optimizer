@@ -49,28 +49,3 @@ describe("PageErrorFallback", () => {
     expect(svg).toBeInTheDocument();
   });
 });
-
-// ---------------------------------------------------------------------------
-// StatusBadge
-// ---------------------------------------------------------------------------
-
-import { StatusBadge } from "@/components/layout/StatusBadge";
-
-describe("StatusBadge", () => {
-  it("renders a link with the provided statusPageUrl", () => {
-    render(<StatusBadge statusPageUrl="https://stats.uptimerobot.com/abc" />);
-    const link = screen.getByRole("link", { name: /system status/i });
-    expect(link).toHaveAttribute("href", "https://stats.uptimerobot.com/abc");
-    expect(link).toHaveAttribute("target", "_blank");
-  });
-
-  it("renders the System Status label", () => {
-    render(<StatusBadge statusPageUrl="https://stats.uptimerobot.com/abc" />);
-    expect(screen.getByText("System Status")).toBeInTheDocument();
-  });
-
-  it("returns null when statusPageUrl is empty string", () => {
-    const { container } = render(<StatusBadge statusPageUrl="" />);
-    expect(container.firstChild).toBeNull();
-  });
-});

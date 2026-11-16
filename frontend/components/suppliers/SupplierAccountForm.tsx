@@ -1,46 +1,46 @@
-'use client'
+"use client";
 
-import React, { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input, Checkbox } from '@/components/ui/input'
-import { Shield, HelpCircle, Link2 } from 'lucide-react'
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input, Checkbox } from "@/components/ui/input";
+import { Shield, HelpCircle, Link2 } from "lucide-react";
 
 interface SupplierAccountFormProps {
-  supplierId: string
-  supplierName: string
-  defaultZip?: string
+  supplierId: string;
+  supplierName: string;
+  defaultZip?: string;
   onSubmit: (data: {
-    supplierId: string
-    accountNumber: string
-    meterNumber?: string
-    serviceZip?: string
-    accountNickname?: string
-    consentGiven: boolean
-  }) => Promise<void>
-  isLoading?: boolean
+    supplierId: string;
+    accountNumber: string;
+    meterNumber?: string;
+    serviceZip?: string;
+    accountNickname?: string;
+    consentGiven: boolean;
+  }) => Promise<void>;
+  isLoading?: boolean;
 }
 
 export const SupplierAccountForm: React.FC<SupplierAccountFormProps> = ({
   supplierId,
   supplierName,
-  defaultZip = '',
+  defaultZip = "",
   onSubmit,
   isLoading = false,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [accountNumber, setAccountNumber] = useState('')
-  const [meterNumber, setMeterNumber] = useState('')
-  const [serviceZip, setServiceZip] = useState(defaultZip)
-  const [nickname, setNickname] = useState('')
-  const [consent, setConsent] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [accountNumber, setAccountNumber] = useState("");
+  const [meterNumber, setMeterNumber] = useState("");
+  const [serviceZip, setServiceZip] = useState(defaultZip);
+  const [nickname, setNickname] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const accountNumberValid = /^[A-Za-z0-9\-\s]{4,30}$/.test(accountNumber)
-  const canSubmit = accountNumberValid && consent && !isLoading
+  const accountNumberValid = /^[A-Za-z0-9\-\s]{4,30}$/.test(accountNumber);
+  const canSubmit = accountNumberValid && consent && !isLoading;
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault();
+    setError(null);
 
     try {
       const result = Promise.race([
@@ -53,31 +53,37 @@ export const SupplierAccountForm: React.FC<SupplierAccountFormProps> = ({
           consentGiven: consent,
         }),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Request timed out. Please try again.')), 15000)
+          setTimeout(
+            () => reject(new Error("Request timed out. Please try again.")),
+            15000,
+          ),
         ),
-      ])
-      await result
-      setIsExpanded(false)
+      ]);
+      await result;
+      setIsExpanded(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to link account. Please try again.')
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to link account. Please try again.",
+      );
     }
-  }
+  };
 
   if (!isExpanded) {
     return (
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setIsExpanded(true)}
-      >
+      <Button variant="outline" size="sm" onClick={() => setIsExpanded(true)}>
         <Link2 className="mr-2 h-4 w-4" />
         Link Account
       </Button>
-    )
+    );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 space-y-4 rounded-lg border border-gray-200 p-4">
+    <form
+      onSubmit={handleSubmit}
+      className="mt-4 space-y-4 rounded-lg border border-gray-200 p-4"
+    >
       <div className="flex items-center justify-between">
         <h4 className="font-medium text-gray-900">
           Link Your {supplierName} Account
@@ -101,10 +107,14 @@ export const SupplierAccountForm: React.FC<SupplierAccountFormProps> = ({
         autoComplete="off"
         helperText={
           accountNumber && !accountNumberValid
-            ? 'Must be 4-30 characters (letters, numbers, hyphens, spaces)'
+            ? "Must be 4-30 characters (letters, numbers, hyphens, spaces)"
             : undefined
         }
-        error={accountNumber.length > 0 && !accountNumberValid ? 'Must be 4-30 characters (letters, numbers, hyphens, spaces)' : undefined}
+        error={
+          accountNumber.length > 0 && !accountNumberValid
+            ? "Must be 4-30 characters (letters, numbers, hyphens, spaces)"
+            : undefined
+        }
       />
 
       <Input
@@ -136,8 +146,9 @@ export const SupplierAccountForm: React.FC<SupplierAccountFormProps> = ({
         <div className="flex items-start gap-2">
           <Shield className="mt-0.5 h-4 w-4 text-primary-600" />
           <p className="text-xs text-gray-500">
-            Your account number is encrypted with AES-256-GCM and stored securely.
-            It will only be used to link your utility account. You can remove it at any time.
+            Your account number is encrypted with AES-256-GCM and stored
+            securely. It will only be used to link your utility account. You can
+            remove it at any time.
           </p>
         </div>
         <div className="mt-3">
@@ -150,9 +161,7 @@ export const SupplierAccountForm: React.FC<SupplierAccountFormProps> = ({
         </div>
       </div>
 
-      {error && (
-        <p className="text-sm text-danger-600">{error}</p>
-      )}
+      {error && <p className="text-sm text-danger-600">{error}</p>}
 
       <Button
         type="submit"
@@ -169,5 +178,5 @@ export const SupplierAccountForm: React.FC<SupplierAccountFormProps> = ({
         Find your account number on your utility bill or online portal
       </p>
     </form>
-  )
-}
+  );
+};

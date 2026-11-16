@@ -8,31 +8,31 @@
  * - mark all notifications as read (client-side batch)
  */
 
-import { apiClient } from './client'
+import { apiClient } from "./client";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 export interface Notification {
-  id: string
-  type: string
-  title: string
-  body: string | null
-  created_at: string
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  created_at: string;
 }
 
 export interface GetNotificationsResponse {
-  notifications: Notification[]
-  total: number
+  notifications: Notification[];
+  total: number;
 }
 
 export interface GetNotificationCountResponse {
-  unread: number
+  unread: number;
 }
 
 export interface MarkReadResponse {
-  success: boolean
+  success: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -42,24 +42,36 @@ export interface MarkReadResponse {
 /**
  * Get unread notifications for the current user (newest first, max 50)
  */
-export async function getNotifications(signal?: AbortSignal): Promise<GetNotificationsResponse> {
-  return apiClient.get<GetNotificationsResponse>('/notifications', undefined, { signal })
+export async function getNotifications(
+  signal?: AbortSignal,
+): Promise<GetNotificationsResponse> {
+  return apiClient.get<GetNotificationsResponse>("/notifications", undefined, {
+    signal,
+  });
 }
 
 /**
  * Get the unread notification count for the current user.
  * Designed to be polled frequently (e.g. every 30s) for the bell badge.
  */
-export async function getNotificationCount(signal?: AbortSignal): Promise<GetNotificationCountResponse> {
-  return apiClient.get<GetNotificationCountResponse>('/notifications/count', undefined, { signal })
+export async function getNotificationCount(
+  signal?: AbortSignal,
+): Promise<GetNotificationCountResponse> {
+  return apiClient.get<GetNotificationCountResponse>(
+    "/notifications/count",
+    undefined,
+    { signal },
+  );
 }
 
 /**
  * Mark a single notification as read.
  * Returns 404 if the notification does not exist or is already read.
  */
-export async function markNotificationRead(id: string): Promise<MarkReadResponse> {
-  return apiClient.put<MarkReadResponse>(`/notifications/${id}/read`, {})
+export async function markNotificationRead(
+  id: string,
+): Promise<MarkReadResponse> {
+  return apiClient.put<MarkReadResponse>(`/notifications/${id}/read`, {});
 }
 
 /**
@@ -71,8 +83,8 @@ export async function markNotificationRead(id: string): Promise<MarkReadResponse
  * notification that was already read by another tab).
  */
 export async function markAllRead(): Promise<void> {
-  const data = await getNotifications()
+  const data = await getNotifications();
   await Promise.allSettled(
-    data.notifications.map((n) => markNotificationRead(n.id))
-  )
+    data.notifications.map((n) => markNotificationRead(n.id)),
+  );
 }

@@ -1,9 +1,9 @@
-import { notFound } from 'next/navigation'
-import { DevBanner } from '@/components/dev/DevBanner'
+import { notFound } from "next/navigation";
+import { DevBanner } from "@/components/dev/DevBanner";
 
 export default function DevLayout({ children }: { children: React.ReactNode }) {
-  if (process.env.NODE_ENV !== 'development') {
-    notFound()
+  if (process.env.NODE_ENV !== "development") {
+    notFound();
   }
 
   return (
@@ -11,5 +11,5 @@ export default function DevLayout({ children }: { children: React.ReactNode }) {
       <DevBanner />
       {children}
     </div>
-  )
+  );
 }

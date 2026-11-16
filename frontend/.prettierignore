@@ -1,0 +1,11 @@
+.next
+node_modules
+coverage
+playwright-report
+test-results
+storybook-static
+public
+package-lock.json
+types/generated
+e2e/**/*-snapshots
+*.md

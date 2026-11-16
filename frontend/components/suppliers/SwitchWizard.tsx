@@ -1,12 +1,12 @@
-'use client'
+"use client";
 
-import React, { useState, useCallback } from 'react'
-import { cn } from '@/lib/utils/cn'
-import { formatCurrency, formatPercentage } from '@/lib/utils/format'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/input'
+import React, { useState, useCallback } from "react";
+import { cn } from "@/lib/utils/cn";
+import { formatCurrency, formatPercentage } from "@/lib/utils/format";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/input";
 import {
   ArrowRight,
   ArrowLeft,
@@ -17,24 +17,24 @@ import {
   FileText,
   Leaf,
   Loader2,
-} from 'lucide-react'
-import type { SupplierRecommendation } from '@/types'
+} from "lucide-react";
+import type { SupplierRecommendation } from "@/types";
 
 export interface SwitchWizardProps {
-  recommendation: SupplierRecommendation
-  onComplete?: () => Promise<void>
-  onCancel?: () => void
-  className?: string
+  recommendation: SupplierRecommendation;
+  onComplete?: () => Promise<void>;
+  onCancel?: () => void;
+  className?: string;
 }
 
-type WizardStep = 1 | 2 | 3 | 4
+type WizardStep = 1 | 2 | 3 | 4;
 
 const STEP_TITLES: Record<WizardStep, string> = {
-  1: 'Review Recommendation',
-  2: 'Data Consent',
-  3: 'Contract Terms',
-  4: 'Confirm Switch',
-}
+  1: "Review Recommendation",
+  2: "Data Consent",
+  3: "Contract Terms",
+  4: "Confirm Switch",
+};
 
 export const SwitchWizard: React.FC<SwitchWizardProps> = ({
   recommendation,
@@ -42,44 +42,49 @@ export const SwitchWizard: React.FC<SwitchWizardProps> = ({
   onCancel,
   className,
 }) => {
-  const [step, setStep] = useState<WizardStep>(1)
-  const [gdprConsent, setGdprConsent] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [step, setStep] = useState<WizardStep>(1);
+  const [gdprConsent, setGdprConsent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const { supplier, currentSupplier, estimatedSavings, paybackMonths, confidence } =
-    recommendation
+  const {
+    supplier,
+    currentSupplier,
+    estimatedSavings,
+    paybackMonths,
+    confidence,
+  } = recommendation;
 
   const handleNext = useCallback(() => {
     if (step < 4) {
-      setStep((s) => (s + 1) as WizardStep)
+      setStep((s) => (s + 1) as WizardStep);
     }
-  }, [step])
+  }, [step]);
 
   const handleBack = useCallback(() => {
     if (step > 1) {
-      setStep((s) => (s - 1) as WizardStep)
+      setStep((s) => (s - 1) as WizardStep);
     }
-  }, [step])
+  }, [step]);
 
   const handleConfirm = useCallback(async () => {
-    setIsSubmitting(true)
-    setError(null)
+    setIsSubmitting(true);
+    setError(null);
 
     try {
-      await onComplete?.()
+      await onComplete?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }, [onComplete])
+  }, [onComplete]);
 
-  const canProceed = step === 2 ? gdprConsent : true
+  const canProceed = step === 2 ? gdprConsent : true;
 
   return (
     <div
-      className={cn('', className)}
+      className={cn("", className)}
       role="region"
       aria-label="Supplier Switching Wizard"
     >
@@ -142,7 +147,11 @@ export const SwitchWizard: React.FC<SwitchWizardProps> = ({
               {/* Savings summary */}
               <div className="rounded-lg bg-success-100 p-4 text-center">
                 <p className="text-success-800">
-                  Save <span className="text-3xl font-bold">{formatCurrency(estimatedSavings)}</span> per year
+                  Save{" "}
+                  <span className="text-3xl font-bold">
+                    {formatCurrency(estimatedSavings)}
+                  </span>{" "}
+                  per year
                 </p>
                 {paybackMonths > 0 && (
                   <p className="text-sm text-success-700 mt-1">
@@ -156,7 +165,7 @@ export const SwitchWizard: React.FC<SwitchWizardProps> = ({
                 <span className="text-sm text-gray-600">
                   Recommendation confidence
                 </span>
-                <Badge variant={confidence > 0.7 ? 'success' : 'warning'}>
+                <Badge variant={confidence > 0.7 ? "success" : "warning"}>
                   {formatPercentage(confidence * 100, 0)}
                 </Badge>
               </div>
@@ -190,14 +199,10 @@ export const SwitchWizard: React.FC<SwitchWizardProps> = ({
                     By checking the box below, you consent to:
                   </p>
                   <ul className="text-sm text-gray-600 space-y-2 ml-4 list-disc">
+                    <li>Sharing your energy usage data with {supplier.name}</li>
+                    <li>{supplier.name} contacting you regarding the switch</li>
                     <li>
-                      Sharing your energy usage data with {supplier.name}
-                    </li>
-                    <li>
-                      {supplier.name} contacting you regarding the switch
-                    </li>
-                    <li>
-                      Processing your application to become a {supplier.name}{' '}
+                      Processing your application to become a {supplier.name}{" "}
                       customer
                     </li>
                   </ul>
@@ -239,7 +244,7 @@ export const SwitchWizard: React.FC<SwitchWizardProps> = ({
                     <div>
                       <p className="font-medium text-warning-800">Exit Fee</p>
                       <p className="text-sm text-warning-700">
-                        Your current supplier may charge an exit fee of{' '}
+                        Your current supplier may charge an exit fee of{" "}
                         <span className="font-semibold">
                           {formatCurrency(currentSupplier.exitFee)}
                         </span>
@@ -336,7 +341,11 @@ export const SwitchWizard: React.FC<SwitchWizardProps> = ({
       <div className="mt-6 flex items-center justify-between">
         <div>
           {step > 1 && (
-            <Button variant="ghost" onClick={handleBack} disabled={isSubmitting}>
+            <Button
+              variant="ghost"
+              onClick={handleBack}
+              disabled={isSubmitting}
+            >
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Button>
@@ -372,5 +381,5 @@ export const SwitchWizard: React.FC<SwitchWizardProps> = ({
         </div>
       </div>
     </div>
-  )
-}
+  );
+};

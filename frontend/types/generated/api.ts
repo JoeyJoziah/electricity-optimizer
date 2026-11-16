@@ -253,33 +253,6 @@ export interface ApiSuppliersListResponse {
 }
 
 /**
- * Tariff record — returned inside SupplierTariffsResponse.
- */
-export interface ApiTariffResponse {
-  id: string
-  supplier_id: string
-  name: string
-  type: TariffType
-  /** Decimal string */
-  unit_rate: DecimalStr
-  /** Decimal string */
-  standing_charge: DecimalStr
-  green_energy_percentage: number
-  contract_length: ContractLength
-  is_available: boolean
-}
-
-/**
- * Response from GET /suppliers/{id}/tariffs.
- */
-export interface ApiSupplierTariffsResponse {
-  supplier_id: string
-  supplier_name: string
-  tariffs: ApiTariffResponse[]
-  total: number
-}
-
-/**
  * Registry supplier entry — returned by GET /suppliers/registry.
  * Lightweight shape used for the DirectLoginForm dropdown.
  */

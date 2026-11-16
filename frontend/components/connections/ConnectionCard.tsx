@@ -1,11 +1,11 @@
-'use client'
+"use client";
 
-import React, { useState, useRef, useEffect } from 'react'
-import { cn } from '@/lib/utils/cn'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { formatRelativeTime } from '@/lib/utils/format'
-import { apiClient } from '@/lib/api/client'
+import React, { useState, useRef, useEffect } from "react";
+import { cn } from "@/lib/utils/cn";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { formatRelativeTime } from "@/lib/utils/format";
+import { apiClient } from "@/lib/api/client";
 import {
   KeyRound,
   Mail,
@@ -20,26 +20,26 @@ import {
   Check,
   X,
   Loader2,
-} from 'lucide-react'
+} from "lucide-react";
 
 interface Connection {
-  id: string
-  method: string
-  status: string
-  supplier_name: string | null
-  email_provider: string | null
-  last_sync_at: string | null
-  last_sync_error: string | null
-  current_rate: number | null
-  created_at: string
-  label?: string | null
+  id: string;
+  method: string;
+  status: string;
+  supplier_name: string | null;
+  email_provider: string | null;
+  last_sync_at: string | null;
+  last_sync_error: string | null;
+  current_rate: number | null;
+  created_at: string;
+  label?: string | null;
 }
 
 interface ConnectionCardProps {
-  connection: Connection
-  onDelete: () => void
-  onViewRates?: (connectionId: string) => void
-  onRefresh?: () => void
+  connection: Connection;
+  onDelete: () => void;
+  onViewRates?: (connectionId: string) => void;
+  onRefresh?: () => void;
 }
 
 const methodIcons: Record<string, React.ElementType> = {
@@ -51,30 +51,33 @@ const methodIcons: Record<string, React.ElementType> = {
   bill_upload: Upload,
   portal_scrape: Globe,
   utilityapi: Zap,
-}
+};
 
 const methodLabels: Record<string, string> = {
-  direct: 'Utility Account',
-  direct_login: 'Utility Account',
-  email_import: 'Email Scan',
-  email_scan: 'Email Scan',
-  manual_upload: 'Bill Upload',
-  bill_upload: 'Bill Upload',
-  portal_scrape: 'Portal Connection',
-  utilityapi: 'UtilityAPI',
-}
+  direct: "Utility Account",
+  direct_login: "Utility Account",
+  email_import: "Email Scan",
+  email_scan: "Email Scan",
+  manual_upload: "Bill Upload",
+  bill_upload: "Bill Upload",
+  portal_scrape: "Portal Connection",
+  utilityapi: "UtilityAPI",
+};
 
 const statusConfig: Record<
   string,
-  { variant: 'success' | 'warning' | 'danger' | 'default' | 'info'; label: string }
+  {
+    variant: "success" | "warning" | "danger" | "default" | "info";
+    label: string;
+  }
 > = {
-  active: { variant: 'success', label: 'Active' },
-  pending: { variant: 'warning', label: 'Pending' },
-  syncing: { variant: 'info', label: 'Syncing' },
-  failed: { variant: 'danger', label: 'Failed' },
-  expired: { variant: 'default', label: 'Expired' },
-  revoked: { variant: 'default', label: 'Revoked' },
-}
+  active: { variant: "success", label: "Active" },
+  pending: { variant: "warning", label: "Pending" },
+  syncing: { variant: "info", label: "Syncing" },
+  failed: { variant: "danger", label: "Failed" },
+  expired: { variant: "default", label: "Expired" },
+  revoked: { variant: "default", label: "Revoked" },
+};
 
 export function ConnectionCard({
   connection,
@@ -82,127 +85,131 @@ export function ConnectionCard({
   onViewRates,
   onRefresh,
 }: ConnectionCardProps) {
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [syncing, setSyncing] = useState(false)
-  const [syncError, setSyncError] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   // Editable label state
-  const [editing, setEditing] = useState(false)
-  const [labelValue, setLabelValue] = useState(connection.label || '')
-  const [savingLabel, setSavingLabel] = useState(false)
-  const [labelError, setLabelError] = useState<string | null>(null)
-  const [currentLabel, setCurrentLabel] = useState(connection.label || null)
-  const labelInputRef = useRef<HTMLInputElement>(null)
+  const [editing, setEditing] = useState(false);
+  const [labelValue, setLabelValue] = useState(connection.label || "");
+  const [savingLabel, setSavingLabel] = useState(false);
+  const [labelError, setLabelError] = useState<string | null>(null);
+  const [currentLabel, setCurrentLabel] = useState(connection.label || null);
+  const labelInputRef = useRef<HTMLInputElement>(null);
 
-  const Icon = methodIcons[connection.method] || KeyRound
-  const methodLabel = methodLabels[connection.method] || connection.method
+  const Icon = methodIcons[connection.method] || KeyRound;
+  const methodLabel = methodLabels[connection.method] || connection.method;
   const status = statusConfig[connection.status] || {
-    variant: 'default' as const,
+    variant: "default" as const,
     label: connection.status,
-  }
+  };
 
   const displayName =
-    currentLabel || connection.supplier_name || connection.email_provider || methodLabel
+    currentLabel ||
+    connection.supplier_name ||
+    connection.email_provider ||
+    methodLabel;
 
   const canSync =
-    connection.method === 'direct_login' ||
-    connection.method === 'direct' ||
-    connection.method === 'email_scan' ||
-    connection.method === 'email_import' ||
-    connection.method === 'portal_scrape' ||
-    connection.method === 'utilityapi'
-  const hasRates = connection.current_rate !== null && connection.current_rate !== undefined
-  const hasSyncError = !!connection.last_sync_error
+    connection.method === "direct_login" ||
+    connection.method === "direct" ||
+    connection.method === "email_scan" ||
+    connection.method === "email_import" ||
+    connection.method === "portal_scrape" ||
+    connection.method === "utilityapi";
+  const hasRates =
+    connection.current_rate !== null && connection.current_rate !== undefined;
+  const hasSyncError = !!connection.last_sync_error;
 
   // Focus input when entering edit mode
   useEffect(() => {
     if (editing && labelInputRef.current) {
-      labelInputRef.current.focus()
-      labelInputRef.current.select()
+      labelInputRef.current.focus();
+      labelInputRef.current.select();
     }
-  }, [editing])
+  }, [editing]);
 
   const handleStartEditing = () => {
-    setLabelValue(currentLabel || '')
-    setLabelError(null)
-    setEditing(true)
-  }
+    setLabelValue(currentLabel || "");
+    setLabelError(null);
+    setEditing(true);
+  };
 
   const handleCancelEditing = () => {
-    setEditing(false)
-    setLabelValue(currentLabel || '')
-    setLabelError(null)
-  }
+    setEditing(false);
+    setLabelValue(currentLabel || "");
+    setLabelError(null);
+  };
 
   const handleSaveLabel = async () => {
-    const trimmed = labelValue.trim()
-    setSavingLabel(true)
-    setLabelError(null)
+    const trimmed = labelValue.trim();
+    setSavingLabel(true);
+    setLabelError(null);
 
     try {
       await apiClient.patch(`/connections/${connection.id}`, {
         label: trimmed || null,
-      })
-      setCurrentLabel(trimmed || null)
-      setEditing(false)
+      });
+      setCurrentLabel(trimmed || null);
+      setEditing(false);
     } catch {
-      setLabelError('Failed to save label')
+      setLabelError("Failed to save label");
     } finally {
-      setSavingLabel(false)
+      setSavingLabel(false);
     }
-  }
+  };
 
   const handleLabelKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleSaveLabel()
-    } else if (e.key === 'Escape') {
-      handleCancelEditing()
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSaveLabel();
+    } else if (e.key === "Escape") {
+      handleCancelEditing();
     }
-  }
+  };
 
   const handleDelete = async () => {
     if (!confirmDelete) {
-      setConfirmDelete(true)
-      setDeleteError(null)
-      return
+      setConfirmDelete(true);
+      setDeleteError(null);
+      return;
     }
 
     try {
-      setDeleting(true)
-      setDeleteError(null)
-      await apiClient.delete(`/connections/${connection.id}`)
-      onDelete()
+      setDeleting(true);
+      setDeleteError(null);
+      await apiClient.delete(`/connections/${connection.id}`);
+      onDelete();
     } catch {
-      setDeleteError('Failed to delete connection')
+      setDeleteError("Failed to delete connection");
     } finally {
-      setDeleting(false)
-      setConfirmDelete(false)
+      setDeleting(false);
+      setConfirmDelete(false);
     }
-  }
+  };
 
   const handleSync = async () => {
     try {
-      setSyncing(true)
-      setSyncError(null)
-      await apiClient.post(`/connections/${connection.id}/sync`)
+      setSyncing(true);
+      setSyncError(null);
+      await apiClient.post(`/connections/${connection.id}/sync`);
       if (onRefresh) {
-        onRefresh()
+        onRefresh();
       }
     } catch {
-      setSyncError('Sync failed. Please try again.')
+      setSyncError("Sync failed. Please try again.");
     } finally {
-      setSyncing(false)
+      setSyncing(false);
     }
-  }
+  };
 
   return (
     <div
       className={cn(
-        'rounded-xl border bg-white transition-shadow hover:shadow-sm',
-        hasSyncError ? 'border-warning-200' : 'border-gray-200'
+        "rounded-xl border bg-white transition-shadow hover:shadow-sm",
+        hasSyncError ? "border-warning-200" : "border-gray-200",
       )}
       data-testid={`connection-card-${connection.id}`}
     >
@@ -210,8 +217,8 @@ export function ConnectionCard({
         <div className="flex items-center gap-4 min-w-0">
           <div
             className={cn(
-              'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
-              hasSyncError ? 'bg-warning-100' : 'bg-gray-100'
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+              hasSyncError ? "bg-warning-100" : "bg-gray-100",
             )}
           >
             {hasSyncError ? (
@@ -310,7 +317,7 @@ export function ConnectionCard({
 
         <div className="flex items-center gap-1.5 shrink-0 ml-4">
           {/* Sync button for direct/email connections */}
-          {canSync && connection.status === 'active' && (
+          {canSync && connection.status === "active" && (
             <Button
               variant="ghost"
               size="sm"
@@ -321,8 +328,8 @@ export function ConnectionCard({
             >
               <RefreshCw
                 className={cn(
-                  'h-4 w-4 text-gray-400',
-                  syncing && 'animate-spin'
+                  "h-4 w-4 text-gray-400",
+                  syncing && "animate-spin",
                 )}
               />
             </Button>
@@ -397,11 +404,9 @@ export function ConnectionCard({
       {/* Inline error feedback */}
       {(deleteError || syncError) && (
         <div className="border-t border-danger-200 bg-danger-50 px-4 py-2">
-          <p className="text-xs text-danger-700">
-            {deleteError || syncError}
-          </p>
+          <p className="text-xs text-danger-700">{deleteError || syncError}</p>
         </div>
       )}
     </div>
-  )
+  );
 }

@@ -1,21 +1,21 @@
-'use client'
+"use client";
 
-import React from 'react'
-import { useSettingsStore } from '@/lib/store/settings'
-import { CombinedSavingsCard } from './CombinedSavingsCard'
-import { NeighborhoodCard } from './NeighborhoodCard'
+import React from "react";
+import { useSettingsStore } from "@/lib/store/settings";
+import { CombinedSavingsCard } from "./CombinedSavingsCard";
+import { NeighborhoodCard } from "./NeighborhoodCard";
 
 const UTILITY_LABELS: Record<string, string> = {
-  electricity: 'Electricity',
-  natural_gas: 'Natural Gas',
-  heating_oil: 'Heating Oil',
-  propane: 'Propane',
-  community_solar: 'Community Solar',
-  water: 'Water',
-}
+  electricity: "Electricity",
+  natural_gas: "Natural Gas",
+  heating_oil: "Heating Oil",
+  propane: "Propane",
+  community_solar: "Community Solar",
+  water: "Water",
+};
 
 export function AllUtilitiesTab() {
-  const userUtilities = useSettingsStore((s) => s.utilityTypes)
+  const userUtilities = useSettingsStore((s) => s.utilityTypes);
 
   return (
     <div data-testid="all-utilities-tab" className="space-y-6">
@@ -43,5 +43,5 @@ export function AllUtilitiesTab() {
         ))}
       </div>
     </div>
-  )
+  );
 }
