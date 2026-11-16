@@ -79,6 +79,7 @@ describe("getSecurityHeaders", () => {
     expect(headers["Strict-Transport-Security"]).toContain("max-age=");
     expect(headers["Strict-Transport-Security"]).toContain("preload");
     expect(headers["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");
+    expect(headers["Cross-Origin-Resource-Policy"]).toBe("same-site");
     expect(headers["X-Request-ID"]).toBe("test-id-123");
     expect(headers["X-Edge-Colo"]).toBe("EWR");
   });

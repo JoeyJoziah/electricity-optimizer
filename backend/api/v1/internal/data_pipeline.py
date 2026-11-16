@@ -4,11 +4,13 @@ Internal data pipeline endpoints.
 Covers: /fetch-weather, /market-research, /scrape-rates, /geocode
 """
 
+import asyncio
 import json
 import re
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -154,6 +156,15 @@ class ScrapeRequest(BaseModel):
             "If empty, auto-discovers active suppliers with websites from DB."
         ),
     )
+    background: bool = Field(
+        default=False,
+        description=(
+            "Return 202 at once and scrape in the background. Scheduled callers "
+            "use this: a full scrape takes minutes (5 Diffbot calls/min) and the "
+            "gateway gives the origin 25s, so a waiting caller sees 504 and its "
+            "retries start the scrape again."
+        ),
+    )
 
 
 class GeocodeRequest(BaseModel):
@@ -281,8 +292,6 @@ async def scrape_supplier_rates(
     Each URL uses 1 Diffbot credit. Rate limited to 5 calls/min.
     Free tier: 10,000 credits/month.
     """
-    from services.rate_scraper_service import RateScraperService
-
     supplier_urls = request.supplier_urls
 
     # Auto-discover suppliers with website URLs when no explicit list provided
@@ -302,6 +311,51 @@ async def scrape_supplier_rates(
 
     if not supplier_urls:
         return {"status": "ok", "results": [], "message": "No suppliers with website URLs found"}
+
+    if request.background:
+        global _scrape_task
+        if _scrape_task is not None and not _scrape_task.done():
+            return JSONResponse(
+                status_code=202,
+                content={"status": "already_running", "suppliers": len(supplier_urls)},
+            )
+        _scrape_task = asyncio.create_task(_scrape_in_background(supplier_urls))
+        return JSONResponse(
+            status_code=202,
+            content={"status": "accepted", "suppliers": len(supplier_urls)},
+        )
+
+    return await _scrape_and_persist(db, supplier_urls)
+
+
+# The one in-flight background scrape, if any (single Render instance).
+_scrape_task: asyncio.Task | None = None
+
+
+async def _scrape_in_background(supplier_urls: list[dict]) -> None:
+    """Run a scrape outside the request, with its own database session."""
+    from config.database import db_manager
+
+    try:
+        if db_manager.async_session_maker is None:
+            summary = await _scrape_and_persist(None, supplier_urls)
+        else:
+            async with db_manager.async_session_maker() as session:
+                summary = await _scrape_and_persist(session, supplier_urls)
+        logger.info(
+            "scrape_rates_background_done",
+            total=summary["total"],
+            succeeded=summary["succeeded"],
+            failed=summary["failed"],
+            persisted=summary["persisted"],
+        )
+    except Exception as e:
+        logger.error("scrape_rates_background_failed", error=str(e))
+
+
+async def _scrape_and_persist(db: AsyncSession | None, supplier_urls: list[dict]) -> dict:
+    """Scrape the given supplier pages and store the results."""
+    from services.rate_scraper_service import RateScraperService
 
     service = RateScraperService()
     batch = await service.scrape_supplier_rates(supplier_urls)

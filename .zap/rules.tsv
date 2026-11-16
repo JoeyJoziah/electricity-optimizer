@@ -3,3 +3,5 @@
 10049	IGNORE	(Non-Storable Content - expected for API)
 10021	IGNORE	(X-Content-Type-Options - handled by CF Worker)
 10038	IGNORE	(Content Security Policy - handled by frontend)
+10094	IGNORE	(Base64 Disclosure - request IDs and opaque tokens, not secrets)
+90005	IGNORE	(Sec-Fetch-Dest - a request header sent by browsers, not something the API sets)

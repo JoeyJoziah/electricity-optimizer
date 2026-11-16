@@ -80,6 +80,10 @@ jobs:
           FILENAME="rateshift-backup-${TIMESTAMP}.dump"
           FILEPATH="/tmp/${FILENAME}"
 
+          if [ -z "${NEON_CONNECTION_STRING:-}" ]; then
+            echo "::error::NEON_CONNECTION_STRING repo secret is not set; nothing can be backed up."
+            exit 1
+          fi
           echo "Starting pg_dump -> ${FILENAME}"
           pg_dump \
             --format=custom \

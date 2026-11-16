@@ -33,9 +33,10 @@ jobs:
           headers: |
             X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
             Content-Type: application/json
-          body: '{}'
-          # Concurrent scraper completes in ~96s; give 3 min for Render cold start
-          timeout: '180'
+          # background: the scrape (~96s or more) outlasts the gateway's 25s
+          # origin limit; the endpoint answers 202 and runs it server-side.
+          body: '{"background": true}'
+          timeout: '60'
 
       - name: Notify on failure
         if: failure()
