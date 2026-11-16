@@ -778,3 +778,63 @@ class TestRateScraperServiceConcurrency:
         for err in batch["errors"]:
             assert "supplier_id" in err
             assert "error" in err
+
+
+# =============================================================================
+# POST /internal/scrape-rates — background mode
+# =============================================================================
+
+
+class TestScrapeRatesBackground:
+    """Scheduled callers ask for a 202 and let the scrape run server-side."""
+
+    URLS = [{"supplier_id": "s1", "url": "https://example.com"}]
+
+    def setup_method(self):
+        import api.v1.internal.data_pipeline as module
+
+        module._scrape_task = None
+
+    def test_returns_202_and_starts_the_scrape(self, auth_client):
+        import api.v1.internal.data_pipeline as module
+
+        with patch.object(module, "_scrape_in_background", new=AsyncMock()) as run:
+            response = auth_client.post(
+                f"{BASE_URL}/scrape-rates",
+                json={"supplier_urls": self.URLS, "background": True},
+            )
+
+        assert response.status_code == 202
+        assert response.json() == {"status": "accepted", "suppliers": 1}
+        run.assert_called_once_with(self.URLS)
+
+    def test_second_request_does_not_start_another_scrape(self, auth_client):
+        import api.v1.internal.data_pipeline as module
+
+        still_running = MagicMock()
+        still_running.done.return_value = False
+        module._scrape_task = still_running
+
+        with patch.object(module, "_scrape_in_background", new=AsyncMock()) as run:
+            response = auth_client.post(
+                f"{BASE_URL}/scrape-rates",
+                json={"supplier_urls": self.URLS, "background": True},
+            )
+
+        assert response.status_code == 202
+        assert response.json()["status"] == "already_running"
+        run.assert_not_called()
+
+    async def test_background_run_logs_and_swallows_failures(self):
+        import api.v1.internal.data_pipeline as module
+
+        with (
+            patch.object(
+                module, "_scrape_and_persist", new=AsyncMock(side_effect=RuntimeError("boom"))
+            ),
+            patch.object(module.logger, "error") as log_error,
+        ):
+            await module._scrape_in_background(self.URLS)
+
+        log_error.assert_called_once()
+        assert log_error.call_args.args[0] == "scrape_rates_background_failed"

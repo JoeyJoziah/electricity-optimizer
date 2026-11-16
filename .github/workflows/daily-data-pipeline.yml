@@ -34,8 +34,11 @@ jobs:
           headers: |
             X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
             Content-Type: application/json
-          body: '{}'
-          timeout: '180'
+          # background: the scrape takes minutes; the endpoint answers 202 and
+          # runs it server-side (a waiting call hit the gateway's 25s limit and
+          # each retry re-ran the scrape).
+          body: '{"background": true}'
+          timeout: '60'
 
       # Step 2: Scan email connections for rate data (previously scan-emails.yml at 4am)
       - name: Scan email connections
