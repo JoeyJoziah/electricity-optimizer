@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { slugToStateCode, slugToUtilityKey } from "@/lib/config/seo";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -71,6 +72,26 @@ export function middleware(request: NextRequest) {
     process.env.NODE_ENV !== "development"
   ) {
     const response = NextResponse.rewrite(new URL("/404", request.url));
+    response.headers.set("Content-Security-Policy", csp);
+    return response;
+  }
+
+  // Public rate pages: an unknown state or utility slug must be a real HTTP
+  // 404. The page streams (loading.tsx), so by the time it calls notFound()
+  // the 200 status is already sent — a soft 404 for crawlers. Decide here.
+  const [, stateSlug, utilitySlug] =
+    pathname.match(/^\/rates\/([^/]+)\/([^/]+)\/?$/) ?? [];
+  if (
+    stateSlug !== undefined &&
+    utilitySlug !== undefined &&
+    (!slugToStateCode(stateSlug) || !slugToUtilityKey(utilitySlug))
+  ) {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-nonce", nonce);
+    const response = NextResponse.rewrite(new URL("/404", request.url), {
+      status: 404,
+      request: { headers: requestHeaders },
+    });
     response.headers.set("Content-Security-Policy", csp);
     return response;
   }

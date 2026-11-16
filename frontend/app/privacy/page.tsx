@@ -84,7 +84,7 @@ export default function PrivacyPage() {
             terms; see{" "}
             <a
               href="https://utilityapi.com/privacy"
-              className="text-blue-600 hover:underline"
+              className="text-blue-600 underline"
               target="_blank"
               rel="noopener noreferrer"
             >

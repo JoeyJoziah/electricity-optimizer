@@ -42,7 +42,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               >
                 {label}
                 {labelSuffix && (
-                  <span className="text-gray-400 font-normal">
+                  <span className="text-gray-500 font-normal">
                     {" "}
                     {labelSuffix}
                   </span>
@@ -57,7 +57,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             >
               {label}
               {labelSuffix && (
-                <span className="text-gray-400 font-normal">
+                <span className="text-gray-500 font-normal">
                   {" "}
                   {labelSuffix}
                 </span>

@@ -245,7 +245,7 @@ export function AgentChat() {
             />
             <span
               className={`absolute bottom-3 right-3 text-xs ${
-                isOverLimit ? "text-danger-500" : "text-gray-400"
+                isOverLimit ? "text-danger-500" : "text-gray-500"
               }`}
             >
               {charCount}/2000

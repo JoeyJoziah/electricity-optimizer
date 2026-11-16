@@ -384,6 +384,23 @@ export async function createMockApi(
     });
   }
 
+  // --- Savings: combined (All Utilities tab) ---
+  await page.route("**/api/v1/savings/combined**", async (route) => {
+    tracker.record(route);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        total_monthly_savings: 18.5,
+        breakdown: [
+          { utility_type: "electricity", monthly_savings: 12.5 },
+          { utility_type: "natural_gas", monthly_savings: 6 },
+        ],
+        savings_rank_pct: null,
+      }),
+    });
+  });
+
   // --- Savings summary ---
   if (overrides.savingsSummary !== false) {
     await page.route("**/api/v1/savings/summary**", async (route) => {

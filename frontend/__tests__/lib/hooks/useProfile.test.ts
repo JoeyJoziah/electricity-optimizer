@@ -90,10 +90,10 @@ describe("useUpdateProfile", () => {
 {
   // --- Helpers ---
 
-  function createWrapper() {
+  function createWrapper(gcTime = 0) {
     const queryClient = new QueryClient({
       defaultOptions: {
-        queries: { retry: false, gcTime: 0 },
+        queries: { retry: false, gcTime },
       },
     });
     return {
@@ -307,7 +307,9 @@ describe("useUpdateProfile", () => {
     });
 
     it("sets query data in cache after successful update", async () => {
-      const { wrapper, queryClient } = createWrapper();
+      // Nothing observes this query, so with gcTime 0 the entry is collected
+      // before the assertion can read it (it did on Node 20). Keep it alive.
+      const { wrapper, queryClient } = createWrapper(Infinity);
 
       // Pre-populate the cache so setQueryData has something to update
       queryClient.setQueryData(["user-profile"], mockProfileNoRegion);

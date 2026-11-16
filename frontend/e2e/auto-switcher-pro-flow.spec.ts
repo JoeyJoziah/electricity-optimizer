@@ -149,7 +149,11 @@ async function setupAutoSwitcherRoutes(
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(overrides.activity ?? MOCK_ACTIVITY),
+      body: JSON.stringify(
+        ((rows) => ({ activity: rows, total: rows.length }))(
+          overrides.activity ?? MOCK_ACTIVITY,
+        ),
+      ),
     });
   });
 
@@ -158,7 +162,11 @@ async function setupAutoSwitcherRoutes(
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(overrides.history ?? MOCK_ACTIVITY),
+      body: JSON.stringify(
+        ((rows) => ({ history: rows, total: rows.length }))(
+          overrides.history ?? MOCK_ACTIVITY,
+        ),
+      ),
     });
   });
 
@@ -391,7 +399,9 @@ test.describe("Auto Switcher — Pro Flow", () => {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify([]),
+          body: JSON.stringify(
+            ((rows) => ({ activity: rows, total: rows.length }))([]),
+          ),
         });
       });
 

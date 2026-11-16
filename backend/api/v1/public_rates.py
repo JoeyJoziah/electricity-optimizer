@@ -36,10 +36,10 @@ async def get_available_states(
         text("""
             SELECT DISTINCT region AS state, 'electricity' AS utility_type
             FROM electricity_prices
-            WHERE region IS NOT NULL
+            WHERE utility_type = 'electricity' AND region IS NOT NULL
             UNION
             SELECT DISTINCT region AS state, 'natural_gas' AS utility_type
-            FROM utility_rates
+            FROM electricity_prices
             WHERE utility_type = 'natural_gas' AND region IS NOT NULL
             UNION
             SELECT DISTINCT state, 'heating_oil' AS utility_type
@@ -89,10 +89,10 @@ async def get_rate_summary(
 async def _electricity_summary(db: AsyncSession, state: str) -> dict[str, Any]:
     result = await db.execute(
         text("""
-            SELECT supplier, price_per_kwh, rate_type, updated_at
+            SELECT supplier, price_per_kwh, "timestamp" AS updated_at
             FROM electricity_prices
-            WHERE region = :state
-            ORDER BY updated_at DESC NULLS LAST
+            WHERE region = :state AND utility_type = 'electricity'
+            ORDER BY "timestamp" DESC NULLS LAST
             LIMIT 10
         """),
         {"state": state},
@@ -105,7 +105,6 @@ async def _electricity_summary(db: AsyncSession, state: str) -> dict[str, Any]:
         {
             "supplier": r["supplier"],
             "price": float(r["price_per_kwh"]) if r["price_per_kwh"] else None,
-            "rate_type": r["rate_type"],
             "updated_at": str(r["updated_at"]) if r["updated_at"] else None,
         }
         for r in rows
@@ -126,10 +125,11 @@ async def _electricity_summary(db: AsyncSession, state: str) -> dict[str, Any]:
 async def _gas_summary(db: AsyncSession, state: str) -> dict[str, Any]:
     result = await db.execute(
         text("""
-            SELECT supplier, price, source, fetched_at
-            FROM utility_rates
+            SELECT supplier, price_per_kwh AS price, source_api AS source,
+                   "timestamp" AS fetched_at
+            FROM electricity_prices
             WHERE region = :state AND utility_type = 'natural_gas'
-            ORDER BY fetched_at DESC NULLS LAST
+            ORDER BY "timestamp" DESC NULLS LAST
             LIMIT 10
         """),
         {"state": state},

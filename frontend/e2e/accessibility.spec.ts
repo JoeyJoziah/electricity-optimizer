@@ -30,7 +30,14 @@ async function assertNoAxeViolations(
     const summary = results.violations
       .map(
         (v) =>
-          `[${v.impact?.toUpperCase() ?? "UNKNOWN"}] ${v.id}: ${v.description} — ${v.nodes.length} node(s)`,
+          `[${v.impact?.toUpperCase() ?? "UNKNOWN"}] ${v.id}: ${v.description} — ${v.nodes.length} node(s)\n` +
+          // Name the offending elements so a failure is fixable from the log.
+          v.nodes
+            .map(
+              (n) =>
+                `    AXENODE ${n.target.join(" ")} :: ${n.html.slice(0, 160)} :: ${(n.any[0]?.message ?? "").slice(0, 160)}`,
+            )
+            .join("\n"),
       )
       .join("\n");
     throw new Error(

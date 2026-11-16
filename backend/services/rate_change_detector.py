@@ -92,7 +92,8 @@ class RateChangeDetector:
                             ORDER BY created_at DESC
                         ) AS rn
                     FROM electricity_prices
-                    WHERE created_at >= :cutoff
+                    WHERE utility_type = 'electricity'
+                      AND created_at >= :cutoff
                 )
                 SELECT
                     curr.region,
@@ -112,22 +113,21 @@ class RateChangeDetector:
         return self._process_changes(result.mappings().all(), "electricity", threshold)
 
     async def _detect_gas_changes(self, threshold: float, cutoff: datetime) -> list[dict[str, Any]]:
-        """Detect natural gas price changes from utility_rates table."""
+        """Detect natural gas price changes (stored in electricity_prices)."""
         result = await self._db.execute(
             text("""
                 WITH ranked AS (
                     SELECT
-                        state AS region,
-                        supplier_name AS supplier,
-                        rate_per_unit AS current_price,
-                        effective_date,
+                        region,
+                        supplier,
+                        price_per_kwh AS current_price,
                         ROW_NUMBER() OVER (
-                            PARTITION BY state, supplier_name
-                            ORDER BY effective_date DESC
+                            PARTITION BY region, supplier
+                            ORDER BY created_at DESC
                         ) AS rn
-                    FROM utility_rates
+                    FROM electricity_prices
                     WHERE utility_type = 'natural_gas'
-                      AND effective_date >= :cutoff
+                      AND created_at >= :cutoff
                 )
                 SELECT
                     curr.region,
@@ -263,6 +263,7 @@ class RateChangeDetector:
                         price_per_kwh AS price
                     FROM electricity_prices
                     WHERE region = :region
+                      AND utility_type = 'electricity'
                       AND price_per_kwh < :current_price
                       AND created_at >= NOW() - INTERVAL '7 days'
                     ORDER BY supplier, price_per_kwh ASC
@@ -273,15 +274,15 @@ class RateChangeDetector:
         elif utility_type == "natural_gas":
             result = await self._db.execute(
                 text("""
-                    SELECT DISTINCT ON (supplier_name)
-                        supplier_name AS supplier,
-                        rate_per_unit AS price
-                    FROM utility_rates
-                    WHERE state = :region
+                    SELECT DISTINCT ON (supplier)
+                        supplier,
+                        price_per_kwh AS price
+                    FROM electricity_prices
+                    WHERE region = :region
                       AND utility_type = 'natural_gas'
-                      AND rate_per_unit < :current_price
-                      AND effective_date >= NOW() - INTERVAL '14 days'
-                    ORDER BY supplier_name, rate_per_unit ASC
+                      AND price_per_kwh < :current_price
+                      AND created_at >= NOW() - INTERVAL '14 days'
+                    ORDER BY supplier, price_per_kwh ASC
                     LIMIT 1
                 """),
                 {"region": region, "current_price": current_price},

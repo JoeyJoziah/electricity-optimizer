@@ -1,9 +1,11 @@
 import { test, expect } from "./fixtures";
 
 /**
- * Onboarding Wizard E2E Tests
+ * Onboarding E2E Tests
  *
- * Tests the multi-step onboarding flow: state -> utility types -> supplier -> dashboard.
+ * Onboarding is a single step: pick a state, then continue to the dashboard.
+ * Utility types and supplier are chosen later from the dashboard's setup
+ * checklist, not in a wizard.
  *
  * All tests here represent a new user (region: null, onboarding_completed: false).
  * The profile mock is registered inline per test since it requires per-method
@@ -93,119 +95,69 @@ test.describe("Onboarding Wizard Flow", () => {
   }
 
   test(
-    "shows multi-step wizard starting with state selection",
+    "starts with state selection and nothing chosen",
     { tag: ["@smoke"] },
     async ({ authenticatedPage: page }) => {
       await setupOnboardingMocks(page);
       await page.goto("/onboarding");
 
-      await expect(page.getByText("Select your state")).toBeVisible();
-      await expect(page.getByText("Step 1 of")).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Select your state" }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Continue to Dashboard" }),
+      ).toBeDisabled();
     },
   );
 
   test(
-    "regulated state flow: state -> utility types -> dashboard",
+    "regulated state: select state -> dashboard",
     { tag: ["@smoke"] },
     async ({ authenticatedPage: page }) => {
       await setupOnboardingMocks(page);
       await page.goto("/onboarding");
 
-      // Step 1: Select Florida (regulated state)
       await page.fill('[placeholder="Search states..."]', "Florida");
-      await page.click("text=Florida");
-      await page.click("text=Continue to Dashboard");
-
-      // Step 2: Utility types (regulated message visible)
-      await expect(page.getByText("What utilities do you use?")).toBeVisible();
+      await page.getByRole("button", { name: /Florida/ }).click();
+      // Florida is regulated: no supplier-choice badge on its row.
       await expect(
-        page.getByText(/regulated electricity market/),
-      ).toBeVisible();
-      await expect(page.getByText("Complete Setup")).toBeVisible();
+        page.getByRole("button", { name: /Florida/ }),
+      ).not.toContainText("Supplier choice");
 
-      // Complete
-      await page.click("text=Complete Setup");
+      await page.getByRole("button", { name: "Continue to Dashboard" }).click();
       await page.waitForURL(/\/dashboard/, { timeout: 10000 });
     },
   );
 
   test(
-    "deregulated state flow includes supplier step",
+    "deregulated state is marked as supplier choice and continues to dashboard",
     { tag: ["@smoke"] },
     async ({ authenticatedPage: page }) => {
       await setupOnboardingMocks(page);
       await page.goto("/onboarding");
 
-      // Step 1: Select Texas (deregulated)
       await page.fill('[placeholder="Search states..."]', "Texas");
-      await page.click("text=Texas");
-      await page.click("text=Continue to Dashboard");
+      const texas = page.getByRole("button", { name: /Texas/ });
+      await expect(texas).toContainText("Supplier choice");
+      await texas.click();
 
-      // Step 2: Utility types
-      await expect(page.getByText("What utilities do you use?")).toBeVisible();
-      await page.click("text=Next: Choose Supplier");
-
-      // Step 3: Supplier picker
-      await expect(
-        page.getByText("Who is your energy supplier?"),
-      ).toBeVisible();
-    },
-  );
-
-  test(
-    "can skip supplier selection",
-    { tag: ["@regression"] },
-    async ({ authenticatedPage: page }) => {
-      await setupOnboardingMocks(page);
-      await page.goto("/onboarding");
-
-      // Navigate to supplier step
-      await page.fill('[placeholder="Search states..."]', "Texas");
-      await page.click("text=Texas");
-      await page.click("text=Continue to Dashboard");
-      await page.click("text=Next: Choose Supplier");
-
-      // Skip supplier — use role selector to avoid matching "Skip to main content" a11y link
-      await page.getByRole("button", { name: "Skip" }).click();
+      await page.getByRole("button", { name: "Continue to Dashboard" }).click();
       await page.waitForURL(/\/dashboard/, { timeout: 10000 });
     },
   );
 
   test(
-    "back navigation works between steps",
+    "search with no match shows an empty message",
     { tag: ["@regression"] },
     async ({ authenticatedPage: page }) => {
       await setupOnboardingMocks(page);
       await page.goto("/onboarding");
 
-      // Go to step 2
-      await page.fill('[placeholder="Search states..."]', "Connecticut");
-      await page.click("text=Connecticut");
-      await page.click("text=Continue to Dashboard");
-
-      await expect(page.getByText("What utilities do you use?")).toBeVisible();
-
-      // Go back
-      await page.click("text=Back");
-      await expect(page.getByText("Select your state")).toBeVisible();
-    },
-  );
-
-  test(
-    "can select multiple utility types",
-    { tag: ["@regression"] },
-    async ({ authenticatedPage: page }) => {
-      await setupOnboardingMocks(page);
-      await page.goto("/onboarding");
-
-      // Go to step 2
-      await page.fill('[placeholder="Search states..."]', "Florida");
-      await page.click("text=Florida");
-      await page.click("text=Continue to Dashboard");
-
-      // Select additional utility type
-      await page.click("text=Natural Gas");
-      await expect(page.getByText("Natural Gas")).toBeVisible();
+      await page.fill('[placeholder="Search states..."]', "Atlantis");
+      await expect(page.getByText(/No states match/)).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Continue to Dashboard" }),
+      ).toBeDisabled();
     },
   );
 });

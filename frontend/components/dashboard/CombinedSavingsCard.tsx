@@ -40,9 +40,11 @@ export function CombinedSavingsCard() {
     );
   }
 
-  const total = Number(data.total_monthly_savings);
+  // A partial payload (no breakdown yet) must not take down the dashboard.
+  const breakdown = data.breakdown ?? [];
+  const total = Number(data.total_monthly_savings ?? 0);
   const maxSavings = Math.max(
-    ...data.breakdown.map((b) => Number(b.monthly_savings)),
+    ...breakdown.map((b) => Number(b.monthly_savings)),
     1,
   );
 
@@ -63,7 +65,7 @@ export function CombinedSavingsCard() {
         className="mt-4 flex h-3 rounded-full overflow-hidden bg-gray-100"
         data-testid="savings-bar"
       >
-        {data.breakdown.map((b) => {
+        {breakdown.map((b) => {
           const pct =
             maxSavings > 0 ? (Number(b.monthly_savings) / total) * 100 : 0;
           return (
@@ -79,7 +81,7 @@ export function CombinedSavingsCard() {
 
       {/* Breakdown labels */}
       <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-600">
-        {data.breakdown.map((b) => (
+        {breakdown.map((b) => (
           <span key={b.utility_type} className="flex items-center gap-1">
             <span
               className={`inline-block h-2 w-2 rounded-full ${UTILITY_COLORS[b.utility_type] || "bg-gray-400"}`}

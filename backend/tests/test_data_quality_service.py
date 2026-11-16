@@ -189,7 +189,10 @@ class TestSourceReliability:
                 "last_attempt": datetime.now(UTC),
             },
         ]
-        mock_db.execute.return_value = mock_result
+        empty = MagicMock()
+        empty.mappings.return_value.all.return_value = []
+        # First query reads scraped_rates, second reads electricity_prices.
+        mock_db.execute.side_effect = [mock_result, empty]
 
         service = DataQualityService(mock_db)
         sources = await service.get_source_reliability()
@@ -211,13 +214,42 @@ class TestSourceReliability:
                 "last_attempt": datetime.now(UTC),
             },
         ]
-        mock_db.execute.return_value = mock_result
+        empty = MagicMock()
+        empty.mappings.return_value.all.return_value = []
+        # First query reads scraped_rates, second reads electricity_prices.
+        mock_db.execute.side_effect = [mock_result, empty]
 
         service = DataQualityService(mock_db)
         sources = await service.get_source_reliability()
 
         assert sources[0]["failure_rate"] == 0.3
         assert sources[0]["is_degraded"] is True  # 30% > 20% threshold
+
+
+class TestSourceReliabilityMerge:
+    async def test_scraper_and_api_sources_are_combined(self):
+        mock_db = AsyncMock()
+        scraped = MagicMock()
+        scraped.mappings.return_value.all.return_value = [
+            {
+                "source": "Eversource",
+                "total": 4,
+                "successes": 1,
+                "failures": 3,
+                "last_attempt": None,
+            }
+        ]
+        ingested = MagicMock()
+        ingested.mappings.return_value.all.return_value = [
+            {"source": "eia", "total": 50, "successes": 50, "failures": 0, "last_attempt": None}
+        ]
+        mock_db.execute.side_effect = [scraped, ingested]
+
+        sources = await DataQualityService(mock_db).get_source_reliability()
+
+        assert [s["source"] for s in sources] == ["Eversource", "eia"]
+        assert sources[0]["is_degraded"] is True
+        assert sources[1]["failure_rate"] == 0
 
 
 class TestConstants:

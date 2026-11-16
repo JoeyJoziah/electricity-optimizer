@@ -92,7 +92,7 @@ async def _resend_usage(db: AsyncSession) -> dict[str, Any]:
     """
     Estimate Resend usage for the current month by counting rows across the
     tables that trigger email sends: user_drip_state (welcome + drip emails)
-    and notification_deliveries.
+    and email rows in notifications.
 
     This is a proxy, not the Resend API — it counts outbound send attempts
     from the backend, not Resend's own delivery count. Sufficient for
@@ -107,9 +107,10 @@ async def _resend_usage(db: AsyncSession) -> dict[str, Any]:
                 (SELECT COUNT(*) FROM user_drip_state WHERE day2_sent_at >= :month_start) +
                 (SELECT COUNT(*) FROM user_drip_state WHERE day7_sent_at >= :month_start) +
                 (
-                    SELECT COALESCE(COUNT(*), 0)
-                    FROM notification_deliveries
-                    WHERE delivered_at >= :month_start
+                    SELECT COUNT(*)
+                    FROM notifications
+                    WHERE delivery_channel = 'email'
+                      AND delivered_at >= :month_start
                 ) AS total_emails
         """),
         {"month_start": month_start},
@@ -181,8 +182,11 @@ async def _cf_worker_usage(db: AsyncSession) -> dict[str, Any]:
 
     # Try to count gateway requests from the observability logs table if it exists
     request_count = 0
-    has_table = False
-    try:
+    # to_regclass avoids querying a missing table, which would abort the
+    # transaction the other usage checks share.
+    exists = await db.execute(text("SELECT to_regclass('public.gateway_request_logs')"))
+    has_table = exists.scalar() is not None
+    if has_table:
         result = await db.execute(
             text("""
                 SELECT COUNT(*)
@@ -193,9 +197,6 @@ async def _cf_worker_usage(db: AsyncSession) -> dict[str, Any]:
         )
         row = result.fetchone()
         request_count = int(row[0]) if row else 0
-        has_table = True
-    except Exception:
-        has_table = False
 
     budget = _BUDGETS["cf_worker"]
     fraction = request_count / budget["monthly_unit_limit"] if has_table else 0.0

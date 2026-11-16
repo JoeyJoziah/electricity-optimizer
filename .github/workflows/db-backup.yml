@@ -24,7 +24,7 @@ jobs:
   # ===========================================================================
   backup:
     name: Dump and Upload
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # PGDG publishes postgresql-client-17 for noble
     timeout-minutes: 30
 
     outputs:
@@ -37,14 +37,18 @@ jobs:
           sparse-checkout: .github/actions
 
       # -----------------------------------------------------------------------
-      # Install pg_dump (Postgres 16 client tools)
-      # Ubuntu 24.04 (ubuntu-latest) ships pg_dump 16 via apt.
+      # Install pg_dump 17 from the PostgreSQL apt repo. The Neon server is
+      # PostgreSQL 17 and pg_dump refuses to dump a newer server, so the
+      # distro's client is not enough.
       # -----------------------------------------------------------------------
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends postgresql-client-16
-          pg_dump --version
+          sudo apt-get install -y --no-install-recommends postgresql-common ca-certificates
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          /usr/lib/postgresql/17/bin/pg_dump --version
 
       # -----------------------------------------------------------------------
       # Configure the AWS CLI to talk to Cloudflare R2 (S3-compatible API).
@@ -181,7 +185,7 @@ jobs:
   # ===========================================================================
   verify:
     name: Verify Backup Integrity
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # PGDG publishes postgresql-client-17 for noble
     needs: [backup]
     timeout-minutes: 20
     # Allow the verification job to fail without marking the whole workflow red.
@@ -196,7 +200,11 @@ jobs:
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends postgresql-client-16
+          sudo apt-get install -y --no-install-recommends postgresql-common ca-certificates
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          /usr/lib/postgresql/17/bin/pg_dump --version
 
       - name: Configure AWS CLI for Cloudflare R2
         env:

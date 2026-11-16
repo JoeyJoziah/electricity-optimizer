@@ -153,4 +153,17 @@ describe("CombinedSavingsCard", () => {
     const bar = screen.getByTestId("savings-bar");
     expect(bar.firstElementChild).toHaveClass("bg-yellow-400");
   });
+
+  it("renders a partial payload without a breakdown instead of crashing", () => {
+    mockUseCombinedSavings.mockReturnValue({
+      data: {},
+      isLoading: false,
+      error: null,
+    });
+
+    render(<CombinedSavingsCard />);
+
+    expect(screen.getByTestId("combined-savings-card")).toBeInTheDocument();
+    expect(screen.getByText("$0.00")).toBeInTheDocument();
+  });
 });

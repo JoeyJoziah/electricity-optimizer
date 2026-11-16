@@ -285,3 +285,41 @@ class TestMaintenanceCleanup:
         """Request without X-API-Key header must be rejected."""
         response = unauth_client.post(f"{BASE_URL}/maintenance/cleanup")
         assert response.status_code == 401
+
+
+# =============================================================================
+# POST /internal/maintenance/db-optimize
+# =============================================================================
+
+
+class TestDbOptimize:
+    """Tests for the planner-statistics refresh endpoint."""
+
+    def test_analyzes_every_public_table(self, auth_client, mock_db):
+        listing = MagicMock()
+        listing.fetchall.return_value = [("public.users",), ("public.bill_uploads",)]
+        mock_db.execute = AsyncMock(side_effect=[listing, MagicMock(), MagicMock()])
+
+        response = auth_client.post(f"{BASE_URL}/maintenance/db-optimize")
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok", "tables_analyzed": 2, "failed": []}
+        statements = [str(c.args[0]) for c in mock_db.execute.await_args_list]
+        assert statements[1:] == ["ANALYZE public.users", "ANALYZE public.bill_uploads"]
+
+    def test_reports_tables_that_fail(self, auth_client, mock_db):
+        listing = MagicMock()
+        listing.fetchall.return_value = [("public.users",), ("public.bill_uploads",)]
+        mock_db.execute = AsyncMock(side_effect=[listing, Exception("lock timeout"), MagicMock()])
+
+        response = auth_client.post(f"{BASE_URL}/maintenance/db-optimize")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "partial"
+        assert body["failed"] == ["public.users"]
+        assert body["tables_analyzed"] == 1
+
+    def test_requires_api_key(self, unauth_client):
+        response = unauth_client.post(f"{BASE_URL}/maintenance/db-optimize")
+        assert response.status_code == 401

@@ -53,7 +53,7 @@ class DataQualityService:
         result = await self._db.execute(
             text("""
                 SELECT utility_type, region,
-                       MAX(updated_at) as last_updated,
+                       MAX("timestamp") as last_updated,
                        COUNT(*) as record_count
                 FROM electricity_prices
                 GROUP BY utility_type, region
@@ -109,29 +109,30 @@ class DataQualityService:
             text("""
                 WITH stats AS (
                     SELECT utility_type, region,
-                           AVG(rate_per_kwh) as avg_rate,
-                           STDDEV(rate_per_kwh) as std_rate,
+                           AVG(price_per_kwh) as avg_rate,
+                           STDDEV(price_per_kwh) as std_rate,
                            COUNT(*) as sample_count
                     FROM electricity_prices
-                    WHERE updated_at >= :cutoff
-                      AND rate_per_kwh IS NOT NULL
+                    WHERE "timestamp" >= :cutoff
+                      AND price_per_kwh IS NOT NULL
                     GROUP BY utility_type, region
                     HAVING COUNT(*) >= 3
                 )
-                SELECT p.id, p.utility_type, p.region, p.rate_per_kwh,
-                       p.updated_at, p.source,
+                SELECT p.id, p.utility_type, p.region,
+                       p.price_per_kwh AS rate_per_kwh,
+                       p."timestamp" AS updated_at, p.source_api AS source,
                        s.avg_rate, s.std_rate, s.sample_count,
-                       ABS(p.rate_per_kwh - s.avg_rate) /
+                       ABS(p.price_per_kwh - s.avg_rate) /
                            NULLIF(s.std_rate, 0) as z_score
                 FROM electricity_prices p
                 JOIN stats s ON p.utility_type = s.utility_type
                              AND p.region = s.region
-                WHERE p.updated_at >= :cutoff
-                  AND p.rate_per_kwh IS NOT NULL
+                WHERE p."timestamp" >= :cutoff
+                  AND p.price_per_kwh IS NOT NULL
                   AND s.std_rate > 0
-                  AND ABS(p.rate_per_kwh - s.avg_rate) /
+                  AND ABS(p.price_per_kwh - s.avg_rate) /
                       NULLIF(s.std_rate, 0) > :threshold
-                ORDER BY p.updated_at DESC
+                ORDER BY p."timestamp" DESC
                 LIMIT 100
             """),
             {"cutoff": cutoff, "threshold": ANOMALY_STD_THRESHOLD},
@@ -157,74 +158,60 @@ class DataQualityService:
         """
         Calculate success/failure rates per data source within a time window.
 
-        Uses the scrape_results table to track ingestion outcomes.
+        Uses scraped_rates for scraper outcomes and electricity_prices for API ingestion.
         Falls back to counting non-null rates in electricity_prices if
         scrape_results doesn't exist.
         """
         cutoff = datetime.now(UTC) - timedelta(hours=window_hours)
 
-        # Try scrape_results table first (tracks explicit success/failure)
-        try:
-            result = await self._db.execute(
-                text("""
-                    SELECT source,
-                           COUNT(*) as total,
-                           COUNT(*) FILTER (WHERE status = 'success') as successes,
-                           COUNT(*) FILTER (WHERE status = 'failure') as failures,
-                           MAX(created_at) as last_attempt
-                    FROM scrape_results
-                    WHERE created_at >= :cutoff
-                    GROUP BY source
-                    ORDER BY source
-                """),
-                {"cutoff": cutoff},
-            )
-            rows = result.mappings().all()
+        # Scraper outcomes live in scraped_rates (success flag per fetch); API
+        # ingestion (EIA/NREL) only records successful writes in
+        # electricity_prices, so those sources report no failures.
+        scraped = await self._db.execute(
+            text("""
+                SELECT supplier_name AS source,
+                       COUNT(*) AS total,
+                       COUNT(*) FILTER (WHERE success) AS successes,
+                       COUNT(*) FILTER (WHERE NOT success) AS failures,
+                       MAX(fetched_at) AS last_attempt
+                FROM scraped_rates
+                WHERE fetched_at >= :cutoff
+                GROUP BY supplier_name
+                ORDER BY supplier_name
+            """),
+            {"cutoff": cutoff},
+        )
+        ingested = await self._db.execute(
+            text("""
+                SELECT source_api AS source,
+                       COUNT(*) AS total,
+                       COUNT(*) AS successes,
+                       0 AS failures,
+                       MAX("timestamp") AS last_attempt
+                FROM electricity_prices
+                WHERE "timestamp" >= :cutoff
+                  AND source_api IS NOT NULL
+                GROUP BY source_api
+                ORDER BY source_api
+            """),
+            {"cutoff": cutoff},
+        )
+        rows = list(scraped.mappings().all()) + list(ingested.mappings().all())
 
-            return [
-                {
-                    "source": r["source"],
-                    "total_attempts": r["total"],
-                    "successes": r["successes"],
-                    "failures": r["failures"],
-                    "failure_rate": round(r["failures"] / r["total"], 3) if r["total"] > 0 else 0,
-                    "is_degraded": (r["failures"] / r["total"]) > SOURCE_FAILURE_ALERT_THRESHOLD
-                    if r["total"] > 0
-                    else False,
-                    "last_attempt": r["last_attempt"].isoformat() if r["last_attempt"] else None,
-                }
-                for r in rows
-            ]
-        except Exception:
-            # Fallback: count records per source in electricity_prices
-            logger.info("scrape_results table not found, falling back to electricity_prices")
-            result = await self._db.execute(
-                text("""
-                    SELECT source,
-                           COUNT(*) as total,
-                           MAX(updated_at) as last_attempt
-                    FROM electricity_prices
-                    WHERE updated_at >= :cutoff
-                      AND source IS NOT NULL
-                    GROUP BY source
-                    ORDER BY source
-                """),
-                {"cutoff": cutoff},
-            )
-            rows = result.mappings().all()
-
-            return [
-                {
-                    "source": r["source"],
-                    "total_attempts": r["total"],
-                    "successes": r["total"],  # assume all succeeded
-                    "failures": 0,
-                    "failure_rate": 0.0,
-                    "is_degraded": False,
-                    "last_attempt": r["last_attempt"].isoformat() if r["last_attempt"] else None,
-                }
-                for r in rows
-            ]
+        return [
+            {
+                "source": r["source"],
+                "total_attempts": r["total"],
+                "successes": r["successes"],
+                "failures": r["failures"],
+                "failure_rate": round(r["failures"] / r["total"], 3) if r["total"] > 0 else 0,
+                "is_degraded": (r["failures"] / r["total"]) > SOURCE_FAILURE_ALERT_THRESHOLD
+                if r["total"] > 0
+                else False,
+                "last_attempt": r["last_attempt"].isoformat() if r["last_attempt"] else None,
+            }
+            for r in rows
+        ]
 
     @staticmethod
     def check_rate_anomaly(
