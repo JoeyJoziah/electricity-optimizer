@@ -34,7 +34,7 @@ async def neighborhood_compare(
     """Compare the user's rate against regional peers."""
     if utility_type not in _VALID_UTILITY_TYPES:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Invalid utility_type '{utility_type}'. "
                 f"Valid values are: {', '.join(sorted(_VALID_UTILITY_TYPES))}"

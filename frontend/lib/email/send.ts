@@ -20,7 +20,7 @@
 import "server-only";
 
 import { Resend } from "resend";
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 
 // ---------------------------------------------------------------------------
 // Shared config
@@ -68,9 +68,9 @@ async function sendViaResend(
 // SMTP via nodemailer (fallback)
 // ---------------------------------------------------------------------------
 
-let _transporter: nodemailer.Transporter | null = null;
+let _transporter: Transporter | null = null;
 
-function getTransporter(): nodemailer.Transporter | null {
+function getTransporter(): Transporter | null {
   if (_transporter) return _transporter;
   const host = process.env.SMTP_HOST;
   if (!host) return null;

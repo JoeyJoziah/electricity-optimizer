@@ -23,7 +23,7 @@ router = APIRouter(prefix="/export")
 )
 async def export_rates(
     utility_type: str = Query(..., description="Utility type to export"),
-    format: str = Query("json", regex="^(json|csv)$", description="Export format"),
+    format: str = Query("json", pattern="^(json|csv)$", description="Export format"),
     state: str | None = Query(None, description="State code filter"),
     start_date: datetime | None = Query(None, description="Start date (ISO format)"),
     end_date: datetime | None = Query(None, description="End date (ISO format)"),

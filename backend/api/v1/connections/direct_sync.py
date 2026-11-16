@@ -73,17 +73,17 @@ async def initiate_utilityapi_authorization(
     accept_addon_pricing = payload.get("accept_addon_pricing", False)
     if not consent_given:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Consent is required.",
         )
     if not accept_addon_pricing:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="You must accept the $2.25/meter/month add-on pricing to continue.",
         )
     if not supplier_id:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="supplier_id is required.",
         )
 

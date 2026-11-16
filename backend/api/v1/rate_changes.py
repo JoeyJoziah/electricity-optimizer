@@ -127,14 +127,14 @@ async def upsert_preference(
     valid_types = {"electricity", "natural_gas", "heating_oil", "propane", "community_solar"}
     if body.utility_type not in valid_types:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid utility_type. Must be one of: {', '.join(sorted(valid_types))}",
         )
 
     valid_cadences = {"realtime", "daily", "weekly"}
     if body.cadence and body.cadence not in valid_cadences:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid cadence. Must be one of: {', '.join(sorted(valid_cadences))}",
         )
 

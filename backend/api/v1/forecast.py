@@ -37,7 +37,7 @@ async def get_forecast(
     """
     if utility_type not in FORECASTABLE_UTILITIES:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Invalid utility_type '{utility_type}'. "
                 f"Valid values are: {', '.join(sorted(FORECASTABLE_UTILITIES))}"

@@ -563,7 +563,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         logger.warning("validation_error", errors=sanitized_errors, path=request.url.path)
 
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": sanitized_errors},
         )
 

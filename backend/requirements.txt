@@ -1,8 +1,8 @@
 # FastAPI and ASGI Server
-fastapi==0.125.0
+fastapi==0.163.1
 uvicorn[standard]==0.42.0
 pydantic==2.12.5
-pydantic-settings==2.13.1
+pydantic-settings==2.14.2
 
 # Database
 asyncpg==0.31.0
@@ -15,9 +15,9 @@ redis[hiredis]==7.0
 httpx==0.27.2
 
 # Authentication & Security
-PyJWT[crypto]==2.12.1
-cryptography==46.0.7
-python-multipart==0.0.27
+PyJWT[crypto]==2.15.0
+cryptography==50.0.0
+python-multipart==0.0.31
 bcrypt==4.1.2
 
 # Environment & Configuration
@@ -33,12 +33,12 @@ sentry-sdk[fastapi]==2.54.0
 structlog==25.5.0
 
 # OpenTelemetry — opt-in distributed tracing (OTEL_ENABLED=true activates)
-opentelemetry-api==1.40.0
-opentelemetry-sdk==1.40.0
-opentelemetry-instrumentation-fastapi==0.61b0
-opentelemetry-instrumentation-sqlalchemy==0.61b0
-opentelemetry-instrumentation-httpx==0.61b0
-opentelemetry-exporter-otlp-proto-http==1.40.0
+opentelemetry-api==1.45.2
+opentelemetry-sdk==1.45.2
+opentelemetry-instrumentation-fastapi==0.66b2
+opentelemetry-instrumentation-sqlalchemy==0.66b2
+opentelemetry-instrumentation-httpx==0.66b2
+opentelemetry-exporter-otlp-proto-http==1.45.2
 
 # Note: CORS is built into FastAPI, no extra package needed
 
@@ -47,7 +47,7 @@ stripe==14.4.1
 
 # Email
 resend==2.23.0
-aiosmtplib==3.0.2
+aiosmtplib==5.1.2
 jinja2==3.1.6
 
 # ML Dependencies
@@ -65,3 +65,4 @@ nh3==0.3.3
 google-genai==1.2.0
 composio-gemini==0.11.2
 groq==1.1.0
+starlette==1.10.0

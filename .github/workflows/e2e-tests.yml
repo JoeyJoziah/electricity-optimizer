@@ -57,7 +57,7 @@ jobs:
     needs: changes
     # Run when frontend changed OR when manually dispatched (bypasses path filter)
     if: needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright has no browser builds for ubuntu-26.04 yet
     timeout-minutes: 30
 
     services:

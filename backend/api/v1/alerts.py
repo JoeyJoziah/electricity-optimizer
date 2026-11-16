@@ -166,7 +166,7 @@ async def create_alert(
     except ValueError as exc:
         logger.warning("alert_create_invalid", user_id=current_user.user_id, error=str(exc))
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Invalid alert configuration. Check thresholds and region.",
         ) from exc
 

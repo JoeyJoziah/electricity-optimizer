@@ -48,7 +48,7 @@ def _validate_region_code(value: str) -> None:
     """Raise 422 if value doesn't look like a valid region code."""
     if not _REGION_RE.match(value):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid region code: '{value}'",
         )
 

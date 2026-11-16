@@ -64,7 +64,7 @@ export function ExcalidrawWrapper({
           // Cast required: our opaque ExcalidrawAppState alias is structurally
           // compatible but lacks the index signature on the library's AppState.
           // This component is dev-only (triple-gated, notFound in production).
-           
+
           onChange: handleChange as unknown as (
             elements: any,
             appState: any,
