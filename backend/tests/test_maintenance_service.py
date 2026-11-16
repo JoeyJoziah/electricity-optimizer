@@ -562,6 +562,9 @@ class TestMaintenanceEndpoint:
         mock_svc.cleanup_expired_uploads = AsyncMock(
             return_value={"deleted": 3, "retention_days": 730}
         )
+        mock_svc.sweep_stale_bill_uploads = AsyncMock(
+            return_value={"swept": 4, "stale_minutes": 15}
+        )
         mock_svc.cleanup_old_prices = AsyncMock(
             return_value={"deleted": 500, "retention_days": 365}
         )
@@ -586,6 +589,7 @@ class TestMaintenanceEndpoint:
         assert data["activity_logs"]["deleted"] == 10
         assert data["activity_logs"]["retention_days"] == 365
         assert data["uploads"]["deleted"] == 3
+        assert data["stale_uploads"] == {"swept": 4, "stale_minutes": 15}
         assert data["uploads"]["retention_days"] == 730
         assert data["prices"]["deleted"] == 500
         assert data["observations"]["deleted"] == 200
@@ -602,6 +606,9 @@ class TestMaintenanceEndpoint:
         )
         mock_svc.cleanup_expired_uploads = AsyncMock(
             return_value={"deleted": 0, "retention_days": 730}
+        )
+        mock_svc.sweep_stale_bill_uploads = AsyncMock(
+            return_value={"swept": 0, "stale_minutes": 15}
         )
         mock_svc.cleanup_old_prices = AsyncMock(return_value={"deleted": 0, "retention_days": 365})
         mock_svc.cleanup_old_observations = AsyncMock(
@@ -635,6 +642,102 @@ class TestMaintenanceEndpoint:
         response = unauth_client.post("/api/v1/internal/maintenance/cleanup")
 
         assert response.status_code == 401
+
+
+# =============================================================================
+# TestSweepStaleBillUploads
+# =============================================================================
+
+
+class _FakeBillUploadsDb:
+    """Applies the sweeper's UPDATE to in-memory bill_uploads rows."""
+
+    def __init__(self, rows):
+        self.rows = rows
+        self.commit = AsyncMock()
+        self.rollback = AsyncMock()
+        self.statements: list[str] = []
+
+    async def execute(self, stmt, params=None):
+        sql = " ".join(str(stmt).split())
+        self.statements.append(sql)
+        assert sql.startswith("UPDATE bill_uploads")
+        statuses = [st for st in ("pending", "processing") if f"'{st}'" in sql]
+        assert "updated_at < :cutoff" in sql
+        hit = [
+            r
+            for r in self.rows
+            if r["parse_status"] in statuses and r["updated_at"] < params["cutoff"]
+        ]
+        for r in hit:
+            r["parse_status"] = "failed"
+            r["parse_error"] = params["error"]
+        return _make_result(rowcount=len(hit))
+
+
+class TestSweepStaleBillUploads:
+    """Tests for MaintenanceService.sweep_stale_bill_uploads (D8)."""
+
+    @staticmethod
+    def _row(status, minutes_old):
+        return {
+            "parse_status": status,
+            "parse_error": None,
+            "updated_at": datetime.now(UTC) - timedelta(minutes=minutes_old),
+        }
+
+    async def test_stale_pending_swept_fresh_pending_kept(self):
+        from services.maintenance_service import MaintenanceService
+
+        stale = self._row("pending", 16)
+        fresh = self._row("pending", 5)
+        db = _FakeBillUploadsDb([stale, fresh])
+
+        result = await MaintenanceService(db).sweep_stale_bill_uploads()
+
+        assert result == {"swept": 1, "stale_minutes": 15}
+        assert stale["parse_status"] == "failed"
+        assert stale["parse_error"]
+        assert "retry" in stale["parse_error"].lower()
+        assert fresh["parse_status"] == "pending"
+        assert fresh["parse_error"] is None
+        db.commit.assert_awaited_once()
+
+    async def test_stale_processing_swept(self):
+        """The parser flips pending -> processing first; a restart strands that too."""
+        from services.maintenance_service import MaintenanceService
+
+        stale = self._row("processing", 60)
+        db = _FakeBillUploadsDb([stale])
+
+        result = await MaintenanceService(db).sweep_stale_bill_uploads()
+
+        assert result["swept"] == 1
+        assert stale["parse_status"] == "failed"
+
+    async def test_finished_rows_never_touched(self):
+        from services.maintenance_service import MaintenanceService
+
+        done = self._row("complete", 10_000)
+        failed = self._row("failed", 10_000)
+        db = _FakeBillUploadsDb([done, failed])
+
+        result = await MaintenanceService(db).sweep_stale_bill_uploads()
+
+        assert result["swept"] == 0
+        assert done["parse_status"] == "complete"
+        assert failed["parse_error"] is None
+
+    async def test_rollback_and_reraise_on_db_error(self):
+        from services.maintenance_service import MaintenanceService
+
+        db = AsyncMock()
+        db.execute.side_effect = RuntimeError("boom")
+
+        with pytest.raises(RuntimeError):
+            await MaintenanceService(db).sweep_stale_bill_uploads()
+
+        db.rollback.assert_awaited_once()
 
 
 # =============================================================================

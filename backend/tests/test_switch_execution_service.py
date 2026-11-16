@@ -14,7 +14,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from services.switch_decision_engine import PlanDetails, SwitchDecision
-from services.switch_execution_service import SwitchExecutionService
+from services.switch_execution_service import (
+    PENDING_STATUSES,
+    SwitchExecutionService,
+    build_idempotency_key,
+)
 from services.switch_executor import (
     AdvisoryOnlyFallback,
     EnrollmentResult,
@@ -27,13 +31,41 @@ from services.switch_executor import (
 # =============================================================================
 
 
-def _make_db() -> AsyncMock:
-    """Build a minimal mock AsyncSession."""
+def _make_db(
+    *,
+    existing_execution: dict | None = None,
+    insert_conflicts: bool = False,
+    audit_row: dict | None = None,
+) -> AsyncMock:
+    """Build a mock AsyncSession that routes on the SQL text.
+
+    - lookup by idempotency key  -> ``existing_execution`` (None = no prior row)
+    - INSERT INTO switch_executions -> RETURNING row, or nothing on conflict
+    - SELECT ... FROM switch_audit_log -> ``audit_row``
+    """
     db = AsyncMock()
-    db.execute = AsyncMock()
+
+    async def _execute(statement, params=None):
+        sql = str(statement)
+        if "WHERE idempotency_key" in sql:
+            return _make_mapping_result(existing_execution)
+        if "INSERT INTO switch_executions" in sql:
+            result = MagicMock()
+            result.first.return_value = None if insert_conflicts else ("exec-id",)
+            return result
+        if "FROM switch_audit_log" in sql and "SELECT" in sql:
+            return _make_mapping_result(audit_row)
+        return MagicMock()
+
+    db.execute = AsyncMock(side_effect=_execute)
     db.commit = AsyncMock()
     db.rollback = AsyncMock()
     return db
+
+
+def _sql_calls(db: AsyncMock, fragment: str) -> list:
+    """All db.execute calls whose SQL contains ``fragment``."""
+    return [c for c in db.execute.call_args_list if fragment in str(c[0][0])]
 
 
 def _make_executor(
@@ -164,7 +196,6 @@ class TestExecuteSwitch:
         # Verify the status update to 'failed' was attempted — the UPDATE call
         # passes a dict with a 'reason' key containing the error message.
         execute_calls = db.execute.call_args_list
-        # 3 calls expected: INSERT audit_log, INSERT execution, UPDATE to failed
         assert len(execute_calls) >= 3
         # The last execute call's params dict contains 'reason' (failure_reason)
         last_params = execute_calls[-1][0][1]  # positional arg[1] of the last call
@@ -194,8 +225,11 @@ class TestExecuteSwitch:
         assert "Provider timeout" in str(last_params)
 
     @pytest.mark.asyncio
-    async def test_04_advisory_only_executor_sets_submitted_status(self):
-        """AdvisoryOnlyFallback produces status='submitted'."""
+    async def test_04_advisory_only_executor_never_reports_a_switch(self):
+        """AdvisoryOnlyFallback ends in the terminal 'advisory_only' status.
+
+        It must not look initiated/submitted/pending: nothing was enrolled.
+        """
         db = _make_db()
         svc = _make_service(db)
         advisory_executor = AdvisoryOnlyFallback()
@@ -207,7 +241,15 @@ class TestExecuteSwitch:
         ):
             result = await svc.execute_switch("user_1", decision)
 
-        assert result["status"] == "submitted"
+        assert result["status"] == "advisory_only"
+        assert result["status"] not in PENDING_STATUSES
+        assert result["executed"] is False
+        assert result["enrollment_id"] is None
+        assert "has not switched" in result["message"]
+        update = _sql_calls(db, "UPDATE switch_executions")[-1]
+        assert update[0][1]["status"] == "advisory_only"
+        insert = _sql_calls(db, "INSERT INTO switch_executions")[0]
+        assert insert[0][1]["executor_type"] == "advisory_only"
 
     @pytest.mark.asyncio
     async def test_05_idempotency_key_is_generated(self):
@@ -251,9 +293,18 @@ class TestExecuteSwitch:
         # audit_log INSERT, executions INSERT, status UPDATE.
         execute_calls = db.execute.call_args_list
         assert len(execute_calls) >= 3
-        # Verify audit log insert: first call's params contain 'decision' key
-        first_params = execute_calls[0][0][1]
-        assert "decision" in first_params
+        audit_inserts = _sql_calls(db, "INSERT INTO switch_audit_log")
+        assert len(audit_inserts) == 1
+        params = audit_inserts[0][0][1]
+        assert params["decision"] == "switch"
+        # Columns that exist in migration 066 and are NOT NULL there.
+        assert params["trigger_type"] == "manual"
+        assert "tier" in params
+        # The snapshot precedes the execution row that references it.
+        order = [str(c[0][0]) for c in execute_calls]
+        audit_idx = next(i for i, q in enumerate(order) if "INSERT INTO switch_audit_log" in q)
+        exec_idx = next(i for i, q in enumerate(order) if "INSERT INTO switch_executions" in q)
+        assert audit_idx < exec_idx
 
     @pytest.mark.asyncio
     async def test_07_db_commit_is_called(self):
@@ -610,24 +661,23 @@ class TestApproveRecommendation:
             "id": "log_1",
             "user_id": user_id,
             "decision": decision,
-            "plan_id": plan_id,
-            "plan_name": "Green Rate",
-            "provider_name": "EcoEnergy",
-            "rate_kwh": "0.10",
-            "projected_savings_monthly": "25.00",
-            "projected_savings_annual": "300.00",
-            "confidence": "0.85",
+            "proposed_plan_id": plan_id,
+            "savings_monthly": "25.00",
+            "savings_annual": "300.00",
+            "etf_cost": "0",
+            "net_savings_year1": "300.00",
+            "confidence_score": "0.85",
             "reason": "Better plan found",
             "data_source": "arcadia_15min",
+            "tier": "pro",
             "executed": executed,
         }
 
     @pytest.mark.asyncio
     async def test_23_happy_path_returns_execution_result(self):
         """Approving a valid recommendation returns execution result dict."""
-        db = _make_db()
+        db = _make_db(audit_row=self._audit_row())
         svc = _make_service(db)
-        db.execute = AsyncMock(return_value=_make_mapping_result(self._audit_row()))
         mock_executor = _make_executor()
 
         with patch(
@@ -686,9 +736,8 @@ class TestApproveRecommendation:
     @pytest.mark.asyncio
     async def test_28_triggers_execute_switch(self):
         """approve_recommendation delegates to execute_switch internally."""
-        db = _make_db()
+        db = _make_db(audit_row=self._audit_row())
         svc = _make_service(db)
-        db.execute = AsyncMock(return_value=_make_mapping_result(self._audit_row()))
         mock_executor = _make_executor()
 
         with patch(
@@ -703,9 +752,8 @@ class TestApproveRecommendation:
     @pytest.mark.asyncio
     async def test_29_updates_audit_log_executed_true(self):
         """After execution the audit log row is updated with executed=TRUE."""
-        db = _make_db()
+        db = _make_db(audit_row=self._audit_row())
         svc = _make_service(db)
-        db.execute = AsyncMock(return_value=_make_mapping_result(self._audit_row()))
         mock_executor = _make_executor()
 
         with patch(
@@ -730,9 +778,8 @@ class TestApproveRecommendation:
     @pytest.mark.asyncio
     async def test_30_returns_execution_result_from_execute_switch(self):
         """The dict returned by approve_recommendation mirrors execute_switch output."""
-        db = _make_db()
+        db = _make_db(audit_row=self._audit_row())
         svc = _make_service(db)
-        db.execute = AsyncMock(return_value=_make_mapping_result(self._audit_row()))
         mock_executor = _make_executor(enrollment_id="enr_unique_999")
 
         with patch(
@@ -742,4 +789,112 @@ class TestApproveRecommendation:
             result = await svc.approve_recommendation("log_1", "user_1")
 
         assert result["enrollment_id"] == "enr_unique_999"
-        assert result["status"] in ("initiated", "submitted")
+        assert result["status"] == "initiated"
+        assert result["executed"] is True
+
+    @pytest.mark.asyncio
+    async def test_31_advisory_approval_does_not_mark_executed(self):
+        """Approving in advisory mode records nothing as executed/enrolled."""
+        db = _make_db(audit_row=self._audit_row())
+        svc = _make_service(db)
+
+        result = await svc.approve_recommendation("log_1", "user_1")
+
+        assert result["status"] == "advisory_only"
+        assert result["executed"] is False
+        assert _sql_calls(db, "UPDATE switch_audit_log") == []
+
+    @pytest.mark.asyncio
+    async def test_32_approval_reuses_existing_audit_row(self):
+        """No second audit snapshot is written when approving a recommendation."""
+        db = _make_db(audit_row=self._audit_row())
+        svc = _make_service(db)
+
+        await svc.approve_recommendation("log_1", "user_1")
+
+        assert _sql_calls(db, "INSERT INTO switch_audit_log") == []
+        insert = _sql_calls(db, "INSERT INTO switch_executions")[0]
+        assert insert[0][1]["audit_log_id"] == "log_1"
+
+
+# =============================================================================
+# Idempotency
+# =============================================================================
+
+
+class TestIdempotency:
+    """execute_switch uses a deterministic key and repeats are no-ops."""
+
+    def test_key_is_deterministic_per_user_plan_and_utc_day(self):
+        from datetime import date
+
+        day = date(2026, 11, 16)
+        key = build_idempotency_key("user_1", "plan_abc", day)
+
+        assert key == build_idempotency_key("user_1", "plan_abc", day)
+        assert key != build_idempotency_key("user_2", "plan_abc", day)
+        assert key != build_idempotency_key("user_1", "plan_xyz", day)
+        assert key != build_idempotency_key("user_1", "plan_abc", date(2026, 11, 17))
+        # switch_executions.idempotency_key is a UUID column.
+        import uuid
+
+        assert str(uuid.UUID(key)) == key
+
+    @pytest.mark.asyncio
+    async def test_two_attempts_use_the_same_key(self):
+        """Old code used uuid4, so two attempts never shared a key."""
+        keys = []
+        for _ in range(2):
+            db = _make_db()
+            await _make_service(db).execute_switch("user_1", _make_decision())
+            keys.append(_sql_calls(db, "INSERT INTO switch_executions")[0][0][1]["idempotency_key"])
+
+        assert keys[0] == keys[1]
+        assert keys[0] == build_idempotency_key("user_1", "plan_abc")
+
+    @pytest.mark.asyncio
+    async def test_second_attempt_is_a_noop_returning_existing_execution(self):
+        existing = {"id": "exec-existing", "status": "advisory_only", "enrollment_id": None}
+        db = _make_db(existing_execution=existing)
+        svc = _make_service(db)
+        mock_executor = _make_executor()
+
+        with patch(
+            "services.switch_execution_service.get_executor",
+            return_value=mock_executor,
+        ):
+            result = await svc.execute_switch("user_1", _make_decision())
+
+        assert result["execution_id"] == "exec-existing"
+        assert result["status"] == "advisory_only"
+        assert result["idempotent_replay"] is True
+        assert result["executed"] is False
+        # Nothing written, executor never called.
+        assert _sql_calls(db, "INSERT INTO") == []
+        mock_executor.execute_enrollment.assert_not_called()
+        db.commit.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_insert_uses_on_conflict_do_nothing(self):
+        db = _make_db()
+        await _make_service(db).execute_switch("user_1", _make_decision())
+
+        sql = str(_sql_calls(db, "INSERT INTO switch_executions")[0][0][0])
+        assert "ON CONFLICT (idempotency_key) DO NOTHING" in sql
+
+    @pytest.mark.asyncio
+    async def test_concurrent_conflict_rolls_back_and_does_not_call_executor(self):
+        """Losing the insert race must not reach the executor."""
+        db = _make_db(insert_conflicts=True)
+        svc = _make_service(db)
+        mock_executor = _make_executor()
+
+        with patch(
+            "services.switch_execution_service.get_executor",
+            return_value=mock_executor,
+        ):
+            with pytest.raises(RuntimeError, match="conflicted"):
+                await svc.execute_switch("user_1", _make_decision())
+
+        db.rollback.assert_called()
+        mock_executor.execute_enrollment.assert_not_called()

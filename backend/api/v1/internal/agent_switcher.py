@@ -3,13 +3,13 @@ Internal agent-switcher endpoints.
 
 Covers:
 - POST /agent-switcher/scan           — cron-triggered decision engine scan
-- POST /agent-switcher/sync-plans     — refresh available-plans cache per zip
 - POST /agent-switcher/cleanup-meter-data — drop stale meter_readings partitions
 
 All routes inherit the router-level ``verify_api_key`` dependency from the
 parent internal router, so no per-endpoint auth setup is required here.
 """
 
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import structlog
@@ -29,6 +29,18 @@ router = APIRouter(prefix="/agent-switcher", tags=["internal-agent-switcher"])
 # ---------------------------------------------------------------------------
 
 
+def _empty_scan_summary() -> dict[str, int]:
+    return {
+        "scanned": 0,
+        "switches_initiated": 0,
+        "recommendations_sent": 0,
+        "holds": 0,
+        "users_without_plan_data": 0,
+        "users_without_market_data": 0,
+        "users_without_usage_data": 0,
+    }
+
+
 @router.post("/scan")
 async def scan_agent_switcher(
     db: AsyncSession = Depends(get_db_session),
@@ -36,22 +48,34 @@ async def scan_agent_switcher(
     """
     Trigger the auto-rate-switcher decision engine for all enrolled users.
 
+    The feature is advisory-only: a scan records recommendations, it never
+    enrolls anyone.
+
     Steps per user:
     1. Query ``user_agent_settings`` for users who are enabled, have a signed
        LOA that has not been revoked.
-    2. Build a ``UserContext`` and run ``SwitchDecisionEngine.evaluate()``.
+    2. Build a full ``UserContext`` (current plan, market plans, usage, switch
+       history) and run ``SwitchDecisionEngine.evaluate()``.
     3. Write the decision to ``switch_audit_log`` (all outcomes).
-    4. If ``decision.action == "switch"`` call ``SwitchExecutionService.execute_switch()``.
+    4. If ``decision.action == "switch"`` call
+       ``SwitchExecutionService.execute_switch()``; when that only records a
+       recommendation (advisory mode) it is counted as a recommendation.
 
     Returns a summary dict:
-        scanned             — total enrolled users evaluated
-        switches_initiated  — users for whom a switch was started
-        recommendations_sent — users who received a ``recommend`` decision
-        holds               — users whose evaluation returned hold/monitor
+        scanned                   — total enrolled users evaluated
+        switches_initiated        — users for whom a real enrollment was started
+                                    (always 0 while the product is advisory-only)
+        recommendations_sent      — users who received a recommendation
+        holds                     — users whose evaluation returned hold/monitor
+                                    (or failed)
+        users_without_plan_data   — users with no usable current plan on file
+        users_without_market_data — users with no market plans for their region
+        users_without_usage_data  — users with no usable meter readings
 
     Requires a valid X-API-Key header (enforced by router-level dependency).
     """
-    from services.switch_decision_engine import SwitchDecisionEngine, UserContext
+    from services.switch_context_builder import annotate_decision, build_user_context
+    from services.switch_decision_engine import SwitchDecisionEngine
     from services.switch_execution_service import SwitchExecutionService
 
     if db is None:
@@ -72,7 +96,8 @@ async def scan_agent_switcher(
                     uas.savings_threshold_min,
                     uas.cooldown_days,
                     uas.paused_until,
-                    u.subscription_tier
+                    u.subscription_tier,
+                    u.region
                 FROM user_agent_settings uas
                 JOIN public.users u ON u.id = uas.user_id
                 WHERE uas.enabled = TRUE
@@ -89,110 +114,110 @@ async def scan_agent_switcher(
         )
 
     if not rows:
-        return {
-            "scanned": 0,
-            "switches_initiated": 0,
-            "recommendations_sent": 0,
-            "holds": 0,
-        }
+        return _empty_scan_summary()
 
     engine = SwitchDecisionEngine(db)
     execution_service = SwitchExecutionService(db)
 
-    scanned = 0
-    switches_initiated = 0
-    recommendations_sent = 0
-    holds = 0
+    summary = _empty_scan_summary()
 
     # ------------------------------------------------------------------
     # 2-4. Evaluate each user
     # ------------------------------------------------------------------
     for row in rows:
         user_id = str(row["user_id"])
-        scanned += 1
+        summary["scanned"] += 1
 
         try:
-            from decimal import Decimal
+            tier = row["subscription_tier"] or "free"
+            region = row["region"] or ""
 
-            ctx = UserContext(
-                user_id=user_id,
-                tier=row["subscription_tier"] or "free",
-                agent_enabled=bool(row["enabled"]),
-                loa_signed=row["loa_signed_at"] is not None,
-                loa_revoked=row["loa_revoked_at"] is not None,
-                paused_until=row["paused_until"],
-                savings_threshold_pct=(
-                    Decimal(str(row["savings_threshold_pct"]))
-                    if row["savings_threshold_pct"] is not None
-                    else Decimal("10.0")
-                ),
-                savings_threshold_min=(
-                    Decimal(str(row["savings_threshold_min"]))
-                    if row["savings_threshold_min"] is not None
-                    else Decimal("10.0")
-                ),
-                cooldown_days=int(row["cooldown_days"]) if row["cooldown_days"] is not None else 5,
+            ctx = await build_user_context(
+                db,
+                user_id,
+                settings=row,
+                tier=tier,
+                region=region,
             )
+            if ctx.current_plan is None:
+                summary["users_without_plan_data"] += 1
+            if not ctx.available_plans:
+                summary["users_without_market_data"] += 1
+            if ctx.monthly_kwh <= 0:
+                summary["users_without_usage_data"] += 1
 
             decision = await engine.evaluate(ctx)
+            annotate_decision(decision, ctx)
 
             # 3. Store decision in switch_audit_log
-            import uuid
-
+            audit_log_id = str(uuid.uuid4())
             await db.execute(
                 text("""
                     INSERT INTO switch_audit_log
-                        (id, user_id, decision, plan_id, plan_name, provider_name,
-                         rate_kwh, projected_savings_monthly, projected_savings_annual,
-                         confidence, reason, data_source, executed, created_at)
+                        (id, user_id, trigger_type, decision, reason, current_plan_id,
+                         savings_monthly, savings_annual, etf_cost, net_savings_year1,
+                         confidence_score, data_source, tier, executed, created_at)
                     VALUES
-                        (:id, :user_id, :decision, :plan_id, :plan_name, :provider_name,
-                         :rate_kwh, :savings_monthly, :savings_annual,
-                         :confidence, :reason, :data_source, FALSE, NOW())
+                        (:id, :user_id, 'market_scan', :decision, :reason, :current_plan_id,
+                         :savings_monthly, :savings_annual, :etf_cost, :net_savings_year1,
+                         :confidence_score, :data_source, :tier, FALSE, NOW())
                 """),
                 {
-                    "id": str(uuid.uuid4()),
+                    "id": audit_log_id,
                     "user_id": user_id,
                     "decision": decision.action,
-                    "plan_id": decision.proposed_plan.plan_id if decision.proposed_plan else None,
-                    "plan_name": decision.proposed_plan.plan_name
-                    if decision.proposed_plan
-                    else None,
-                    "provider_name": (
-                        decision.proposed_plan.provider_name if decision.proposed_plan else None
-                    ),
-                    "rate_kwh": (
-                        float(decision.proposed_plan.rate_kwh) if decision.proposed_plan else 0.0
-                    ),
+                    "reason": decision.reason,
+                    "current_plan_id": ctx.current_plan.plan_id if ctx.current_plan else None,
                     "savings_monthly": float(decision.projected_savings_monthly),
                     "savings_annual": float(decision.projected_savings_annual),
-                    "confidence": float(decision.confidence),
-                    "reason": decision.reason,
+                    "etf_cost": float(decision.etf_cost),
+                    "net_savings_year1": float(decision.net_savings_year1),
+                    "confidence_score": float(decision.confidence),
                     "data_source": decision.data_source,
+                    "tier": tier,
                 },
             )
             await db.commit()
 
             # 4. Act on the decision
             if decision.action == "switch":
-                await execution_service.execute_switch(user_id, decision)
-                switches_initiated += 1
-                logger.info(
-                    "agent_switcher_scan_switch_initiated",
-                    user_id=user_id,
-                    proposed_plan=(
-                        decision.proposed_plan.plan_id if decision.proposed_plan else None
-                    ),
+                state_code = region[3:] if region.lower().startswith("us_") else region
+                exec_result = await execution_service.execute_switch(
+                    user_id,
+                    decision,
+                    state_code=state_code or "TX",
+                    audit_log_id=audit_log_id,
+                    tier=tier,
+                    trigger_type="market_scan",
                 )
+                # Only a real enrollment counts as a switch. In advisory mode
+                # the executor records a recommendation and nothing else.
+                if exec_result.get("executed") is True:
+                    summary["switches_initiated"] += 1
+                    logger.info(
+                        "agent_switcher_scan_switch_initiated",
+                        user_id=user_id,
+                        proposed_plan=(
+                            decision.proposed_plan.plan_id if decision.proposed_plan else None
+                        ),
+                    )
+                else:
+                    summary["recommendations_sent"] += 1
+                    logger.info(
+                        "agent_switcher_scan_recommendation",
+                        user_id=user_id,
+                        reason=decision.reason,
+                        advisory_only=True,
+                    )
             elif decision.action == "recommend":
-                recommendations_sent += 1
+                summary["recommendations_sent"] += 1
                 logger.info(
                     "agent_switcher_scan_recommendation",
                     user_id=user_id,
                     reason=decision.reason,
                 )
             else:
-                holds += 1
+                summary["holds"] += 1
                 logger.debug(
                     "agent_switcher_scan_hold",
                     user_id=user_id,
@@ -206,121 +231,25 @@ async def scan_agent_switcher(
                 user_id=user_id,
                 error=str(exc),
             )
-            holds += 1
+            summary["holds"] += 1
             # Continue processing remaining users — one bad user must not abort the batch.
             try:
                 await db.rollback()
             except Exception:
                 pass
 
-    logger.info(
-        "agent_switcher_scan_complete",
-        scanned=scanned,
-        switches_initiated=switches_initiated,
-        recommendations_sent=recommendations_sent,
-        holds=holds,
-    )
-
-    return {
-        "scanned": scanned,
-        "switches_initiated": switches_initiated,
-        "recommendations_sent": recommendations_sent,
-        "holds": holds,
-    }
-
-
-# ---------------------------------------------------------------------------
-# POST /agent-switcher/sync-plans
-# ---------------------------------------------------------------------------
-
-
-@router.post("/sync-plans")
-async def sync_plans(
-    db: AsyncSession = Depends(get_db_session),
-):
-    """
-    Refresh the available-plans cache for all zip codes with active enrolled users.
-
-    Steps:
-    1. Query distinct zip codes from ``user_agent_settings`` joined with ``users``
-       (where ``enabled = TRUE``).
-    2. For each zip code call ``EnergyBotService.fetch_plans(zip_code)``.
-       ``fetch_plans`` internally upserts results into ``available_plans``.
-    3. Tally successes and errors.
-
-    Returns:
-        zip_codes_synced — number of zip codes successfully synced
-        plans_fetched    — total plans retrieved across all zip codes
-
-    A single zip-code fetch failure is logged but does not abort the batch.
-    Requires a valid X-API-Key header (enforced by router-level dependency).
-    """
-    from services.energybot_service import EnergyBotService
-
-    if db is None:
-        raise HTTPException(status_code=503, detail="Database unavailable")
-
-    # ------------------------------------------------------------------
-    # 1. Distinct zip codes for active enrolled users
-    # ------------------------------------------------------------------
-    try:
-        result = await db.execute(
-            text("""
-                SELECT DISTINCT uas.zip_code
-                FROM user_agent_settings uas
-                JOIN public.users u ON u.id = uas.user_id
-                WHERE uas.enabled = TRUE
-                  AND uas.zip_code IS NOT NULL
-                  AND uas.zip_code <> ''
-            """)
-        )
-        rows = result.fetchall()
-        zip_codes = [row[0] for row in rows if row[0]]
-    except Exception as exc:
-        logger.error("agent_switcher_sync_plans_load_zips_failed", error=str(exc))
-        raise HTTPException(
-            status_code=500,
-            detail="Sync-plans failed: could not load zip codes.",
+    if summary["users_without_plan_data"] == summary["scanned"]:
+        # Every enrolled user lacks a current plan, so the engine cannot
+        # recommend anything: the scan is running but producing nothing.
+        logger.warning(
+            "agent_switcher_scan_no_plan_data_for_any_user",
+            scanned=summary["scanned"],
+            users_without_market_data=summary["users_without_market_data"],
         )
 
-    if not zip_codes:
-        return {"zip_codes_synced": 0, "plans_fetched": 0}
+    logger.info("agent_switcher_scan_complete", **summary)
 
-    energybot = EnergyBotService(db)
-    zip_codes_synced = 0
-    plans_fetched = 0
-
-    # ------------------------------------------------------------------
-    # 2. Fetch plans per zip code
-    # ------------------------------------------------------------------
-    for zip_code in zip_codes:
-        try:
-            plans = await energybot.fetch_plans(zip_code)
-            zip_codes_synced += 1
-            plans_fetched += len(plans)
-            logger.info(
-                "agent_switcher_sync_plans_zip_ok",
-                zip_code=zip_code,
-                plans=len(plans),
-            )
-        except Exception as exc:
-            logger.warning(
-                "agent_switcher_sync_plans_zip_failed",
-                zip_code=zip_code,
-                error=str(exc),
-            )
-            # Continue with the next zip — partial success is acceptable.
-
-    logger.info(
-        "agent_switcher_sync_plans_complete",
-        zip_codes_synced=zip_codes_synced,
-        plans_fetched=plans_fetched,
-    )
-
-    return {
-        "zip_codes_synced": zip_codes_synced,
-        "plans_fetched": plans_fetched,
-    }
+    return summary
 
 
 # ---------------------------------------------------------------------------

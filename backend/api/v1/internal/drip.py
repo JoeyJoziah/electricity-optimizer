@@ -2,7 +2,7 @@
 Internal drip-processor endpoints.
 
 POST /drip/enroll  — enroll a new user and send welcome email; called by Better Auth hook.
-POST /drip/process — run Day-2 and Day-7 batches; called daily by drip-processor GHA.
+POST /drip/process — run welcome-retry, Day-2 and Day-7 batches; called daily by drip-processor GHA.
 
 Inherits router-level verify_api_key dependency from the parent internal router.
 """
@@ -56,7 +56,7 @@ async def process_drip_batches(
     db: AsyncSession = Depends(get_db_session),
 ):
     """
-    Run the Day-2 and Day-7 drip batches atomically.
+    Run the welcome-retry, Day-2 and Day-7 drip batches.
 
     Called daily by the drip-processor GHA cron (09:00 UTC).
 
@@ -65,17 +65,19 @@ async def process_drip_batches(
     """
     svc = DripService(db)
 
+    welcome = await svc.process_welcome_retry_batch()
     day2 = await svc.process_day2_batch()
     day7 = await svc.process_day7_batch()
 
-    total_errors = day2["errors"] + day7["errors"]
-    total_sent = day2["sent_a"] + day2["sent_b"] + day7["sent"]
-    total_attempted = day2["total"] + day7["total"]
+    total_errors = welcome["errors"] + day2["errors"] + day7["errors"]
+    total_sent = welcome["sent"] + day2["sent_a"] + day2["sent_b"] + day7["sent"]
+    total_attempted = welcome["total"] + day2["total"] + day7["total"]
 
     error_rate = total_errors / total_attempted if total_attempted > 0 else 0.0
 
     logger.info(
         "drip_process_complete",
+        welcome=welcome,
         day2=day2,
         day7=day7,
         total_sent=total_sent,
@@ -93,6 +95,7 @@ async def process_drip_batches(
                         "total_attempted": total_attempted,
                         "total_errors": total_errors,
                         "error_rate": error_rate,
+                        "welcome": welcome,
                         "day2": day2,
                         "day7": day7,
                     },
@@ -101,6 +104,7 @@ async def process_drip_batches(
             logger.exception("drip_sentry_alert_failed")
 
     return {
+        "welcome": welcome,
         "day2": day2,
         "day7": day7,
         "summary": {

@@ -19,7 +19,6 @@ POST   /agent-switcher/approve/{id}        — approve a recommendation (Pro)
 
 import uuid
 from datetime import UTC, datetime
-from decimal import Decimal
 from typing import Any
 
 import structlog
@@ -606,30 +605,22 @@ async def check_now(
     else:
         # Import and run the decision engine
         try:
-            from services.switch_decision_engine import (
-                SwitchDecisionEngine,
-                UserContext,
-            )
+            from services.switch_context_builder import annotate_decision, build_user_context
+            from services.switch_decision_engine import SwitchDecisionEngine
 
-            # Build a UserContext from the settings and DB data
-            ctx = UserContext(
-                user_id=current_user.user_id,
+            # Build the full UserContext (current plan, market plans, usage,
+            # switch history) from the DB.
+            ctx = await build_user_context(
+                db,
+                current_user.user_id,
+                settings=settings_row,
                 tier=tier,
-                agent_enabled=bool(settings_row.get("enabled", False)),
-                loa_signed=settings_row.get("loa_signed_at") is not None,
-                loa_revoked=settings_row.get("loa_revoked_at") is not None,
-                paused_until=settings_row.get("paused_until"),
-                savings_threshold_pct=Decimal(
-                    str(settings_row.get("savings_threshold_pct") or "10.0")
-                ),
-                savings_threshold_min=Decimal(
-                    str(settings_row.get("savings_threshold_min") or "10.0")
-                ),
-                cooldown_days=int(settings_row.get("cooldown_days") or 5),
+                region=user_row[1] or "",
             )
 
             engine = SwitchDecisionEngine(db)
             raw_decision = await engine.evaluate(ctx)
+            annotate_decision(raw_decision, ctx)
             decision = {
                 "action": raw_decision.action,
                 "reason": raw_decision.reason,

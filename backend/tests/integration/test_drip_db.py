@@ -51,3 +51,14 @@ async def test_process_day7_batch_query_executes_against_real_schema(db):
 
     assert {"total", "sent", "errors"} <= set(result)
     assert result["total"] >= 0
+
+
+async def test_process_welcome_retry_batch_query_executes_against_real_schema(db):
+    """The welcome-retry SELECT and claim UPDATE must plan and execute."""
+    svc = DripService(db)
+    svc._send_welcome = AsyncMock(return_value=False)
+
+    result = await svc.process_welcome_retry_batch()
+
+    assert {"total", "sent", "errors"} <= set(result)
+    assert result["total"] >= 0

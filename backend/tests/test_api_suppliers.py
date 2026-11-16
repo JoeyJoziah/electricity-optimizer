@@ -305,3 +305,13 @@ class TestSupplierPricing:
         assert supplier["estimated_annual_cost"] is None
         assert supplier["pricing_source"] is None
         assert supplier["is_estimate"] is False
+
+
+def test_supplier_tariffs_route_removed():
+    """GET /suppliers/{id}/tariffs read the deprecated, empty ``tariffs`` table (M2)."""
+    from api.v1 import suppliers as suppliers_module
+
+    paths = {getattr(route, "path", "") for route in suppliers_module.router.routes}
+    assert not any(path.endswith("/tariffs") for path in paths)
+    assert not hasattr(suppliers_module, "SupplierTariffsResponse")
+    assert not hasattr(suppliers_module, "get_supplier_tariffs")

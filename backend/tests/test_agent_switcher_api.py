@@ -886,6 +886,75 @@ class TestCheckNow:
         data = response.json()
         assert data["decision"]["action"] == "hold"
 
+    def test_check_now_recommends_from_built_context(self, pro_client, mock_db):
+        """check-now uses the DB-backed context builder, so it can recommend.
+
+        Fails on the old code, which built the context from the settings row
+        only (no plan, no offers) and therefore always returned 'hold'.
+        """
+        from decimal import Decimal
+        from unittest.mock import patch
+
+        from services.switch_decision_engine import PlanDetails, UserContext
+
+        mock_db.seed_settings(user_id=TEST_USER_ID, loa_signed=True)
+
+        async def _build(db, user_id, **kwargs):
+            return UserContext(
+                user_id=user_id,
+                tier=kwargs["tier"],
+                agent_enabled=True,
+                loa_signed=True,
+                current_plan=PlanDetails(
+                    plan_id="plan-current",
+                    plan_name="Standard Offer",
+                    provider_name="Incumbent Utility",
+                    rate_kwh=Decimal("0.20"),
+                ),
+                available_plans=[
+                    {
+                        "id": "offer-1",
+                        "plan_name": "Some Supplier (regional estimate)",
+                        "provider_name": "Some Supplier",
+                        "rate_kwh": Decimal("0.12"),
+                        "is_estimate": True,
+                    }
+                ],
+                monthly_kwh=Decimal("900"),
+                data_source="arcadia_60min+market_estimate",
+                months_of_data=3,
+            )
+
+        with patch(
+            "services.switch_context_builder.build_user_context", side_effect=_build
+        ) as builder:
+            response = pro_client.post("/api/v1/agent-switcher/check-now")
+
+        assert response.status_code == 200
+        decision = response.json()["decision"]
+        assert decision["action"] == "recommend"
+        assert decision["projected_savings_monthly"] == 72.0
+        assert decision["data_source"] == "arcadia_60min+market_estimate"
+        assert "regional market-rate estimate" in decision["reason"]
+        kwargs = builder.await_args.kwargs
+        assert kwargs["tier"] == "pro"
+        assert kwargs["region"] == "us_ct"
+        assert mock_db._audit_log[-1]["decision"] == "recommend"
+
+    def test_check_now_context_failure_returns_503(self, pro_client, mock_db):
+        """A real failure while building the context is a 503, not a fake hold."""
+        from unittest.mock import patch
+
+        mock_db.seed_settings(user_id=TEST_USER_ID, loa_signed=True)
+
+        with patch(
+            "services.switch_context_builder.build_user_context",
+            side_effect=RuntimeError("db down"),
+        ):
+            response = pro_client.post("/api/v1/agent-switcher/check-now")
+
+        assert response.status_code == 503
+
 
 # =============================================================================
 # 6. Rollback (6 tests)

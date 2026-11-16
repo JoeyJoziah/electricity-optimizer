@@ -43,6 +43,9 @@ class TestDripProcessErrorRateAlert:
     @pytest.fixture
     def mock_drip_svc(self):
         svc = AsyncMock()
+        svc.process_welcome_retry_batch = AsyncMock(
+            return_value={"total": 0, "sent": 0, "errors": 0}
+        )
         svc.process_day2_batch = AsyncMock(return_value=_make_batch_result(0, 0))
         svc.process_day7_batch = AsyncMock(return_value=_make_batch_result(0, 0))
         return svc
@@ -259,3 +262,29 @@ class TestEnrollUserEndpoint:
 
         with pytest.raises(ValidationError):
             EnrollRequest(email="alice@example.com")
+
+
+class TestDripProcessWelcomeRetry:
+    """POST /drip/process also runs the welcome-retry pass (D10)."""
+
+    async def test_welcome_retry_runs_and_counts_in_summary(self):
+        svc = AsyncMock()
+        svc.process_welcome_retry_batch = AsyncMock(
+            return_value={"total": 3, "sent": 2, "errors": 1}
+        )
+        svc.process_day2_batch = AsyncMock(return_value=_make_batch_result(1, 0, sent_a=1))
+        svc.process_day7_batch = AsyncMock(return_value=_make_batch_result(0, 0))
+
+        with (
+            patch("api.v1.internal.drip.DripService", return_value=svc),
+            patch("api.v1.internal.drip.sentry_sdk", _mock_sentry()),
+        ):
+            from api.v1.internal.drip import process_drip_batches
+
+            result = await process_drip_batches(db=AsyncMock())
+
+        svc.process_welcome_retry_batch.assert_awaited_once()
+        assert result["welcome"] == {"total": 3, "sent": 2, "errors": 1}
+        assert result["summary"]["total_attempted"] == 4
+        assert result["summary"]["total_sent"] == 3
+        assert result["summary"]["total_errors"] == 1

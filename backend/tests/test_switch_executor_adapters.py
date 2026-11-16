@@ -1,18 +1,17 @@
 """
 Tests for Switch Executor adapters.
 
-Covers Protocol compliance, EnergyBotExecutor, AdvisoryOnlyFallback,
+Covers Protocol compliance, AdvisoryOnlyFallback,
 and the get_executor() factory for all meaningful code paths.
 """
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from services.switch_executor import (
     AdvisoryOnlyFallback,
-    EnergyBotExecutor,
     EnrollmentRequest,
     EnrollmentResult,
     EnrollmentStatus,
@@ -49,18 +48,6 @@ def _make_enrollment_request(**overrides) -> EnrollmentRequest:
 
 
 @pytest.fixture
-def mock_energybot_service():
-    """A fully mocked EnergyBotService."""
-    svc = AsyncMock()
-    return svc
-
-
-@pytest.fixture
-def energybot_executor(mock_energybot_service):
-    return EnergyBotExecutor(mock_energybot_service)
-
-
-@pytest.fixture
 def advisory_executor():
     return AdvisoryOnlyFallback()
 
@@ -71,175 +58,9 @@ def advisory_executor():
 
 
 class TestSwitchExecutorProtocolCompliance:
-    def test_energybot_executor_satisfies_protocol(self, energybot_executor):
-        """EnergyBotExecutor must satisfy the SwitchExecutor runtime-checkable Protocol."""
-        assert isinstance(energybot_executor, SwitchExecutor)
-
     def test_advisory_fallback_satisfies_protocol(self, advisory_executor):
         """AdvisoryOnlyFallback must satisfy the SwitchExecutor runtime-checkable Protocol."""
         assert isinstance(advisory_executor, SwitchExecutor)
-
-
-# =============================================================================
-# 3, 4, 5 — EnergyBotExecutor.check_plan_available
-# =============================================================================
-
-
-class TestEnergyBotCheckPlanAvailable:
-    @pytest.mark.asyncio
-    async def test_returns_true_when_plan_available(
-        self, energybot_executor, mock_energybot_service
-    ):
-        """Returns True when the upstream service reports status='available'."""
-        mock_energybot_service.get_plan_details.return_value = {"status": "available"}
-
-        with patch("services.switch_executor.traced", return_value=_make_traced_mock()):
-            result = await energybot_executor.check_plan_available("plan_abc")
-
-        assert result is True
-        mock_energybot_service.get_plan_details.assert_awaited_once_with("plan_abc")
-
-    @pytest.mark.asyncio
-    async def test_returns_false_when_plan_unavailable(
-        self, energybot_executor, mock_energybot_service
-    ):
-        """Returns False when the upstream service reports any non-available status."""
-        mock_energybot_service.get_plan_details.return_value = {"status": "expired"}
-
-        with patch("services.switch_executor.traced", return_value=_make_traced_mock()):
-            result = await energybot_executor.check_plan_available("plan_expired")
-
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_returns_false_on_api_error(self, energybot_executor, mock_energybot_service):
-        """Returns False (never raises) when the upstream call raises an exception."""
-        mock_energybot_service.get_plan_details.side_effect = RuntimeError("timeout")
-
-        with patch("services.switch_executor.traced", return_value=_make_traced_mock()):
-            result = await energybot_executor.check_plan_available("plan_boom")
-
-        assert result is False
-
-
-# =============================================================================
-# 6, 7 — EnergyBotExecutor.execute_enrollment
-# =============================================================================
-
-
-class TestEnergyBotExecuteEnrollment:
-    @pytest.mark.asyncio
-    async def test_execute_enrollment_success(self, energybot_executor, mock_energybot_service):
-        """Returns EnrollmentResult with success=True on a happy-path enrollment."""
-        switch_date = datetime(2026, 5, 1, tzinfo=UTC)
-        eb_result = MagicMock(
-            enrollment_id="eb-enroll-001",
-            status="submitted",
-            estimated_switch_date=switch_date,
-            message="Enrollment submitted successfully",
-        )
-        mock_energybot_service.create_enrollment.return_value = eb_result
-
-        # Stub out the EBRequest import inside the method
-        mock_eb_request_cls = MagicMock()
-        with (
-            patch("services.switch_executor.traced", return_value=_make_traced_mock()),
-            patch.dict(
-                "sys.modules",
-                {"services.energybot_service": MagicMock(EnrollmentRequest=mock_eb_request_cls)},
-            ),
-        ):
-            result = await energybot_executor.execute_enrollment(_make_enrollment_request())
-
-        assert result.success is True
-        assert result.enrollment_id == "eb-enroll-001"
-        assert result.status == "submitted"
-        assert result.estimated_switch_date == switch_date
-        assert result.provider == "energybot"
-
-    @pytest.mark.asyncio
-    async def test_execute_enrollment_failure_returns_failed_result(
-        self, energybot_executor, mock_energybot_service
-    ):
-        """Returns EnrollmentResult with success=False when upstream call raises."""
-        mock_energybot_service.create_enrollment.side_effect = ValueError("account not found")
-
-        mock_eb_request_cls = MagicMock()
-        with (
-            patch("services.switch_executor.traced", return_value=_make_traced_mock()),
-            patch.dict(
-                "sys.modules",
-                {"services.energybot_service": MagicMock(EnrollmentRequest=mock_eb_request_cls)},
-            ),
-        ):
-            result = await energybot_executor.execute_enrollment(_make_enrollment_request())
-
-        assert result.success is False
-        assert result.status == "failed"
-        assert "account not found" in result.message
-        assert result.provider == "energybot"
-        assert result.enrollment_id is None
-
-
-# =============================================================================
-# 8 — EnergyBotExecutor.check_enrollment_status
-# =============================================================================
-
-
-class TestEnergyBotCheckEnrollmentStatus:
-    @pytest.mark.asyncio
-    async def test_maps_service_result_to_enrollment_status(
-        self, energybot_executor, mock_energybot_service
-    ):
-        """Correctly maps the upstream service response to EnrollmentStatus."""
-        switch_date = datetime(2026, 5, 1, tzinfo=UTC)
-        svc_result = MagicMock(
-            enrollment_id="eb-enroll-001",
-            status="accepted",
-            switch_date=switch_date,
-            rejection_reason=None,
-        )
-        mock_energybot_service.check_enrollment_status.return_value = svc_result
-
-        with patch("services.switch_executor.traced", return_value=_make_traced_mock()):
-            status = await energybot_executor.check_enrollment_status("eb-enroll-001")
-
-        assert isinstance(status, EnrollmentStatus)
-        assert status.enrollment_id == "eb-enroll-001"
-        assert status.status == "accepted"
-        assert status.switch_date == switch_date
-        assert status.rejection_reason is None
-        mock_energybot_service.check_enrollment_status.assert_awaited_once_with("eb-enroll-001")
-
-
-# =============================================================================
-# 9, 10 — EnergyBotExecutor.cancel_enrollment
-# =============================================================================
-
-
-class TestEnergyBotCancelEnrollment:
-    @pytest.mark.asyncio
-    async def test_cancel_returns_true_on_success(self, energybot_executor, mock_energybot_service):
-        """Propagates True from the underlying service on successful cancellation."""
-        mock_energybot_service.cancel_enrollment.return_value = True
-
-        with patch("services.switch_executor.traced", return_value=_make_traced_mock()):
-            result = await energybot_executor.cancel_enrollment("eb-enroll-001")
-
-        assert result is True
-        mock_energybot_service.cancel_enrollment.assert_awaited_once_with("eb-enroll-001")
-
-    @pytest.mark.asyncio
-    async def test_cancel_returns_false_when_service_returns_false(
-        self, energybot_executor, mock_energybot_service
-    ):
-        """Propagates False from the underlying service (e.g. already cancelled)."""
-        mock_energybot_service.cancel_enrollment.return_value = False
-
-        with patch("services.switch_executor.traced", return_value=_make_traced_mock()):
-            result = await energybot_executor.cancel_enrollment("eb-enroll-already")
-
-        assert result is False
 
 
 # =============================================================================
@@ -326,41 +147,21 @@ class TestAdvisoryCancelEnrollment:
 
 
 class TestGetExecutorFactory:
-    def test_returns_energybot_for_tx(self):
-        """Texas (us_tx) is a deregulated state — should return EnergyBotExecutor."""
-        svc = MagicMock()
-        executor = get_executor("us_tx", energybot_service=svc)
-        assert isinstance(executor, EnergyBotExecutor)
-        assert executor._service is svc
+    """The product is advisory-only: every region resolves to the advisory executor."""
 
-    def test_returns_energybot_for_pa(self):
-        """Pennsylvania (us_pa) is a deregulated state — should return EnergyBotExecutor."""
-        svc = MagicMock()
-        executor = get_executor("us_pa", energybot_service=svc)
-        assert isinstance(executor, EnergyBotExecutor)
+    @pytest.mark.parametrize("region", ["us_tx", "US_TX", "us_pa", "us_ct", "us_ca", "xx_unknown"])
+    def test_every_region_gets_advisory_executor(self, region):
+        assert isinstance(get_executor(region), AdvisoryOnlyFallback)
 
-    def test_returns_advisory_for_non_deregulated_state(self):
-        """California (us_ca) is not deregulated — should return AdvisoryOnlyFallback."""
-        svc = MagicMock()
-        executor = get_executor("us_ca", energybot_service=svc)
-        assert isinstance(executor, AdvisoryOnlyFallback)
+    def test_factory_takes_no_provider_service(self):
+        """The EnergyBot service parameter is gone."""
+        with pytest.raises(TypeError):
+            get_executor("us_tx", energybot_service=object())
 
-    def test_returns_advisory_when_no_service_provided(self):
-        """No service provided — always fall back to advisory regardless of region."""
-        executor = get_executor("us_tx", energybot_service=None)
-        assert isinstance(executor, AdvisoryOnlyFallback)
+    def test_no_energybot_adapter_exported(self):
+        import services.switch_executor as module
 
-    def test_returns_advisory_for_unknown_region(self):
-        """Completely unknown region string — falls back to advisory."""
-        svc = MagicMock()
-        executor = get_executor("xx_unknown", energybot_service=svc)
-        assert isinstance(executor, AdvisoryOnlyFallback)
-
-    def test_region_lookup_is_case_insensitive(self):
-        """Region matching should be case-insensitive (US_TX == us_tx)."""
-        svc = MagicMock()
-        executor = get_executor("US_TX", energybot_service=svc)
-        assert isinstance(executor, EnergyBotExecutor)
+        assert not hasattr(module, "EnergyBotExecutor")
 
 
 # =============================================================================
