@@ -41,7 +41,7 @@ class MaintenanceService:
         cutoff = datetime.now(UTC) - timedelta(days=retention_days)
         try:
             result = await self._db.execute(
-                text("DELETE FROM activity_logs WHERE created_at < :cutoff"),
+                text('DELETE FROM activity_logs WHERE "timestamp" < :cutoff'),
                 {"cutoff": cutoff},
             )
             await self._db.commit()
@@ -88,7 +88,7 @@ class MaintenanceService:
 
         # Get file paths before deleting records
         result = await self._db.execute(
-            text("SELECT id, file_path FROM bill_uploads WHERE created_at < :cutoff"),
+            text("SELECT id, storage_key FROM bill_uploads WHERE created_at < :cutoff"),
             {"cutoff": cutoff},
         )
         old_uploads = result.fetchall()
@@ -96,15 +96,9 @@ class MaintenanceService:
         if not old_uploads:
             return {"deleted": 0, "retention_days": retention_days}
 
-        # Delete extracted rates first (FK dependency)
-        upload_ids = [str(r[0]) for r in old_uploads]
+        # connection_extracted_rates has no reference to bill_uploads (it is keyed
+        # by connection_id), so there is nothing to delete there first.
         try:
-            if upload_ids:
-                await self._db.execute(
-                    text("DELETE FROM connection_extracted_rates WHERE bill_upload_id = ANY(:ids)"),
-                    {"ids": upload_ids},
-                )
-
             # Delete upload records
             await self._db.execute(
                 text("DELETE FROM bill_uploads WHERE created_at < :cutoff"),
@@ -117,7 +111,8 @@ class MaintenanceService:
 
         # Clean up files (best-effort — failures are non-fatal)
         for row in old_uploads:
-            file_path = row[1]
+            # storage_key is relative to the uploads directory (see BillParserService)
+            file_path = os.path.join("uploads", row[1]) if row[1] else None
             if file_path and os.path.exists(file_path):
                 try:
                     os.remove(file_path)

@@ -405,21 +405,6 @@ class TestCleanupExpiredUploads:
 
         assert result["deleted"] == 2
 
-    async def test_deletes_extracted_rates_before_uploads(self, service, db):
-        """Should DELETE from connection_extracted_rates before bill_uploads (FK order)."""
-        rows = [("upload-uuid-1", None)]
-        db.execute = AsyncMock(return_value=_make_result(fetchall_value=rows))
-
-        await service.cleanup_expired_uploads()
-
-        calls = db.execute.call_args_list
-        # 1st call: SELECT, 2nd call: DELETE extracted_rates, 3rd call: DELETE bill_uploads
-        assert db.execute.await_count == 3
-        second_sql = str(calls[1][0][0])
-        assert "connection_extracted_rates" in second_sql
-        third_sql = str(calls[2][0][0])
-        assert "bill_uploads" in third_sql
-
     async def test_commit_called_after_deletes(self, service, db):
         """Should commit once after all DELETE operations."""
         rows = [("id-1", None)]
@@ -473,27 +458,6 @@ class TestCleanupExpiredUploads:
             result = await service.cleanup_expired_uploads()
 
         assert result["deleted"] == 1
-
-    async def test_multiple_uploads_upload_ids_in_fk_delete(self, service, db):
-        """All upload IDs must appear in the FK DELETE query params."""
-        rows = [
-            ("aaaa-1111", "/uploads/a.pdf"),
-            ("bbbb-2222", "/uploads/b.pdf"),
-            ("cccc-3333", None),
-        ]
-        db.execute = AsyncMock(return_value=_make_result(fetchall_value=rows))
-
-        await service.cleanup_expired_uploads()
-
-        calls = db.execute.call_args_list
-        fk_delete_sql = str(calls[1][0][0])
-        assert "connection_extracted_rates" in fk_delete_sql
-        assert "ANY(:ids)" in fk_delete_sql
-        # IDs are now in the parameterized query params, not inlined in SQL
-        fk_delete_params = calls[1][0][1]
-        assert "aaaa-1111" in fk_delete_params["ids"]
-        assert "bbbb-2222" in fk_delete_params["ids"]
-        assert "cccc-3333" in fk_delete_params["ids"]
 
     async def test_cutoff_passed_to_select_query(self, service, db):
         """The SELECT query must receive a :cutoff parameter."""
