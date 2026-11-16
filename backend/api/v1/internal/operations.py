@@ -74,6 +74,45 @@ async def list_feature_flags(
     return {"flags": flags}
 
 
+@router.post("/maintenance/db-optimize", tags=["Internal"])
+async def run_db_optimize(db: AsyncSession = Depends(get_db_session)):
+    """
+    Refresh planner statistics for the application schema.
+
+    Runs ``ANALYZE`` over the ``public`` schema's tables. Neon autovacuum
+    reclaims dead rows; this keeps row estimates current after the weekly
+    retention deletes. Called by the weekly db-maintenance workflow.
+
+    Requires a valid X-API-Key header (enforced by the router-level dependency).
+    """
+    from sqlalchemy import text
+
+    result = await db.execute(
+        text("""
+            SELECT quote_ident(schemaname) || '.' || quote_ident(relname)
+            FROM pg_stat_user_tables
+            WHERE schemaname = 'public'
+            ORDER BY relname
+        """)
+    )
+    tables = [row[0] for row in result.fetchall()]
+    failed: list[str] = []
+    for table in tables:
+        try:
+            # Identifiers come from the catalog and are quoted by quote_ident.
+            await db.execute(text(f"ANALYZE {table}"))  # noqa: S608
+        except Exception as e:
+            logger.warning("db_optimize_analyze_failed", table=table, error=str(e))
+            failed.append(table)
+            await db.rollback()
+    await db.commit()
+    return {
+        "status": "partial" if failed else "ok",
+        "tables_analyzed": len(tables) - len(failed),
+        "failed": failed,
+    }
+
+
 @router.post("/maintenance/cleanup", tags=["Internal"])
 async def run_maintenance(db: AsyncSession = Depends(get_db_session)):
     """

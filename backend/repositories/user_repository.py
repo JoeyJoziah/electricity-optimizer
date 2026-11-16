@@ -361,25 +361,6 @@ class UserRepository(BaseRepository[User]):
             await self._db.rollback()
             raise RepositoryError(f"Failed to update preferences: {str(e)}", e) from e
 
-    async def update_last_login(self, user_id: str) -> bool:
-        """Update user's last login timestamp (direct UPDATE, no SELECT)."""
-        try:
-            result = await self._db.execute(
-                text("""
-                    UPDATE users
-                    SET last_login = NOW(), updated_at = NOW()
-                    WHERE id = :user_id
-                    RETURNING id
-                """),
-                {"user_id": user_id},
-            )
-            await self._db.commit()
-            return result.first() is not None
-
-        except Exception as e:
-            await self._db.rollback()
-            raise RepositoryError(f"Failed to update last login: {str(e)}", e) from e
-
     async def set_email_verified(self, user_id: str) -> bool:
         """Mark user's email as verified (direct UPDATE, no SELECT)."""
         try:
@@ -398,34 +379,6 @@ class UserRepository(BaseRepository[User]):
         except Exception as e:
             await self._db.rollback()
             raise RepositoryError(f"Failed to verify email: {str(e)}", e) from e
-
-    async def record_consent(
-        self, user_id: str, consent_given: bool = True, data_processing_agreed: bool = True
-    ) -> bool:
-        """Record user's GDPR consent (direct UPDATE, no SELECT)."""
-        try:
-            result = await self._db.execute(
-                text("""
-                    UPDATE users
-                    SET consent_given = :consent_given,
-                        data_processing_agreed = :data_processing_agreed,
-                        consent_date = NOW(),
-                        updated_at = NOW()
-                    WHERE id = :user_id
-                    RETURNING id
-                """),
-                {
-                    "user_id": user_id,
-                    "consent_given": consent_given,
-                    "data_processing_agreed": data_processing_agreed,
-                },
-            )
-            await self._db.commit()
-            return result.first() is not None
-
-        except Exception as e:
-            await self._db.rollback()
-            raise RepositoryError(f"Failed to record consent: {str(e)}", e) from e
 
     async def get_by_stripe_customer_id(self, customer_id: str) -> User | None:
         """Look up user by their Stripe customer ID."""

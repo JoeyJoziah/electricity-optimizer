@@ -159,6 +159,9 @@ jobs:
           # mounts all routes under /api/v1.
           NEXT_PUBLIC_API_URL: /api/v1
           BACKEND_URL: http://localhost:8000
+          # Baked at build: the login/signup OAuth buttons the auth specs check.
+          NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED: "true"
+          NEXT_PUBLIC_OAUTH_GITHUB_ENABLED: "true"
 
       - name: Wait for frontend
         uses: ./.github/actions/wait-for-service
